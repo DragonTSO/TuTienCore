@@ -1,0 +1,24 @@
+name: TuTienCore
+version: '${project.version}'
+main: com.turtle.tutiencore.TuTienCorePlugin
+api-version: '1.21'
+depend: [TurtleCore, ProtocolLib]
+softdepend: [PlaceholderAPI]
+description: Tu Tien sitting mechanic and particles
+
+commands:
+  ttc:
+    description: TuTienCore Main Command
+    usage: /ttc
+  tuluyen:
+    description: Vao trang thai ngoi thien tu luyen
+    usage: /tuluyen
+    permission: tutiencore.use
+
+permissions:
+  tutiencore.use:
+    description: Allows using /tuluyen
+    default: true
+  tutiencore.admin:
+    description: Admin permission for TuTienCore
+    default: op

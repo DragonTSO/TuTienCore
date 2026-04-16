@@ -1,0 +1,55 @@
+# TuTienCore Configuration
+# Plugin version: 1.0.0
+
+debug: false
+
+tu-luyen:
+  # Thoi gian (tick) de nhan Tu Vi (20 ticks = 1 giay)
+  interval: 100
+  # Khoang cach toi da tu cuc linh khi (blocks) de co the /tuluyen
+  max-distance: 10.0
+  # Diem Tu Vi nhan duoc moi lan
+  points-per-interval: 10
+  # Command de cho diem Tu Vi, su dung %player% cho ten, va %points% cho so luong
+  give-command: "eco give %player% %points%"
+
+# ==========================================
+# PLACEHOLDERS
+# ==========================================
+# Ban co the su dung cac Placeholder thong qua PlaceholderAPI:
+# 
+# Thong tin ca nhan (Single Player):
+# %tutien_tuvi%            - Tu Vi nguyen goc (VD: 15.5)
+# %tutien_tuvi_int%        - Tu Vi so nguyen (VD: 15)
+# %tutien_tuvi_formatted%  - Tu Vi co dau phay (VD: 1,500)
+# %tutien_tuvi_compact%    - Tu Vi dang gon (VD: 1.5k, 2M)
+# 
+# Thong tin bang xep hang (Leaderboard) (Noi X la vi tri hang):
+# %tutien_top_name_X%            - Ten nguoi choi hang X (VD: %tutien_top_name_1%)
+# %tutien_top_tuvi_X%            - Tu Vi cua hang X (So goc)
+# %tutien_top_tuvi_int_X%        - Tu Vi cua hang X (So nguyen)
+# %tutien_top_tuvi_formatted_X%  - Tu Vi cua hang X (Co dau phay)
+# %tutien_top_tuvi_compact_X%    - Tu Vi cua hang X (Dang gon)
+# ==========================================
+
+particles:
+  sphere:
+    # Co bat sphere particle khong
+    enabled: true
+    interval: 5
+    radius: 1.5
+    points: 100
+    color:
+      r: 66
+      g: 245
+      b: 227
+  line:
+    spacing: 0.2
+    duration: 10
+    color:
+      r: 255
+      g: 255
+      b: 255
+
+# Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
+tuluyen-model: "be_tutien_tier1"

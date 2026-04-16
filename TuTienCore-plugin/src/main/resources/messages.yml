@@ -1,0 +1,26 @@
+# TuTienCore Messages Configuration
+# Supports standard color codes (&a, &c, etc.)
+
+started: "&aBạn đã bắt đầu tu luyện!"
+stopped: "&cBạn đã ngừng tu luyện."
+too-far: "&cBạn phải ở bên trong Khu Vực Tu Luyện (Zone) để nhận linh khí!"
+received: "&a+ %points% Tu Vi"
+
+admin:
+  no-permission: "&cBạn không có quyền dùng lệnh này."
+  wand-received: "&aĐã nhận Gậy Tạo Zone. Chuột trái: pos1, Chuột phải: pos2."
+  zone-created: "&aTạo thành công Khu vực: %zone%"
+  zone-exists: "&cKhu vực này đã tồn tại."
+  zone-center-set: "&aĐã đặt tâm hạt particle cho khu vực %zone% tại vị trí của bạn."
+  zone-not-found: "&cKhông tìm thấy khu vực nào có tên này."
+  select-first: "&cBạn cần chọn pos1 và pos2 bằng gậy wand trước tiên."
+  usage-create: "&cCách dùng: /ttc create <zoneName>"
+  usage-zonecenter: "&cCách dùng: /ttc zonecenter <zoneName>"
+  usage-admin-tuvi: "&cCách dùng: /ttc admin tuvi <give|remove|set|check|reset|resetall> <player> [amount]"
+  player-not-found: "&cNgười chơi không online hoặc không tồn tại."
+  tuvi-add: "&aĐã cộng %amount% Tu Vi cho %player%"
+  tuvi-remove: "&aĐã trừ %amount% Tu Vi từ %player%"
+  tuvi-set: "&aĐã đặt Tu Vi của %player% thành %amount%"
+  tuvi-reset: "&aĐã reset Tu Vi của %player% về 0."
+  tuvi-check: "&aĐiểm Tu Vi của %player% là: %amount%"
+  tuvi-invalid-action: "&cThao tác Tu Vi không hợp lệ."
