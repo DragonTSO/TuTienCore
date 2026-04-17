@@ -44,6 +44,10 @@
             <name>Lumine Releases</name>
             <url>https://mvn.lumine.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>phoenix</id>
+            <url>https://nexus.phoenixdevt.fr/repository/maven-public/</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>
@@ -52,6 +56,30 @@
                 <groupId>com.ticxo.modelengine</groupId>
                 <artifactId>ModelEngine</artifactId>
                 <version>R4.0.4</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.lumine</groupId>
+                <artifactId>Mythic-Dist</artifactId>
+                <version>5.6.1</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.Indyuce</groupId>
+                <artifactId>MMOItems-API</artifactId>
+                <version>6.10</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.Indyuce</groupId>
+                <artifactId>MMOCore-API</artifactId>
+                <version>1.12</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.lumine</groupId>
+                <artifactId>MythicLib-dist</artifactId>
+                <version>1.6</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>

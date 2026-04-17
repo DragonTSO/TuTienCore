@@ -3,7 +3,7 @@ version: '${project.version}'
 main: com.turtle.tutiencore.TuTienCorePlugin
 api-version: '1.21'
 depend: [TurtleCore, ProtocolLib]
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, ModelEngine, MythicMobs, MMOItems, MMOCore]
 description: Tu Tien sitting mechanic and particles
 
 commands:

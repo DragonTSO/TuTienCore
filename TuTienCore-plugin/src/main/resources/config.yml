@@ -37,7 +37,7 @@ particles:
     # Co bat sphere particle khong
     enabled: true
     interval: 5
-    radius: 1.5
+    radius: 1.0
     points: 100
     color:
       r: 66
