@@ -6,6 +6,7 @@ import com.turtle.tutiencore.core.command.DotPhaCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
@@ -31,6 +32,7 @@ public class TuTienCore {
     private TuLuyenManager tuLuyenManager;
     private RealmManager realmManager;
     private BreakthroughManager breakthroughManager;
+    private RealmListGUI realmListGUI;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -62,6 +64,7 @@ public class TuTienCore {
         // Realm & Breakthrough System
         this.realmManager = new RealmManager(plugin);
         this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
+        this.realmListGUI = new RealmListGUI(plugin, realmManager);
 
         // Register commands
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager);
@@ -73,7 +76,7 @@ public class TuTienCore {
         }
 
         // Register /dotpha command
-        DotPhaCommand dotPhaCommand = new DotPhaCommand(plugin, realmManager, breakthroughManager);
+        DotPhaCommand dotPhaCommand = new DotPhaCommand(plugin, realmManager, breakthroughManager, realmListGUI);
         if (plugin.getCommand("dotpha") != null) {
             plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }

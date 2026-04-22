@@ -6,6 +6,7 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
+import com.turtle.tutiencore.core.gui.RealmListGUI;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -40,6 +41,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
     private final BreakthroughManager breakthroughManager;
+    private final RealmListGUI realmListGUI;
 
     private static final String GUI_TITLE = "§5§l⚡ Đột Phá Cảnh Giới ⚡";
     private static final String CONFIRM_GUI_TITLE = "§c§l⚡ XÁC NHẬN ĐỘT PHÁ ⚡";
@@ -48,10 +50,11 @@ public class DotPhaCommand implements CommandExecutor, Listener {
     private final Set<UUID> openGuis = new HashSet<>();
     private final Set<UUID> confirmGuis = new HashSet<>();
 
-    public DotPhaCommand(JavaPlugin plugin, RealmManager realmManager, BreakthroughManager breakthroughManager) {
+    public DotPhaCommand(JavaPlugin plugin, RealmManager realmManager, BreakthroughManager breakthroughManager, RealmListGUI realmListGUI) {
         this.plugin = plugin;
         this.realmManager = realmManager;
         this.breakthroughManager = breakthroughManager;
+        this.realmListGUI = realmListGUI;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -399,6 +402,12 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                         player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
                     }
                 }
+            }
+
+            // Slot 22: Open Realm List GUI
+            if (slot == 22) {
+                openGuis.remove(uuid);
+                realmListGUI.open(player);
             }
 
             // Slot 49: Close

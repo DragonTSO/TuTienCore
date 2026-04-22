@@ -1,0 +1,219 @@
+# ==========================================
+# TuTienCore — Realm List GUI Configuration
+# ==========================================
+# Hiển thị danh sách 19 Cảnh Giới
+# Mở từ /dotpha (slot 22) hoặc /canhgioi list
+# Hỗ trợ PlaceholderAPI
+
+title: "&5&l✦ Danh Sách Cảnh Giới ✦"
+size: 54
+
+# ==========================================
+# LAYOUT
+# ==========================================
+# Row 0: Border + Title
+# Row 1: CG 1-7  (Phàm Giới)
+# Row 2: CG 8-13 (Tiên Giới)
+# Row 3: CG 14-19 (Thần Giới)
+# Row 4: Border + Player Info
+# Row 5: Border + Close
+
+# Slot mapping cho 19 cảnh giới (thứ tự CG 1 → 19)
+realm-slots:
+  - 10  # CG 1
+  - 11  # CG 2
+  - 12  # CG 3
+  - 13  # CG 4
+  - 14  # CG 5
+  - 15  # CG 6
+  - 16  # CG 7
+  - 19  # CG 8
+  - 20  # CG 9
+  - 21  # CG 10
+  - 22  # CG 11
+  - 23  # CG 12
+  - 24  # CG 13
+  - 28  # CG 14
+  - 29  # CG 15
+  - 30  # CG 16
+  - 31  # CG 17
+  - 32  # CG 18
+  - 33  # CG 19
+
+# ==========================================
+# VIỀN TRANG TRÍ
+# ==========================================
+borders:
+  # Viền cho hàng Phàm Giới
+  pham-gioi:
+    material: LIME_STAINED_GLASS_PANE
+    name: "&a"
+    slots: "0,1,2,3,5,6,7,8,9,17"
+  # Viền cho hàng Tiên Giới
+  tien-gioi:
+    material: LIGHT_BLUE_STAINED_GLASS_PANE
+    name: "&b"
+    slots: "18,25,26"
+  # Viền cho hàng Thần Giới
+  than-gioi:
+    material: MAGENTA_STAINED_GLASS_PANE
+    name: "&d"
+    slots: "27,34,35,36,37,38,39,41,42,43,44"
+  # Viền dưới cùng
+  bottom:
+    material: PURPLE_STAINED_GLASS_PANE
+    name: "&5"
+    slots: "45,46,47,48,50,51,52,53"
+
+# ==========================================
+# ITEM TITLE (slot 4)
+# ==========================================
+title-item:
+  slot: 4
+  material: ENCHANTED_BOOK
+  name: "&5&l✦ Hệ Thống Cảnh Giới ✦"
+  lore:
+    - "&8━━━━━━━━━━━━━━━━━━━━━"
+    - "&7Hệ thống &d19 Cảnh Giới &7tu luyện"
+    - ""
+    - "&a🟢 Phàm Giới &8— &7CG 1-7 &8(Khởi đầu)"
+    - "&b🔵 Tiên Giới &8— &7CG 8-13 &8(Tiên nhân)"
+    - "&d🟣 Thần Giới &8— &7CG 14-19 &8(Thần thánh)"
+    - ""
+    - "&7Hiện tại: %tutien_canhgioi_full% &7— &e%tutien_canhgioi_tang%"
+    - "&8━━━━━━━━━━━━━━━━━━━━━"
+
+# ==========================================
+# PLAYER INFO (slot 40 — Player Head)
+# ==========================================
+player-info:
+  slot: 40
+  material: PLAYER_HEAD
+  name: "&e&l%player_name% &7— Thông Tin Tu Luyện"
+  lore:
+    - "&8━━━━━━━━━━━━━━━━━━━━━"
+    - "&7Cảnh Giới: %tutien_canhgioi_full%"
+    - "&7Tầng: &e%tutien_canhgioi_tang%"
+    - "&7Đại Giới: &e%tutien_canhgioi_daigioi%"
+    - "&7Tu Vi: &b%tutien_tuvi_formatted%"
+    - "&8━━━━━━━━━━━━━━━━━━━━━"
+
+# ==========================================
+# NÚT ĐÓNG (slot 49)
+# ==========================================
+close-button:
+  slot: 49
+  material: BARRIER
+  name: "&c&lĐóng Menu"
+  lore:
+    - "&7Click để đóng"
+
+# ==========================================
+# REALM ITEM TEMPLATE
+# ==========================================
+# Cấu hình hiển thị cho từng trạng thái cảnh giới.
+# Placeholder đặc biệt dành riêng cho realm items:
+#   {realm_name}      — Tên cảnh giới (VD: Luyện Khí)
+#   {realm_display}   — Display name có màu (VD: §a「Luyện Khí」)
+#   {realm_english}   — Tên tiếng Anh (VD: Qi Refinement)
+#   {realm_tier}      — Đại giới (VD: Phàm Giới)
+#   {realm_tier_color} — Màu đại giới (VD: §a)
+#   {realm_tuvi}      — Tu Vi yêu cầu (formatted)
+#   {realm_bolts}     — Số tia sét
+#   {realm_damage}    — Sát thương/tia
+#   {realm_success}   — Tỉ lệ thành công
+#   {realm_id}        — ID cảnh giới (1-19)
+
+realm-item:
+  # ── Cảnh giới HIỆN TẠI ──
+  current:
+    name: "&a&l▶ {realm_display} &a&l◀ &e(Hiện tại)"
+    glow: true
+    lore:
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7English: &f{realm_english}"
+      - ""
+      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - ""
+      - "&e⚡ Thiên Lôi Kiếp:"
+      - "&7  Số tia sét: &c{realm_bolts}"
+      - "&7  Sát thương/tia: &c{realm_damage} ❤"
+      - "&7  Tỉ lệ thành công: &a{realm_success}"
+      - ""
+      - "&e📊 Tiến trình tầng nhỏ:"
+      - "  {sub_realm_progress}"
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&a&l★ Cảnh giới hiện tại của bạn!"
+
+  # ── Cảnh giới ĐÃ VƯỢT ──
+  past:
+    name: "&a✔ {realm_display} &8(Đã vượt)"
+    glow: false
+    lore:
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7English: &f{realm_english}"
+      - ""
+      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&8Đã vượt qua cảnh giới này"
+
+  # ── Cảnh giới CHƯA MỞ ──
+  future:
+    name: "&7🔒 {realm_display}"
+    glow: false
+    lore:
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7English: &f{realm_english}"
+      - ""
+      - "&7Tu Vi yêu cầu: {tuvi_status}"
+      - ""
+      - "&e⚡ Thiên Lôi Kiếp:"
+      - "&7  Số tia sét: &c{realm_bolts}"
+      - "&7  Sát thương/tia: &c{realm_damage} ❤"
+      - "&7  Tỉ lệ thành công: &a{realm_success}"
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&7Chưa mở khóa"
+
+# ==========================================
+# MATERIAL THEO CẢNH GIỚI
+# ==========================================
+# Tùy chỉnh material cho từng cảnh giới (theo ID)
+# Nếu không set → dùng material mặc định theo tier
+
+realm-materials:
+  1: FLINT
+  2: IRON_NUGGET
+  3: COPPER_INGOT
+  4: IRON_INGOT
+  5: LAPIS_LAZULI
+  6: REDSTONE
+  7: GOLD_INGOT
+  8: DIAMOND
+  9: EMERALD
+  10: AMETHYST_SHARD
+  11: PRISMARINE_SHARD
+  12: PRISMARINE_CRYSTALS
+  13: ECHO_SHARD
+  14: NETHER_STAR
+  15: END_CRYSTAL
+  16: DRAGON_BREATH
+  17: HEART_OF_THE_SEA
+  18: TOTEM_OF_UNDYING
+  19: DRAGON_EGG
+
+# Material mặc định nếu không set ở trên
+default-materials:
+  PHAM_GIOI: GOLD_INGOT
+  TIEN_GIOI: DIAMOND
+  THAN_GIOI: NETHER_STAR
+
+# ==========================================
+# TU VI STATUS FORMAT
+# ==========================================
+# Format hiển thị cho Tu Vi đủ/chưa đủ ở future realms
+tuvi-format:
+  enough: "&a{amount} &a✔"
+  not-enough: "&c{amount} &c✗"
