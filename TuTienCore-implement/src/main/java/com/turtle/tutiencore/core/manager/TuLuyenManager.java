@@ -68,12 +68,22 @@ public class TuLuyenManager implements Listener {
                         lineTask.drawLine(player, center);
                     }
 
+                    // Calculate Tu Vi bonus from permissions
+                    double basePoints = configManager.getPointsPerInterval();
+                    double bonusPercent = getTuViBonus(player);
+                    double totalPoints = basePoints * (1.0 + bonusPercent / 100.0);
+
                     // Give Points via API
-                    TuTien.getApi().addTuVi(player.getUniqueId(), configManager.getPointsPerInterval());
+                    TuTien.getApi().addTuVi(player.getUniqueId(), totalPoints);
                     
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         if (!configManager.getMsgReceived().isEmpty()) {
-                            player.sendMessage(configManager.getMsgReceived().replace("%points%", String.valueOf(configManager.getPointsPerInterval())));
+                            String msg = configManager.getMsgReceived()
+                                    .replace("%points%", String.valueOf((int) totalPoints));
+                            if (bonusPercent > 0) {
+                                msg += " §a(+" + (int) bonusPercent + "% bonus)";
+                            }
+                            player.sendMessage(msg);
                         }
                     });
                 }
@@ -204,5 +214,39 @@ public class TuLuyenManager implements Listener {
         if (isTuLuyen(event.getPlayer())) {
             stopTuLuyen(event.getPlayer());
         }
+    }
+
+    /**
+     * Get the highest Tu Vi bonus percentage from player permissions.
+     * Permission format: tutiencore.tuvi.bonus.<percent>
+     * 
+     * Examples:
+     *   tutiencore.tuvi.bonus.20  → +20%
+     *   tutiencore.tuvi.bonus.50  → +50%
+     *   tutiencore.tuvi.bonus.100 → +100% (double)
+     * 
+     * If player has multiple bonus perms, the highest value is used.
+     * 
+     * LuckPerms setup:
+     *   /lp group vip permission set tutiencore.tuvi.bonus.20
+     *   /lp group svip permission set tutiencore.tuvi.bonus.50
+     */
+    private double getTuViBonus(Player player) {
+        double maxBonus = 0;
+        String prefix = "tutiencore.tuvi.bonus.";
+
+        for (org.bukkit.permissions.PermissionAttachmentInfo perm : player.getEffectivePermissions()) {
+            String name = perm.getPermission();
+            if (perm.getValue() && name.startsWith(prefix)) {
+                try {
+                    double val = Double.parseDouble(name.substring(prefix.length()));
+                    if (val > maxBonus) {
+                        maxBonus = val;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        return maxBonus;
     }
 }

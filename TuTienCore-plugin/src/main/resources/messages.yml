@@ -24,3 +24,24 @@ admin:
   tuvi-reset: "&aĐã reset Tu Vi của %player% về 0."
   tuvi-check: "&aĐiểm Tu Vi của %player% là: %amount%"
   tuvi-invalid-action: "&cThao tác Tu Vi không hợp lệ."
+
+# ==========================================
+# ĐỘT PHÁ CẢNH GIỚI (Breakthrough)
+# ==========================================
+breakthrough:
+  already-in-progress: "&c⚡ Bạn đang trong quá trình Thiên Lôi Kiếp!"
+  not-ready: "&c§lChưa đủ điều kiện đột phá!"
+  max-realm: "&c§lBạn đã đạt Cảnh Giới tối đa — Hồng Mông!"
+  countdown: "&6§l⚡ Thiên Lôi Kiếp bắt đầu trong %seconds% giây... Chuẩn bị!"
+  start-major: "&e§l⚡ %player% &e§lđang vượt &c§lThiên Lôi Kiếp &e§lđể đột phá %realm%&e§l!"
+  start-sub: "&e⚡ %player% &eđang đột phá tầng nhỏ → %subrealm%!"
+  success-major: "&a§l✨ %player% &a§lđã vượt Kiếp Lôi, đột phá thành công %realm%&a§l!"
+  success-sub: "&a✨ %player% đã đột phá → %realm% &7— &e%subrealm%"
+  fail-major: "&c§l💀 %player% &c§lkhông chống nổi Thiên Lôi, đột phá thất bại..."
+  fail-sub: "&c💀 %player% đã gục ngã trong Tiểu Lôi Kiếp..."
+  fail-info-1: "&c§l💀 Đột phá thất bại!"
+  fail-info-2: "&c  → Mất 50%% Đột Phá Đan đã sử dụng"
+  fail-info-3: "&c  → Cooldown: %minutes% phút"
+  fail-info-4: "&a  → Tu Vi và trang bị vẫn giữ nguyên"
+  cooldown: "&cĐang trong thời gian hồi phục! Còn: %minutes% phút %seconds% giây"
+

@@ -1,8 +1,13 @@
 package com.turtle.tutiencore.core;
 
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.core.command.CanhGioiCommand;
+import com.turtle.tutiencore.core.command.DotPhaCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
+import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.manager.BreakthroughManager;
+import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
@@ -24,6 +29,8 @@ public class TuTienCore {
     private PlayerDataManager playerDataManager;
     private ZoneManager zoneManager;
     private TuLuyenManager tuLuyenManager;
+    private RealmManager realmManager;
+    private BreakthroughManager breakthroughManager;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -52,6 +59,10 @@ public class TuTienCore {
         this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
         this.sphereParticleTask.start();
         
+        // Realm & Breakthrough System
+        this.realmManager = new RealmManager(plugin);
+        this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
+
         // Register commands
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager);
         if (plugin.getCommand("ttc") != null) {
@@ -61,9 +72,29 @@ public class TuTienCore {
             plugin.getCommand("tuluyen").setExecutor(commandHandler);
         }
 
+        // Register /dotpha command
+        DotPhaCommand dotPhaCommand = new DotPhaCommand(plugin, realmManager, breakthroughManager);
+        if (plugin.getCommand("dotpha") != null) {
+            plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
+        }
+
+        // Register /canhgioi command
+        CanhGioiCommand canhGioiCommand = new CanhGioiCommand(realmManager);
+        if (plugin.getCommand("canhgioi") != null) {
+            plugin.getCommand("canhgioi").setExecutor(canhGioiCommand);
+            plugin.getCommand("canhgioi").setTabCompleter(canhGioiCommand);
+        }
+
+        // Register /tuvi command
+        TuViCommand tuViCommand = new TuViCommand(playerDataManager);
+        if (plugin.getCommand("tuvi") != null) {
+            plugin.getCommand("tuvi").setExecutor(tuViCommand);
+            plugin.getCommand("tuvi").setTabCompleter(tuViCommand);
+        }
+
         // Register Placeholders
         if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            new com.turtle.tutiencore.core.hook.TuTienPlaceholder().register();
+            new com.turtle.tutiencore.core.hook.TuTienPlaceholder(realmManager).register();
             plugin.getLogger().info("Registered PlaceholderAPI expansion");
         }
     }
@@ -76,6 +107,12 @@ public class TuTienCore {
 
         if (playerDataManager != null) {
             playerDataManager.saveAll();
+        }
+        if (realmManager != null) {
+            realmManager.saveAllPlayerRealms();
+        }
+        if (breakthroughManager != null) {
+            breakthroughManager.cleanup();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

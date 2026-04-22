@@ -1,11 +1,20 @@
 package com.turtle.tutiencore.core.hook;
 
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.api.realm.PlayerRealm;
+import com.turtle.tutiencore.api.realm.Realm;
+import com.turtle.tutiencore.core.manager.RealmManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 
 public class TuTienPlaceholder extends PlaceholderExpansion {
+
+    private final RealmManager realmManager;
+
+    public TuTienPlaceholder(RealmManager realmManager) {
+        this.realmManager = realmManager;
+    }
 
     @Override
     public @NotNull String getIdentifier() {
@@ -35,6 +44,9 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
 
         double tuvi = TuTien.getApi().getTuVi(player.getUniqueId());
 
+        // ==========================================
+        // Tu Vi Placeholders
+        // ==========================================
         if (params.equalsIgnoreCase("tuvi")) {
             return String.valueOf(tuvi);
         }
@@ -47,6 +59,55 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         else if (params.equalsIgnoreCase("tuvi_compact")) {
             return formatCompact(tuvi);
         }
+
+        // ==========================================
+        // Cảnh Giới Placeholder (MAIN)
+        // ==========================================
+        else if (params.equalsIgnoreCase("canhgioi_full")) {
+            // Returns: §a「Luyện Khí」 — display-name từ realms.yml (translated § codes)
+            // Dùng cho: LuckPerms prefix, chat, scoreboard, TAB, v.v.
+            return realmManager.getPlayerDisplayName(player.getUniqueId());
+        }
+
+        // ==========================================
+        // Cảnh Giới Placeholders (chi tiết)
+        // ==========================================
+        else if (params.equalsIgnoreCase("canhgioi")) {
+            // Returns: Luyện Khí (tên thuần, không màu)
+            Realm realm = realmManager.getPlayerCurrentRealm(player.getUniqueId());
+            return realm != null ? realm.getName() : "Phàm Nhân";
+        }
+        else if (params.equalsIgnoreCase("canhgioi_id")) {
+            // Returns: 2
+            PlayerRealm pr = realmManager.getPlayerRealm(player.getUniqueId());
+            return String.valueOf(pr.getRealmId());
+        }
+        else if (params.equalsIgnoreCase("canhgioi_english")) {
+            // Returns: Qi Refinement
+            Realm realm = realmManager.getPlayerCurrentRealm(player.getUniqueId());
+            return realm != null ? realm.getEnglishName() : "Mortal";
+        }
+        else if (params.equalsIgnoreCase("canhgioi_tang")) {
+            // Returns: Đỉnh Phong (tầng nhỏ hiện tại)
+            return realmManager.getPlayerSubRealmName(player.getUniqueId());
+        }
+        else if (params.equalsIgnoreCase("canhgioi_daigioi")) {
+            // Returns: Phàm Giới / Tiên Giới / Thần Giới
+            Realm realm = realmManager.getPlayerCurrentRealm(player.getUniqueId());
+            return realm != null ? realm.getTier().getDisplayName() : "Phàm Giới";
+        }
+        else if (params.equalsIgnoreCase("dotpha_cooldown")) {
+            PlayerRealm pr = realmManager.getPlayerRealm(player.getUniqueId());
+            return String.valueOf(pr.getRemainingCooldownSeconds());
+        }
+        else if (params.equalsIgnoreCase("dotpha_ready")) {
+            PlayerRealm pr = realmManager.getPlayerRealm(player.getUniqueId());
+            return String.valueOf(!pr.isOnCooldown());
+        }
+
+        // ==========================================
+        // Top Placeholders
+        // ==========================================
         else if (params.startsWith("top_")) {
             String[] parts = params.split("_");
             if (parts.length >= 3) {

@@ -14,6 +14,26 @@ tu-luyen:
   give-command: "eco give %player% %points%"
 
 # ==========================================
+# PERMISSIONS
+# ==========================================
+# tutiencore.use               - Cho phep /tuluyen va /dotpha (default: true)
+# tutiencore.admin             - Quyen admin: /canhgioi, /tuvi (default: op)
+#
+# Tu Vi Bonus (buff diem thu thap Tu Vi khi tu luyen):
+#   tutiencore.tuvi.bonus.<phan_tram>
+#   VD:
+#     tutiencore.tuvi.bonus.20   → +20% Tu Vi (10 diem → 12 diem)
+#     tutiencore.tuvi.bonus.50   → +50% Tu Vi (10 diem → 15 diem)
+#     tutiencore.tuvi.bonus.100  → +100% Tu Vi (10 diem → 20 diem)
+#
+#   Neu player co nhieu bonus perm → lay gia tri CAO NHAT.
+#
+#   LuckPerms setup:
+#     /lp group vip permission set tutiencore.tuvi.bonus.20
+#     /lp group svip permission set tutiencore.tuvi.bonus.50
+#     /lp group mvp permission set tutiencore.tuvi.bonus.100
+
+# ==========================================
 # PLACEHOLDERS
 # ==========================================
 # Ban co the su dung cac Placeholder thong qua PlaceholderAPI:
@@ -23,6 +43,16 @@ tu-luyen:
 # %tutien_tuvi_int%        - Tu Vi so nguyen (VD: 15)
 # %tutien_tuvi_formatted%  - Tu Vi co dau phay (VD: 1,500)
 # %tutien_tuvi_compact%    - Tu Vi dang gon (VD: 1.5k, 2M)
+# 
+# Canh Gioi (Realm):
+# %tutien_canhgioi_full%   - ★ CHINH: display-name tu realms.yml (VD: §a「Luyen Khi」)
+# %tutien_canhgioi%        - Ten khong mau (VD: Luyen Khi)
+# %tutien_canhgioi_id%     - So thu tu (VD: 2)
+# %tutien_canhgioi_tang%   - Tang nho hien tai (VD: Dinh Phong)
+# %tutien_canhgioi_daigioi% - Dai gioi (VD: Pham Gioi)
+# %tutien_canhgioi_english% - Ten tieng Anh (VD: Qi Refinement)
+# %tutien_dotpha_cooldown% - Cooldown dot pha con lai (giay)
+# %tutien_dotpha_ready%    - San sang dot pha? (true/false)
 # 
 # Thong tin bang xep hang (Leaderboard) (Noi X la vi tri hang):
 # %tutien_top_name_X%            - Ten nguoi choi hang X (VD: %tutien_top_name_1%)
@@ -53,3 +83,15 @@ particles:
 
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
 tuluyen-model: "be_tutien_tier1"
+
+# Model hiện lên khi đột phá thành công
+# Để trống "" nếu không có ModelEngine
+breakthrough:
+  # Bật/tắt model đột phá (true/false)
+  enabled: true
+  # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công
+  major-success-model: "ascent"
+  # Model hiện khi đột phá TẦNG NHỎ thành công
+  sub-success-model: "ascent"
+  # Thời gian hiển thị model (giây)
+  model-duration: 5

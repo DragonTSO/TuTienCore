@@ -14,10 +14,23 @@ commands:
     description: Vao trang thai ngoi thien tu luyen
     usage: /tuluyen
     permission: tutiencore.use
+  dotpha:
+    description: Mo menu dot pha canh gioi (Thien Loi Kiep)
+    usage: /dotpha
+    permission: tutiencore.use
+  canhgioi:
+    description: Quan ly canh gioi nguoi choi
+    usage: /canhgioi set <player> <realm_id> [sub_realm]
+    permission: tutiencore.admin
+    aliases: [realm]
+  tuvi:
+    description: Quan ly Tu Vi nguoi choi
+    usage: /tuvi set/add/take/reset/resetall <player> [amount]
+    permission: tutiencore.admin
 
 permissions:
   tutiencore.use:
-    description: Allows using /tuluyen
+    description: Allows using /tuluyen and /dotpha
     default: true
   tutiencore.admin:
     description: Admin permission for TuTienCore
