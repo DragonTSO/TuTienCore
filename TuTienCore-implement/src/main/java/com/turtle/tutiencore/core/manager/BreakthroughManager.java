@@ -1,5 +1,9 @@
 package com.turtle.tutiencore.core.manager;
 
+import com.turtle.tutiencore.api.event.RealmBreakthroughEvent;
+import com.turtle.tutiencore.api.event.RealmBreakthroughFailEvent;
+import com.turtle.tutiencore.api.event.RealmBreakthroughSuccessEvent;
+import com.turtle.tutiencore.api.event.SubRealmAdvanceEvent;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
@@ -110,9 +114,18 @@ public class BreakthroughManager implements Listener {
             return;
         }
 
+        Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
         Realm nextRealm = realmManager.getNextRealm(uuid);
         if (nextRealm == null) {
             player.sendMessage("§c§lBạn đã đạt Cảnh Giới tối đa — Hồng Mông!");
+            return;
+        }
+
+        // Fire cancellable event — other plugins can prevent breakthrough
+        RealmBreakthroughEvent event = new RealmBreakthroughEvent(player, currentRealm, nextRealm);
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            player.sendMessage("§c⚠ Đột phá bị chặn bởi hệ thống khác!");
             return;
         }
 
@@ -363,8 +376,13 @@ public class BreakthroughManager implements Listener {
 
         if (session.isMajor) {
             // Major realm breakthrough success
+            Realm oldRealm = realmManager.getPlayerCurrentRealm(uuid);
             realmManager.advanceRealm(uuid);
             Realm newRealm = realmManager.getPlayerCurrentRealm(uuid);
+
+            // Fire success event for other plugins to react
+            Bukkit.getPluginManager().callEvent(
+                    new RealmBreakthroughSuccessEvent(player, oldRealm, newRealm));
 
             // Grand success effects
             player.sendTitle(
@@ -392,10 +410,15 @@ public class BreakthroughManager implements Listener {
         } else {
             // Sub-realm breakthrough success
             PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+            SubRealm oldSub = pr.getSubRealm();
             pr.setSubRealm(session.targetSubRealm);
             realmManager.savePlayerRealm(uuid);
 
             Realm realm = realmManager.getPlayerCurrentRealm(uuid);
+
+            // Fire sub-realm advance event for other plugins
+            Bukkit.getPluginManager().callEvent(
+                    new SubRealmAdvanceEvent(player, realm, oldSub, session.targetSubRealm));
 
             player.sendTitle(
                     "§a✨ Đột Phá Thành Công",
@@ -436,6 +459,11 @@ public class BreakthroughManager implements Listener {
         if (session.isMajor) {
             // Apply cooldown
             realmManager.handleBreakthroughFailure(uuid);
+
+            // Fire fail event for other plugins
+            Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
+            Bukkit.getPluginManager().callEvent(
+                    new RealmBreakthroughFailEvent(player, currentRealm, session.targetRealm));
 
             // Broadcast failure
             String failMsg = "§c§l💀 " + player.getName() + " §c§lkhông chống nổi Thiên Lôi, đột phá thất bại...";

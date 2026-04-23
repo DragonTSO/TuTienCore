@@ -1,6 +1,10 @@
 package com.turtle.tutiencore.core.manager;
 
 import com.turtle.tutiencore.api.TuTienAPI;
+import com.turtle.tutiencore.api.realm.PlayerRealm;
+import com.turtle.tutiencore.api.realm.Realm;
+import com.turtle.tutiencore.api.realm.SubRealm;
+
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -13,11 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlayerDataManager implements Listener, TuTienAPI {
@@ -25,6 +25,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private File file;
     private FileConfiguration config;
     private final Map<UUID, Double> tuviCache = new HashMap<>();
+
+    // These are injected after construction
+    private RealmManager realmManager;
+    private BreakthroughManager breakthroughManager;
+    private TuLuyenManager tuLuyenManager;
 
     public PlayerDataManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -35,6 +40,15 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayer(player.getUniqueId());
         }
+    }
+
+    /**
+     * Inject managers after they are constructed (avoids circular dependency).
+     */
+    public void injectManagers(RealmManager realmManager, BreakthroughManager breakthroughManager, TuLuyenManager tuLuyenManager) {
+        this.realmManager = realmManager;
+        this.breakthroughManager = breakthroughManager;
+        this.tuLuyenManager = tuLuyenManager;
     }
 
     private void setup() {
@@ -80,6 +94,10 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         tuviCache.put(uuid, tuvi);
     }
 
+    // ==========================================
+    // TU VI OPERATIONS
+    // ==========================================
+
     @Override
     public double getTuVi(UUID uuid) {
         return tuviCache.getOrDefault(uuid, 0.0);
@@ -104,6 +122,165 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             setTuVi(uuid, current - amount);
         }
     }
+
+    // ==========================================
+    // REALM ACCESS (delegates to RealmManager)
+    // ==========================================
+
+    @Override
+    public int getRealmId(UUID uuid) {
+        if (realmManager == null) return 1;
+        return realmManager.getPlayerRealm(uuid).getRealmId();
+    }
+
+    @Override
+    public Realm getRealm(UUID uuid) {
+        if (realmManager == null) return null;
+        return realmManager.getPlayerCurrentRealm(uuid);
+    }
+
+    @Override
+    public Realm getRealmById(int realmId) {
+        if (realmManager == null) return null;
+        return realmManager.getRealm(realmId);
+    }
+
+    @Override
+    public Map<Integer, Realm> getAllRealms() {
+        if (realmManager == null) return Collections.emptyMap();
+        return realmManager.getAllRealms();
+    }
+
+    @Override
+    public int getMaxRealmId() {
+        if (realmManager == null) return 19;
+        return realmManager.getMaxRealmId();
+    }
+
+    @Override
+    public PlayerRealm getPlayerRealmData(UUID uuid) {
+        if (realmManager == null) return new PlayerRealm(1, SubRealm.SO_KY);
+        return realmManager.getPlayerRealm(uuid);
+    }
+
+    @Override
+    public SubRealm getSubRealm(UUID uuid) {
+        if (realmManager == null) return SubRealm.SO_KY;
+        return realmManager.getPlayerRealm(uuid).getSubRealm();
+    }
+
+    @Override
+    public void setRealm(UUID uuid, int realmId, SubRealm subRealm) {
+        if (realmManager == null) return;
+        PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+        pr.setRealmId(realmId);
+        pr.setSubRealm(subRealm);
+        realmManager.savePlayerRealm(uuid);
+    }
+
+    @Override
+    public boolean isMaxRealm(UUID uuid) {
+        if (realmManager == null) return false;
+        return realmManager.isMaxRealm(uuid);
+    }
+
+    // ==========================================
+    // REALM DISPLAY (delegates to RealmManager)
+    // ==========================================
+
+    @Override
+    public String getRealmDisplay(UUID uuid) {
+        if (realmManager == null) return "§7[Phàm Nhân — Sơ Kỳ]";
+        return realmManager.getPlayerRealmDisplay(uuid);
+    }
+
+    @Override
+    public String getRealmDisplayName(UUID uuid) {
+        if (realmManager == null) return "§7「Phàm Nhân」";
+        return realmManager.getPlayerDisplayName(uuid);
+    }
+
+    @Override
+    public String getRealmName(UUID uuid) {
+        if (realmManager == null) return "§7Phàm Nhân";
+        return realmManager.getPlayerRealmName(uuid);
+    }
+
+    @Override
+    public String getSubRealmName(UUID uuid) {
+        if (realmManager == null) return "Sơ Kỳ";
+        return realmManager.getPlayerSubRealmName(uuid);
+    }
+
+    @Override
+    public String getRealmTierName(UUID uuid) {
+        if (realmManager == null) return "Phàm Giới";
+        Realm realm = realmManager.getPlayerCurrentRealm(uuid);
+        return realm != null ? realm.getTier().getDisplayName() : "Phàm Giới";
+    }
+
+    // ==========================================
+    // BREAKTHROUGH (delegates to BreakthroughManager)
+    // ==========================================
+
+    @Override
+    public boolean isInBreakthrough(UUID uuid) {
+        if (breakthroughManager == null) return false;
+        return breakthroughManager.isInBreakthrough(uuid);
+    }
+
+    @Override
+    public boolean isOnBreakthroughCooldown(UUID uuid) {
+        if (realmManager == null) return false;
+        return realmManager.getPlayerRealm(uuid).isOnCooldown();
+    }
+
+    @Override
+    public long getBreakthroughCooldownRemaining(UUID uuid) {
+        if (realmManager == null) return 0;
+        return realmManager.getPlayerRealm(uuid).getRemainingCooldownSeconds();
+    }
+
+    @Override
+    public boolean canBreakthrough(UUID uuid) {
+        if (realmManager == null) return false;
+        return realmManager.checkBreakthroughConditions(uuid).isEmpty();
+    }
+
+    // ==========================================
+    // TU LUYEN (delegates to TuLuyenManager)
+    // ==========================================
+
+    @Override
+    public boolean isTuLuyen(UUID uuid) {
+        if (tuLuyenManager == null) return false;
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) return false;
+        return tuLuyenManager.isTuLuyen(player);
+    }
+
+    @Override
+    public Collection<UUID> getTuLuyenPlayers() {
+        if (tuLuyenManager == null) return Collections.emptyList();
+        List<UUID> uuids = new ArrayList<>();
+        for (Player p : tuLuyenManager.getTuLuyenPlayers()) {
+            uuids.add(p.getUniqueId());
+        }
+        return uuids;
+    }
+
+    // ==========================================
+    // UTILITY
+    // ==========================================
+
+    @Override
+    public String formatNumber(long number) {
+        return RealmManager.formatNumber(number);
+    }
+
+    // ==========================================
+    // EVENTS
+    // ==========================================
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {

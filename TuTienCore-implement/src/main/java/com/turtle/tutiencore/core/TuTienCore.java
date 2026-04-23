@@ -66,6 +66,9 @@ public class TuTienCore {
         this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
 
+        // Inject managers into API impl so it can delegate calls
+        this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
+
         // Register commands
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager);
         if (plugin.getCommand("ttc") != null) {
