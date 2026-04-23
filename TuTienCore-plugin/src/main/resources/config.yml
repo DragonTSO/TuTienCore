@@ -93,5 +93,5 @@ breakthrough:
   major-success-model: "ascent"
   # Model hiện khi đột phá TẦNG NHỎ thành công
   sub-success-model: "ascent"
-  # Thời gian hiển thị model (giây)
+  # Thời gian hiển thị model (giây) 
   model-duration: 5

@@ -503,8 +503,9 @@ public class BreakthroughManager implements Listener {
     // ==========================================
 
     /**
-     * Spawn a ModelEngine model at the player's location on breakthrough success.
-     * The model is attached to an invisible ArmorStand and removed after configured duration.
+     * Spawn model đột phá: ArmorStand + Model + Player cưỡi lên.
+     * Giống cách TuLuyenManager — player ride ArmorStand nên animation hiển thị trên người chơi.
+     * Sau duration giây sẽ tự dismount + xóa.
      */
     private void spawnSuccessModel(Player player, boolean isMajor) {
         if (!plugin.getConfig().getBoolean("breakthrough.enabled", true)) return;
@@ -517,44 +518,66 @@ public class BreakthroughManager implements Listener {
         int duration = plugin.getConfig().getInt("breakthrough.model-duration", 5);
 
         try {
-            // Spawn invisible ArmorStand at player location
+            // Spawn invisible ArmorStand tại vị trí player
             Location loc = player.getLocation();
             ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
             stand.setVisible(false);
             stand.setGravity(false);
-            stand.setSmall(false);
+            stand.setSmall(true);
             stand.setBasePlate(false);
             stand.setInvulnerable(true);
-            stand.setMarker(true);
 
-            // Attach ModelEngine model
+            // Tạo và gắn ModelEngine model lên ArmorStand
             com.ticxo.modelengine.api.model.ActiveModel activeModel =
                     com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(modelId);
-            if (activeModel != null) {
-                com.ticxo.modelengine.api.model.ModeledEntity modeledEntity =
-                        com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
-                modeledEntity.addModel(activeModel, true);
-
-                plugin.getLogger().info("Spawned breakthrough model '" + modelId + "' for " + player.getName());
-
-                // Remove after duration
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            com.ticxo.modelengine.api.model.ModeledEntity me =
-                                    com.ticxo.modelengine.api.ModelEngineAPI.getModeledEntity(stand);
-                            if (me != null) {
-                                me.destroy();
-                            }
-                        } catch (Exception ignored) {}
-                        stand.remove();
-                    }
-                }.runTaskLater(plugin, duration * 20L);
-            } else {
+            if (activeModel == null) {
                 stand.remove();
                 plugin.getLogger().warning("ModelEngine model not found: " + modelId);
+                return;
             }
+
+            com.ticxo.modelengine.api.model.ModeledEntity modeledEntity =
+                    com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
+            modeledEntity.addModel(activeModel, true);
+
+            // Player cưỡi lên ArmorStand → animation sẽ hiển thị trên người chơi
+            stand.addPassenger(player);
+
+            plugin.getLogger().info("Breakthrough model '" + modelId + "' — player " + player.getName() + " mounted");
+
+            // Delay 2 ticks rồi chạy animation "actived"
+            final com.ticxo.modelengine.api.model.ActiveModel finalModel = activeModel;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        finalModel.getAnimationHandler().playAnimation("actived", 0.25, 0.25, 1.0, true);
+                        plugin.getLogger().info("Playing 'actived' animation on model '" + modelId + "'");
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to play 'actived' animation: " + e.getMessage());
+                    }
+                }
+            }.runTaskLater(plugin, 2L);
+
+            // Sau duration giây: dismount player, xóa model + ArmorStand
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        // Dismount player
+                        stand.removePassenger(player);
+                        // Destroy model
+                        com.ticxo.modelengine.api.model.ModeledEntity me =
+                                com.ticxo.modelengine.api.ModelEngineAPI.getModeledEntity(stand);
+                        if (me != null) {
+                            me.destroy();
+                        }
+                    } catch (Exception ignored) {}
+                    // Xóa ArmorStand
+                    stand.remove();
+                }
+            }.runTaskLater(plugin, duration * 20L);
+
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to spawn breakthrough model: " + modelId + " — " + e.getMessage());
         }

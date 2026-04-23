@@ -1,9 +1,9 @@
 # ==========================================
 # TuTienCore — Cảnh Giới Configuration
+# (Re-format: Clean & Đẹp với Ngoặc Tròn)
 # ==========================================
 # display-name: Tên hiển thị có & color codes (dùng cho placeholder, prefix)
-# sub-realms: Mỗi tầng có tuvi + display-name riêng
-#   → Sơ Kỳ mặc định dùng display-name của đại cảnh giới
+# sub-realms: Đã bổ sung đầy đủ display-name cho Sơ Kỳ
 
 # ==========================================
 # 🟢 PHÀM GIỚI (Mortal Realm) — CG 1-7
@@ -11,7 +11,7 @@
 realms:
   1:
     name: "Phàm Nhân"
-    display-name: "&7「Phàm Nhân」"
+    display-name: "&8(&7Phàm Nhân&8)"
     english: "Mortal"
     tier: "PHAM_GIOI"
     color: "&7"
@@ -20,18 +20,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 0
+        display-name: "&8(&7Phàm Nhân &8♦ &7Sơ Kỳ&8)"
       trung-ky:
         tuvi: 500
-        display-name: "&7「Phàm Nhân · Trung Kỳ」"
+        display-name: "&8(&7Phàm Nhân &8♦ &7Trung Kỳ&8)"
       hau-ky:
         tuvi: 1200
-        display-name: "&7「Phàm Nhân · Hậu Kỳ」"
+        display-name: "&8(&7Phàm Nhân &8♦ &7Hậu Kỳ&8)"
       dinh-phong:
         tuvi: 2500
-        display-name: "&7「Phàm Nhân · Đỉnh Phong」"
+        display-name: "&8(&7Phàm Nhân &8♦ &7Đỉnh Phong&8)"
       vien-man:
         tuvi: 4000
-        display-name: "&7「Phàm Nhân · Viên Mãn」"
+        display-name: "&8(&7Phàm Nhân &8♦ &7Viên Mãn&8)"
     breakthrough:
       lightning-bolts: 0
       damage-per-bolt: 0.0
@@ -39,7 +40,7 @@ realms:
 
   2:
     name: "Luyện Khí"
-    display-name: "&a「Luyện Khí」"
+    display-name: "&8(&aLuyện Khí&8)"
     english: "Qi Refinement"
     tier: "PHAM_GIOI"
     color: "&a"
@@ -48,18 +49,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 5000
+        display-name: "&8(&aLuyện Khí &8♦ &aSơ Kỳ&8)"
       trung-ky:
         tuvi: 8000
-        display-name: "&a「Luyện Khí · Trung Kỳ」"
+        display-name: "&8(&aLuyện Khí &8♦ &aTrung Kỳ&8)"
       hau-ky:
         tuvi: 12000
-        display-name: "&a「Luyện Khí · Hậu Kỳ」"
+        display-name: "&8(&aLuyện Khí &8♦ &aHậu Kỳ&8)"
       dinh-phong:
         tuvi: 18000
-        display-name: "&a「Luyện Khí · Đỉnh Phong」"
+        display-name: "&8(&aLuyện Khí &8♦ &aĐỉnh Phong&8)"
       vien-man:
         tuvi: 23000
-        display-name: "&a「Luyện Khí · Viên Mãn」"
+        display-name: "&8(&aLuyện Khí &8♦ &aViên Mãn&8)"
     breakthrough:
       lightning-bolts: 10
       damage-per-bolt: 3.0
@@ -67,7 +69,7 @@ realms:
 
   3:
     name: "Trúc Cơ"
-    display-name: "&a「Trúc Cơ」"
+    display-name: "&8(&aTrúc Cơ&8)"
     english: "Foundation"
     tier: "PHAM_GIOI"
     color: "&a"
@@ -76,18 +78,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 25000
+        display-name: "&8(&aTrúc Cơ &8♦ &aSơ Kỳ&8)"
       trung-ky:
         tuvi: 35000
-        display-name: "&a「Trúc Cơ · Trung Kỳ」"
+        display-name: "&8(&aTrúc Cơ &8♦ &aTrung Kỳ&8)"
       hau-ky:
         tuvi: 50000
-        display-name: "&a「Trúc Cơ · Hậu Kỳ」"
+        display-name: "&8(&aTrúc Cơ &8♦ &aHậu Kỳ&8)"
       dinh-phong:
         tuvi: 75000
-        display-name: "&a「Trúc Cơ · Đỉnh Phong」"
+        display-name: "&8(&aTrúc Cơ &8♦ &aĐỉnh Phong&8)"
       vien-man:
         tuvi: 92000
-        display-name: "&a「Trúc Cơ · Viên Mãn」"
+        display-name: "&8(&aTrúc Cơ &8♦ &aViên Mãn&8)"
     breakthrough:
       lightning-bolts: 10
       damage-per-bolt: 3.0
@@ -95,7 +98,7 @@ realms:
 
   4:
     name: "Kim Đan"
-    display-name: "&e「Kim Đan」"
+    display-name: "&8(&eKim Đan&8)"
     english: "Golden Core"
     tier: "PHAM_GIOI"
     color: "&e"
@@ -104,18 +107,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 100000
+        display-name: "&8(&eKim Đan &8♦ &eSơ Kỳ&8)"
       trung-ky:
         tuvi: 135000
-        display-name: "&e「Kim Đan · Trung Kỳ」"
+        display-name: "&8(&eKim Đan &8♦ &eTrung Kỳ&8)"
       hau-ky:
         tuvi: 185000
-        display-name: "&e「Kim Đan · Hậu Kỳ」"
+        display-name: "&8(&eKim Đan &8♦ &eHậu Kỳ&8)"
       dinh-phong:
         tuvi: 260000
-        display-name: "&e「Kim Đan · Đỉnh Phong」"
+        display-name: "&8(&eKim Đan &8♦ &eĐỉnh Phong&8)"
       vien-man:
         tuvi: 325000
-        display-name: "&e「Kim Đan · Viên Mãn」"
+        display-name: "&8(&eKim Đan &8♦ &eViên Mãn&8)"
     breakthrough:
       lightning-bolts: 12
       damage-per-bolt: 3.0
@@ -123,7 +127,7 @@ realms:
 
   5:
     name: "Nguyên Anh"
-    display-name: "&e「Nguyên Anh」"
+    display-name: "&8(&eNguyên Anh&8)"
     english: "Nascent Soul"
     tier: "PHAM_GIOI"
     color: "&e"
@@ -132,18 +136,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 350000
+        display-name: "&8(&eNguyên Anh &8♦ &eSơ Kỳ&8)"
       trung-ky:
         tuvi: 450000
-        display-name: "&e「Nguyên Anh · Trung Kỳ」"
+        display-name: "&8(&eNguyên Anh &8♦ &eTrung Kỳ&8)"
       hau-ky:
         tuvi: 580000
-        display-name: "&e「Nguyên Anh · Hậu Kỳ」"
+        display-name: "&8(&eNguyên Anh &8♦ &eHậu Kỳ&8)"
       dinh-phong:
         tuvi: 780000
-        display-name: "&e「Nguyên Anh · Đỉnh Phong」"
+        display-name: "&8(&eNguyên Anh &8♦ &eĐỉnh Phong&8)"
       vien-man:
         tuvi: 930000
-        display-name: "&e「Nguyên Anh · Viên Mãn」"
+        display-name: "&8(&eNguyên Anh &8♦ &eViên Mãn&8)"
     breakthrough:
       lightning-bolts: 12
       damage-per-bolt: 3.5
@@ -151,7 +156,7 @@ realms:
 
   6:
     name: "Hóa Thần"
-    display-name: "&5「Hóa Thần」"
+    display-name: "&8(&5Hóa Thần&8)"
     english: "Spirit Severing"
     tier: "PHAM_GIOI"
     color: "&5"
@@ -160,18 +165,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 1000000
+        display-name: "&8(&5Hóa Thần &8♦ &5Sơ Kỳ&8)"
       trung-ky:
         tuvi: 1300000
-        display-name: "&5「Hóa Thần · Trung Kỳ」"
+        display-name: "&8(&5Hóa Thần &8♦ &5Trung Kỳ&8)"
       hau-ky:
         tuvi: 1700000
-        display-name: "&5「Hóa Thần · Hậu Kỳ」"
+        display-name: "&8(&5Hóa Thần &8♦ &5Hậu Kỳ&8)"
       dinh-phong:
         tuvi: 2300000
-        display-name: "&5「Hóa Thần · Đỉnh Phong」"
+        display-name: "&8(&5Hóa Thần &8♦ &5Đỉnh Phong&8)"
       vien-man:
         tuvi: 2800000
-        display-name: "&5「Hóa Thần · Viên Mãn」"
+        display-name: "&8(&5Hóa Thần &8♦ &5Viên Mãn&8)"
     breakthrough:
       lightning-bolts: 14
       damage-per-bolt: 4.0
@@ -179,7 +185,7 @@ realms:
 
   7:
     name: "Luyện Hư"
-    display-name: "&5「Luyện Hư」"
+    display-name: "&8(&5Luyện Hư&8)"
     english: "Void Refining"
     tier: "PHAM_GIOI"
     color: "&5"
@@ -188,18 +194,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 3000000
+        display-name: "&8(&5Luyện Hư &8♦ &5Sơ Kỳ&8)"
       trung-ky:
         tuvi: 3800000
-        display-name: "&5「Luyện Hư · Trung Kỳ」"
+        display-name: "&8(&5Luyện Hư &8♦ &5Trung Kỳ&8)"
       hau-ky:
         tuvi: 4800000
-        display-name: "&5「Luyện Hư · Hậu Kỳ」"
+        display-name: "&8(&5Luyện Hư &8♦ &5Hậu Kỳ&8)"
       dinh-phong:
         tuvi: 6200000
-        display-name: "&5「Luyện Hư · Đỉnh Phong」"
+        display-name: "&8(&5Luyện Hư &8♦ &5Đỉnh Phong&8)"
       vien-man:
         tuvi: 7500000
-        display-name: "&5「Luyện Hư · Viên Mãn」"
+        display-name: "&8(&5Luyện Hư &8♦ &5Viên Mãn&8)"
     breakthrough:
       lightning-bolts: 14
       damage-per-bolt: 4.0
@@ -210,7 +217,7 @@ realms:
   # ==========================================
   8:
     name: "Đại Thừa"
-    display-name: "&b「Đại Thừa」"
+    display-name: "&7(&bĐại Thừa&7)"
     english: "Mahayana"
     tier: "TIEN_GIOI"
     color: "&b"
@@ -219,18 +226,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 8000000
+        display-name: "&7(&bĐại Thừa &7♦ &bSơ Kỳ&7)"
       trung-ky:
         tuvi: 10000000
-        display-name: "&b「Đại Thừa · Trung Kỳ」"
+        display-name: "&7(&bĐại Thừa &7♦ &bTrung Kỳ&7)"
       hau-ky:
         tuvi: 13000000
-        display-name: "&b「Đại Thừa · Hậu Kỳ」"
+        display-name: "&7(&bĐại Thừa &7♦ &bHậu Kỳ&7)"
       dinh-phong:
         tuvi: 16500000
-        display-name: "&b「Đại Thừa · Đỉnh Phong」"
+        display-name: "&7(&bĐại Thừa &7♦ &bĐỉnh Phong&7)"
       vien-man:
         tuvi: 19000000
-        display-name: "&b「Đại Thừa · Viên Mãn」"
+        display-name: "&7(&bĐại Thừa &7♦ &bViên Mãn&7)"
     breakthrough:
       lightning-bolts: 18
       damage-per-bolt: 4.5
@@ -238,7 +246,7 @@ realms:
 
   9:
     name: "Độ Kiếp"
-    display-name: "&b「Độ Kiếp」"
+    display-name: "&7(&bĐộ Kiếp&7)"
     english: "Tribulation"
     tier: "TIEN_GIOI"
     color: "&b"
@@ -247,18 +255,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 20000000
+        display-name: "&7(&bĐộ Kiếp &7♦ &bSơ Kỳ&7)"
       trung-ky:
         tuvi: 25000000
-        display-name: "&b「Độ Kiếp · Trung Kỳ」"
+        display-name: "&7(&bĐộ Kiếp &7♦ &bTrung Kỳ&7)"
       hau-ky:
         tuvi: 32000000
-        display-name: "&b「Độ Kiếp · Hậu Kỳ」"
+        display-name: "&7(&bĐộ Kiếp &7♦ &bHậu Kỳ&7)"
       dinh-phong:
         tuvi: 40000000
-        display-name: "&b「Độ Kiếp · Đỉnh Phong」"
+        display-name: "&7(&bĐộ Kiếp &7♦ &bĐỉnh Phong&7)"
       vien-man:
         tuvi: 47000000
-        display-name: "&b「Độ Kiếp · Viên Mãn」"
+        display-name: "&7(&bĐộ Kiếp &7♦ &bViên Mãn&7)"
     breakthrough:
       lightning-bolts: 18
       damage-per-bolt: 5.0
@@ -266,7 +275,7 @@ realms:
 
   10:
     name: "Tiên Nhân"
-    display-name: "&3「Tiên Nhân」"
+    display-name: "&7(&3Tiên Nhân&7)"
     english: "Immortal"
     tier: "TIEN_GIOI"
     color: "&3"
@@ -275,18 +284,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 50000000
+        display-name: "&7(&3Tiên Nhân &7♦ &3Sơ Kỳ&7)"
       trung-ky:
         tuvi: 62000000
-        display-name: "&3「Tiên Nhân · Trung Kỳ」"
+        display-name: "&7(&3Tiên Nhân &7♦ &3Trung Kỳ&7)"
       hau-ky:
         tuvi: 78000000
-        display-name: "&3「Tiên Nhân · Hậu Kỳ」"
+        display-name: "&7(&3Tiên Nhân &7♦ &3Hậu Kỳ&7)"
       dinh-phong:
         tuvi: 100000000
-        display-name: "&3「Tiên Nhân · Đỉnh Phong」"
+        display-name: "&7(&3Tiên Nhân &7♦ &3Đỉnh Phong&7)"
       vien-man:
         tuvi: 115000000
-        display-name: "&3「Tiên Nhân · Viên Mãn」"
+        display-name: "&7(&3Tiên Nhân &7♦ &3Viên Mãn&7)"
     breakthrough:
       lightning-bolts: 21
       damage-per-bolt: 5.0
@@ -294,7 +304,7 @@ realms:
 
   11:
     name: "Thiên Tiên"
-    display-name: "&3「Thiên Tiên」"
+    display-name: "&7(&3Thiên Tiên&7)"
     english: "Heavenly Immortal"
     tier: "TIEN_GIOI"
     color: "&3"
@@ -303,18 +313,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 120000000
+        display-name: "&7(&3Thiên Tiên &7♦ &3Sơ Kỳ&7)"
       trung-ky:
         tuvi: 150000000
-        display-name: "&3「Thiên Tiên · Trung Kỳ」"
+        display-name: "&7(&3Thiên Tiên &7♦ &3Trung Kỳ&7)"
       hau-ky:
         tuvi: 190000000
-        display-name: "&3「Thiên Tiên · Hậu Kỳ」"
+        display-name: "&7(&3Thiên Tiên &7♦ &3Hậu Kỳ&7)"
       dinh-phong:
         tuvi: 245000000
-        display-name: "&3「Thiên Tiên · Đỉnh Phong」"
+        display-name: "&7(&3Thiên Tiên &7♦ &3Đỉnh Phong&7)"
       vien-man:
         tuvi: 285000000
-        display-name: "&3「Thiên Tiên · Viên Mãn」"
+        display-name: "&7(&3Thiên Tiên &7♦ &3Viên Mãn&7)"
     breakthrough:
       lightning-bolts: 21
       damage-per-bolt: 5.5
@@ -322,7 +333,7 @@ realms:
 
   12:
     name: "Kim Tiên"
-    display-name: "&6「Kim Tiên」"
+    display-name: "&7(&6Kim Tiên&7)"
     english: "Golden Immortal"
     tier: "TIEN_GIOI"
     color: "&6"
@@ -331,18 +342,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 300000000
+        display-name: "&7(&6Kim Tiên &7♦ &6Sơ Kỳ&7)"
       trung-ky:
         tuvi: 370000000
-        display-name: "&6「Kim Tiên · Trung Kỳ」"
+        display-name: "&7(&6Kim Tiên &7♦ &6Trung Kỳ&7)"
       hau-ky:
         tuvi: 460000000
-        display-name: "&6「Kim Tiên · Hậu Kỳ」"
+        display-name: "&7(&6Kim Tiên &7♦ &6Hậu Kỳ&7)"
       dinh-phong:
         tuvi: 570000000
-        display-name: "&6「Kim Tiên · Đỉnh Phong」"
+        display-name: "&7(&6Kim Tiên &7♦ &6Đỉnh Phong&7)"
       vien-man:
         tuvi: 660000000
-        display-name: "&6「Kim Tiên · Viên Mãn」"
+        display-name: "&7(&6Kim Tiên &7♦ &6Viên Mãn&7)"
     breakthrough:
       lightning-bolts: 24
       damage-per-bolt: 6.0
@@ -350,7 +362,7 @@ realms:
 
   13:
     name: "Thái Ất"
-    display-name: "&6「Thái Ất」"
+    display-name: "&7(&6Thái Ất&7)"
     english: "Supreme Unity"
     tier: "TIEN_GIOI"
     color: "&6"
@@ -359,18 +371,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 700000000
+        display-name: "&7(&6Thái Ất &7♦ &6Sơ Kỳ&7)"
       trung-ky:
         tuvi: 840000000
-        display-name: "&6「Thái Ất · Trung Kỳ」"
+        display-name: "&7(&6Thái Ất &7♦ &6Trung Kỳ&7)"
       hau-ky:
         tuvi: 1000000000
-        display-name: "&6「Thái Ất · Hậu Kỳ」"
+        display-name: "&7(&6Thái Ất &7♦ &6Hậu Kỳ&7)"
       dinh-phong:
         tuvi: 1250000000
-        display-name: "&6「Thái Ất · Đỉnh Phong」"
+        display-name: "&7(&6Thái Ất &7♦ &6Đỉnh Phong&7)"
       vien-man:
         tuvi: 1430000000
-        display-name: "&6「Thái Ất · Viên Mãn」"
+        display-name: "&7(&6Thái Ất &7♦ &6Viên Mãn&7)"
     breakthrough:
       lightning-bolts: 24
       damage-per-bolt: 6.0
@@ -381,7 +394,7 @@ realms:
   # ==========================================
   14:
     name: "Đại La"
-    display-name: "&d「Đại La」"
+    display-name: "&e(&d&lĐại La&e)"
     english: "Great Luo"
     tier: "THAN_GIOI"
     color: "&d"
@@ -390,18 +403,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 1500000000
+        display-name: "&e(&d&lĐại La &6♦ &d&lSơ Kỳ&e)"
       trung-ky:
         tuvi: 1850000000
-        display-name: "&d「Đại La · Trung Kỳ」"
+        display-name: "&e(&d&lĐại La &6♦ &d&lTrung Kỳ&e)"
       hau-ky:
         tuvi: 2300000000
-        display-name: "&d「Đại La · Hậu Kỳ」"
+        display-name: "&e(&d&lĐại La &6♦ &d&lHậu Kỳ&e)"
       dinh-phong:
         tuvi: 2900000000
-        display-name: "&d「Đại La · Đỉnh Phong」"
+        display-name: "&e(&d&lĐại La &6♦ &d&lĐỉnh Phong&e)"
       vien-man:
         tuvi: 3350000000
-        display-name: "&d「Đại La · Viên Mãn」"
+        display-name: "&e(&d&lĐại La &6♦ &d&lViên Mãn&e)"
     breakthrough:
       lightning-bolts: 27
       damage-per-bolt: 6.5
@@ -409,7 +423,7 @@ realms:
 
   15:
     name: "Chuẩn Thánh"
-    display-name: "&d「Chuẩn Thánh」"
+    display-name: "&e(&d&lChuẩn Thánh&e)"
     english: "Quasi-Saint"
     tier: "THAN_GIOI"
     color: "&d"
@@ -418,18 +432,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 3500000000
+        display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lSơ Kỳ&e)"
       trung-ky:
         tuvi: 4300000000
-        display-name: "&d「Chuẩn Thánh · Trung Kỳ」"
+        display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lTrung Kỳ&e)"
       hau-ky:
         tuvi: 5400000000
-        display-name: "&d「Chuẩn Thánh · Hậu Kỳ」"
+        display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lHậu Kỳ&e)"
       dinh-phong:
         tuvi: 6700000000
-        display-name: "&d「Chuẩn Thánh · Đỉnh Phong」"
+        display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lĐỉnh Phong&e)"
       vien-man:
         tuvi: 7600000000
-        display-name: "&d「Chuẩn Thánh · Viên Mãn」"
+        display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lViên Mãn&e)"
     breakthrough:
       lightning-bolts: 27
       damage-per-bolt: 7.0
@@ -437,7 +452,7 @@ realms:
 
   16:
     name: "Thánh Nhân"
-    display-name: "&c「Thánh Nhân」"
+    display-name: "&e(&c&lThánh Nhân&e)"
     english: "Saint"
     tier: "THAN_GIOI"
     color: "&c"
@@ -446,18 +461,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 8000000000
+        display-name: "&e(&c&lThánh Nhân &6♦ &c&lSơ Kỳ&e)"
       trung-ky:
         tuvi: 10000000000
-        display-name: "&c「Thánh Nhân · Trung Kỳ」"
+        display-name: "&e(&c&lThánh Nhân &6♦ &c&lTrung Kỳ&e)"
       hau-ky:
         tuvi: 13000000000
-        display-name: "&c「Thánh Nhân · Hậu Kỳ」"
+        display-name: "&e(&c&lThánh Nhân &6♦ &c&lHậu Kỳ&e)"
       dinh-phong:
         tuvi: 16500000000
-        display-name: "&c「Thánh Nhân · Đỉnh Phong」"
+        display-name: "&e(&c&lThánh Nhân &6♦ &c&lĐỉnh Phong&e)"
       vien-man:
         tuvi: 19000000000
-        display-name: "&c「Thánh Nhân · Viên Mãn」"
+        display-name: "&e(&c&lThánh Nhân &6♦ &c&lViên Mãn&e)"
     breakthrough:
       lightning-bolts: 30
       damage-per-bolt: 7.0
@@ -465,7 +481,7 @@ realms:
 
   17:
     name: "Thiên Đế"
-    display-name: "&c&l「Thiên Đế」"
+    display-name: "&e(&c&lThiên Đế&e)"
     english: "Heavenly Emperor"
     tier: "THAN_GIOI"
     color: "&c"
@@ -474,18 +490,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 20000000000
+        display-name: "&e(&c&lThiên Đế &6♦ &c&lSơ Kỳ&e)"
       trung-ky:
         tuvi: 25000000000
-        display-name: "&c&l「Thiên Đế · Trung Kỳ」"
+        display-name: "&e(&c&lThiên Đế &6♦ &c&lTrung Kỳ&e)"
       hau-ky:
         tuvi: 32000000000
-        display-name: "&c&l「Thiên Đế · Hậu Kỳ」"
+        display-name: "&e(&c&lThiên Đế &6♦ &c&lHậu Kỳ&e)"
       dinh-phong:
         tuvi: 42000000000
-        display-name: "&c&l「Thiên Đế · Đỉnh Phong」"
+        display-name: "&e(&c&lThiên Đế &6♦ &c&lĐỉnh Phong&e)"
       vien-man:
         tuvi: 48000000000
-        display-name: "&c&l「Thiên Đế · Viên Mãn」"
+        display-name: "&e(&c&lThiên Đế &6♦ &c&lViên Mãn&e)"
     breakthrough:
       lightning-bolts: 30
       damage-per-bolt: 7.5
@@ -493,7 +510,7 @@ realms:
 
   18:
     name: "Đạo Tổ"
-    display-name: "&4&l「Đạo Tổ」"
+    display-name: "&e(&4&lĐạo Tổ&e)"
     english: "Dao Ancestor"
     tier: "THAN_GIOI"
     color: "&4"
@@ -502,18 +519,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 50000000000
+        display-name: "&e(&4&lĐạo Tổ &6♦ &4&lSơ Kỳ&e)"
       trung-ky:
         tuvi: 60000000000
-        display-name: "&4&l「Đạo Tổ · Trung Kỳ」"
+        display-name: "&e(&4&lĐạo Tổ &6♦ &4&lTrung Kỳ&e)"
       hau-ky:
         tuvi: 72000000000
-        display-name: "&4&l「Đạo Tổ · Hậu Kỳ」"
+        display-name: "&e(&4&lĐạo Tổ &6♦ &4&lHậu Kỳ&e)"
       dinh-phong:
         tuvi: 88000000000
-        display-name: "&4&l「Đạo Tổ · Đỉnh Phong」"
+        display-name: "&e(&4&lĐạo Tổ &6♦ &4&lĐỉnh Phong&e)"
       vien-man:
         tuvi: 96000000000
-        display-name: "&4&l「Đạo Tổ · Viên Mãn」"
+        display-name: "&e(&4&lĐạo Tổ &6♦ &4&lViên Mãn&e)"
     breakthrough:
       lightning-bolts: 33
       damage-per-bolt: 8.0
@@ -521,7 +539,7 @@ realms:
 
   19:
     name: "Hồng Mông"
-    display-name: "&4&l✦「Hồng Mông」✦"
+    display-name: "&c&l(&4&lHồng Mông&c&l)"
     english: "Primordial Chaos"
     tier: "THAN_GIOI"
     color: "&4&l"
@@ -530,18 +548,19 @@ realms:
     sub-realms:
       so-ky:
         tuvi: 100000000000
+        display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lSơ Kỳ&c&l)"
       trung-ky:
         tuvi: 130000000000
-        display-name: "&4&l✦「Hồng Mông · Trung Kỳ」✦"
+        display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lTrung Kỳ&c&l)"
       hau-ky:
         tuvi: 180000000000
-        display-name: "&4&l✦「Hồng Mông · Hậu Kỳ」✦"
+        display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lHậu Kỳ&c&l)"
       dinh-phong:
         tuvi: 280000000000
-        display-name: "&4&l✦「Hồng Mông · Đỉnh Phong」✦"
+        display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lĐỉnh Phong&c&l)"
       vien-man:
         tuvi: 450000000000
-        display-name: "&4&l✦「Hồng Mông · Viên Mãn」✦"
+        display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lViên Mãn&c&l)"
     breakthrough:
       lightning-bolts: 36
       damage-per-bolt: 8.0
