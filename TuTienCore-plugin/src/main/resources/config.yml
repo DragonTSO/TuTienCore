@@ -81,6 +81,39 @@ particles:
       g: 255
       b: 255
 
+# ==========================================
+# HIEU UNG TU LUYEN (Cultivation Effects)
+# ==========================================
+# Cau hinh hieu ung khi nguoi choi tu luyen
+# Moi layer co the bat/tat rieng le
+cultivation-effects:
+  # Mau chu dao (Cyan/Xanh duong)
+  primary-color:
+    r: 0
+    g: 220
+    b: 255
+  # Double Helix - Vong xoay nang luong quanh nguoi
+  helix:
+    enabled: true
+  # Energy Burst - Tia nang luong ban ra tu tam
+  rays:
+    enabled: true
+  # Lightning Arcs - Set dien quanh nguoi
+  lightning:
+    enabled: true
+  # Absorption - Linh khi bi hap thu vao nguoi
+  absorption:
+    enabled: true
+  # Ground Circle - Vong tron phap tran duoi chan
+  ground-circle:
+    enabled: true
+  # Energy Pillar - Cot nang luong chieu len troi
+  pillar:
+    enabled: true
+  # Ambient - Hat nang luong bay lo lung
+  ambient:
+    enabled: true
+
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
 tuluyen-model: "be_tutien_tier1"
 

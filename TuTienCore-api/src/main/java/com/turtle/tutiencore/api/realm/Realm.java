@@ -2,6 +2,7 @@ package com.turtle.tutiencore.api.realm;
 
 import org.bukkit.ChatColor;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,11 +35,15 @@ public class Realm {
     private final double damagePerBolt;
     private final double successRate;
 
+    // Stat bonus on breakthrough success (stat name → percent value)
+    private final Map<String, Double> statBonuses;
+
     public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
                  long tuViRequired, long thucLucRequired, String color,
                  long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
                  long dinhPhongTuVi, long vienManTuVi,
-                 int lightningBolts, double damagePerBolt, double successRate) {
+                 int lightningBolts, double damagePerBolt, double successRate,
+                 Map<String, Double> statBonuses) {
         this.id = id;
         this.name = name;
         this.displayName = displayName;
@@ -55,6 +60,7 @@ public class Realm {
         this.lightningBolts = lightningBolts;
         this.damagePerBolt = damagePerBolt;
         this.successRate = successRate;
+        this.statBonuses = statBonuses != null ? new HashMap<>(statBonuses) : new HashMap<>();
     }
 
     // --- Sub-realm display name management ---
@@ -98,6 +104,20 @@ public class Realm {
     public int getLightningBolts() { return lightningBolts; }
     public double getDamagePerBolt() { return damagePerBolt; }
     public double getSuccessRate() { return successRate; }
+
+    /**
+     * Get all stat bonuses for this realm (stat name → percent value).
+     */
+    public Map<String, Double> getStatBonuses() {
+        return Collections.unmodifiableMap(statBonuses);
+    }
+
+    /**
+     * Get the bonus percent for a specific stat.
+     */
+    public double getStatBonus(String statName) {
+        return statBonuses.getOrDefault(statName, 0.0);
+    }
 
     public long getTuViForSubRealm(SubRealm subRealm) {
         switch (subRealm) {

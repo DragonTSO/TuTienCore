@@ -37,6 +37,18 @@ public class ConfigManager {
     private int lineColorG;
     private int lineColorB;
 
+    // Cultivation Effect settings
+    private int cultPrimaryR;
+    private int cultPrimaryG;
+    private int cultPrimaryB;
+    private boolean cultHelixEnabled;
+    private boolean cultRaysEnabled;
+    private boolean cultLightningEnabled;
+    private boolean cultAbsorptionEnabled;
+    private boolean cultGroundCircleEnabled;
+    private boolean cultPillarEnabled;
+    private boolean cultAmbientEnabled;
+
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
         plugin.saveDefaultConfig();
@@ -72,6 +84,18 @@ public class ConfigManager {
         lineColorR = config.getInt("particles.line.color.r", 255);
         lineColorG = config.getInt("particles.line.color.g", 255);
         lineColorB = config.getInt("particles.line.color.b", 255);
+
+        // Cultivation Effects
+        cultPrimaryR = config.getInt("cultivation-effects.primary-color.r", 0);
+        cultPrimaryG = config.getInt("cultivation-effects.primary-color.g", 220);
+        cultPrimaryB = config.getInt("cultivation-effects.primary-color.b", 255);
+        cultHelixEnabled = config.getBoolean("cultivation-effects.helix.enabled", true);
+        cultRaysEnabled = config.getBoolean("cultivation-effects.rays.enabled", true);
+        cultLightningEnabled = config.getBoolean("cultivation-effects.lightning.enabled", true);
+        cultAbsorptionEnabled = config.getBoolean("cultivation-effects.absorption.enabled", true);
+        cultGroundCircleEnabled = config.getBoolean("cultivation-effects.ground-circle.enabled", true);
+        cultPillarEnabled = config.getBoolean("cultivation-effects.pillar.enabled", true);
+        cultAmbientEnabled = config.getBoolean("cultivation-effects.ambient.enabled", true);
 
         tuluyenModel = config.getString("tuluyen-model", "toado");
     }

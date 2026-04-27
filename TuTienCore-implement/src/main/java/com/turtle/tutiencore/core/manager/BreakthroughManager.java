@@ -19,6 +19,8 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
@@ -58,26 +60,29 @@ public class BreakthroughManager implements Listener {
         final UUID playerId;
         final boolean isMajor; // true = Đại Cảnh Giới, false = Tiểu Cảnh Giới
         final int totalBolts;
-        final double damagePerBolt;
+        final double baseDamagePerBolt;
         final boolean rollSuccess;
         final double failMultiplier;
         final Realm targetRealm; // null for sub-realm
         final SubRealm targetSubRealm; // null for major realm
         int boltsRemaining;
         BukkitRunnable task;
+        Location startLocation; // Where player started (ground level)
+        int currentLevitationLevel; // Current levitation strength (increases over time)
 
         BreakthroughSession(UUID playerId, boolean isMajor, int totalBolts,
-                            double damagePerBolt, boolean rollSuccess, double failMultiplier,
+                            double baseDamagePerBolt, boolean rollSuccess, double failMultiplier,
                             Realm targetRealm, SubRealm targetSubRealm) {
             this.playerId = playerId;
             this.isMajor = isMajor;
             this.totalBolts = totalBolts;
-            this.damagePerBolt = damagePerBolt;
+            this.baseDamagePerBolt = baseDamagePerBolt;
             this.rollSuccess = rollSuccess;
             this.failMultiplier = failMultiplier;
             this.targetRealm = targetRealm;
             this.targetSubRealm = targetSubRealm;
             this.boltsRemaining = totalBolts;
+            this.currentLevitationLevel = 0;
         }
     }
 
@@ -213,11 +218,19 @@ public class BreakthroughManager implements Listener {
     }
 
     // ==========================================
-    // LIGHTNING SEQUENCE
+    // LIGHTNING SEQUENCE (Thiên Lôi Kiếp)
     // ==========================================
+
+    // Lightning AOE radius (40x40 = ±20 blocks from center)
+    private static final int LIGHTNING_RADIUS = 20;
+    // Max levitation level (increases over time)
+    private static final int MAX_LEVITATION_LEVEL = 6;
+    // Damage scaling: at max height, damage = baseDmg * this multiplier
+    private static final double MAX_HEIGHT_DMG_MULTIPLIER = 2.5;
 
     private void startLightningSequence(Player player, BreakthroughSession session) {
         int intervalTicks = realmManager.getLightningIntervalTicks();
+        session.startLocation = player.getLocation().clone();
 
         // Countdown before first bolt
         player.sendMessage("§6§l⚡ Thiên Lôi Kiếp bắt đầu trong 3 giây... Chuẩn bị!");
@@ -225,10 +238,12 @@ public class BreakthroughManager implements Listener {
         session.task = new BukkitRunnable() {
             int countdown = 3;
             boolean started = false;
+            int boltsFired = 0;
 
             @Override
             public void run() {
                 if (!player.isOnline()) {
+                    cleanupLevitation(player);
                     cancelSession(session);
                     cancel();
                     return;
@@ -242,7 +257,6 @@ public class BreakthroughManager implements Listener {
                                 "§e⚡ Thiên Lôi sắp giáng!",
                                 5, 15, 5
                         );
-                        // Thunder sound during countdown
                         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 
                                 SoundCategory.WEATHER, 2.0f, 0.5f);
                         countdown--;
@@ -255,24 +269,40 @@ public class BreakthroughManager implements Listener {
                                                : "§eTiểu Lôi Kiếp — " + session.totalBolts + " tia sét",
                                 10, 40, 10
                         );
+                        // Start with Levitation 1
+                        applyLevitation(player, session, 1);
                         return;
                     }
                 }
 
                 // Lightning phase
                 if (session.boltsRemaining > 0) {
-                    strikeLightning(player, session);
+                    boltsFired++;
+
+                    // Increase levitation every few bolts
+                    int levPhase = (boltsFired * MAX_LEVITATION_LEVEL) / session.totalBolts;
+                    int newLevel = Math.min(levPhase + 1, MAX_LEVITATION_LEVEL);
+                    if (newLevel > session.currentLevitationLevel) {
+                        applyLevitation(player, session, newLevel);
+                        player.sendMessage("§c§l⚠ Thiên Lôi mạnh hơn! §e(Levitation " + newLevel + ")");
+                    }
+
+                    // Strike random lightning in AOE
+                    strikeRandomLightning(player, session);
                     session.boltsRemaining--;
 
                     int boltNumber = session.totalBolts - session.boltsRemaining;
+                    double currentDmg = calculateDamage(player, session);
                     // Show action bar progress
                     player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
                             net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
                                     "§c⚡ Tia sét " + boltNumber + "/" + session.totalBolts 
-                                    + " §7| §c" + String.format("%.1f", session.damagePerBolt) + " ❤ DMG"));
+                                    + " §7| §c" + String.format("%.1f", currentDmg) + " ❤ DMG"
+                                    + " §7| §bLv." + session.currentLevitationLevel));
 
                 } else {
                     // All bolts survived → SUCCESS
+                    cleanupLevitation(player);
                     handleBreakthroughSuccess(player, session);
                     cancel();
                 }
@@ -284,31 +314,92 @@ public class BreakthroughManager implements Listener {
     }
 
     /**
-     * Strike lightning on the player with damage
+     * Apply Levitation potion effect to the player.
      */
-    private void strikeLightning(Player player, BreakthroughSession session) {
-        Location loc = player.getLocation();
+    private void applyLevitation(Player player, BreakthroughSession session, int level) {
+        session.currentLevitationLevel = level;
+        // Remove old levitation first
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        // Apply new levitation (long duration — will be removed on end)
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.LEVITATION, 999999, level - 1, // amplifier is 0-indexed
+                false, true, true // ambient=false, particles=true, icon=true
+        ));
+    }
 
-        // Visual lightning (no natural damage)
-        player.getWorld().strikeLightningEffect(loc);
+    /**
+     * Remove Levitation and safely lower the player.
+     */
+    private void cleanupLevitation(Player player) {
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        // Give slow-falling to prevent fall damage
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.SLOW_FALLING, 200, 0, // 10 seconds
+                false, true, true
+        ));
+    }
 
-        // Custom damage (hearts → actual HP: 1 heart = 2 HP)
-        double damage = session.damagePerBolt * 2.0; // Convert hearts to HP
+    /**
+     * Calculate damage based on player height above start position.
+     * Higher = more damage.
+     */
+    private double calculateDamage(Player player, BreakthroughSession session) {
+        double baseY = session.startLocation.getY();
+        double currentY = player.getLocation().getY();
+        double heightDiff = Math.max(0, currentY - baseY);
 
-        // Apply damage
+        // Scale: 0 blocks up = 1x damage, ~30 blocks up = MAX_HEIGHT_DMG_MULTIPLIER x damage
+        double heightFactor = 1.0 + (heightDiff / 30.0) * (MAX_HEIGHT_DMG_MULTIPLIER - 1.0);
+        heightFactor = Math.min(heightFactor, MAX_HEIGHT_DMG_MULTIPLIER);
+
+        return session.baseDamagePerBolt * heightFactor;
+    }
+
+    /**
+     * Strike lightning at a random position within LIGHTNING_RADIUS of the player.
+     * Also deals damage to the player based on their height.
+     */
+    private void strikeRandomLightning(Player player, BreakthroughSession session) {
+        Location playerLoc = player.getLocation();
+        World world = player.getWorld();
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        // Random offset within ±LIGHTNING_RADIUS for X, Z, and ±10 for Y
+        double offsetX = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+        double offsetY = rand.nextDouble(-10, 15);
+        double offsetZ = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+
+        Location strikeLoc = playerLoc.clone().add(offsetX, offsetY, offsetZ);
+
+        // Visual lightning at random location
+        world.strikeLightningEffect(strikeLoc);
+
+        // Additional random strikes for visual intensity (no damage)
+        int extraStrikes = rand.nextInt(1, 4); // 1-3 extra visual strikes
+        for (int i = 0; i < extraStrikes; i++) {
+            double ex = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+            double ey = rand.nextDouble(-5, 20);
+            double ez = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+            Location extraLoc = playerLoc.clone().add(ex, ey, ez);
+            world.strikeLightningEffect(extraLoc);
+        }
+
+        // Calculate height-scaled damage
+        double damage = calculateDamage(player, session) * 2.0; // Convert hearts to HP
+
+        // Apply damage to the player
         player.damage(damage);
 
-        // Particle effects based on realm tier
+        // Particle effects around the player based on realm tier
         if (session.isMajor && session.targetRealm != null) {
             spawnBreakthroughParticles(player, session.targetRealm);
         } else {
-            // Lighter particles for sub-realm
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.ELECTRIC_SPARK, playerLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
         }
 
         // Sound effects
-        player.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 3.0f, 1.0f);
-        player.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER, 2.0f, 1.0f);
+        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 3.0f, 1.0f);
+        world.playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER, 2.0f, 1.0f);
     }
 
     /**
@@ -407,6 +498,9 @@ public class BreakthroughManager implements Listener {
                     + newRealm.getFormattedName() + "§a§l!";
             Bukkit.broadcastMessage(successMsg);
 
+            // Apply stat bonuses for new realm
+            realmManager.applyStatBonus(player);
+
         } else {
             // Sub-realm breakthrough success
             PlayerRealm pr = realmManager.getPlayerRealm(uuid);
@@ -437,6 +531,9 @@ public class BreakthroughManager implements Listener {
             String successMsg = "§a✨ " + player.getName() + " đã đột phá → " 
                     + realm.getFormattedName() + " §7— §e" + session.targetSubRealm.getDisplayName();
             broadcastNearby(player, successMsg, realmManager.getSubRealmBroadcastRadius());
+
+            // Re-apply stat bonuses (sub-realm doesn't change stats, but keep consistent)
+            realmManager.applyStatBonus(player);
         }
 
         // Reset weather
@@ -455,15 +552,18 @@ public class BreakthroughManager implements Listener {
         if (session.task != null) {
             session.task.cancel();
         }
+        // Remove levitation
+        cleanupLevitation(player);
 
         if (session.isMajor) {
-            // Apply cooldown
+            // Apply cooldown + demote
+            Realm beforeDemote = realmManager.getPlayerCurrentRealm(uuid);
             realmManager.handleBreakthroughFailure(uuid);
+            Realm afterDemote = realmManager.getPlayerCurrentRealm(uuid);
 
             // Fire fail event for other plugins
-            Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
             Bukkit.getPluginManager().callEvent(
-                    new RealmBreakthroughFailEvent(player, currentRealm, session.targetRealm));
+                    new RealmBreakthroughFailEvent(player, afterDemote, session.targetRealm));
 
             // Broadcast failure
             String failMsg = "§c§l💀 " + player.getName() + " §c§lkhông chống nổi Thiên Lôi, đột phá thất bại...";
@@ -475,14 +575,22 @@ public class BreakthroughManager implements Listener {
                 public void run() {
                     if (player.isOnline()) {
                         player.sendMessage("§c§l💀 Đột phá thất bại!");
+                        if (realmManager.isFailDemoteEnabled() && beforeDemote != null && afterDemote != null
+                                && beforeDemote.getId() != afterDemote.getId()) {
+                            player.sendMessage("§c  → §4§lTỤT CẢNH GIỚI: " + beforeDemote.getFormattedName()
+                                    + " §c→ " + afterDemote.getFormattedName());
+                        }
                         player.sendMessage("§c  → Mất 50% Đột Phá Đan đã sử dụng");
                         player.sendMessage("§c  → Cooldown: " + (realmManager.getCooldownSeconds() / 60) + " phút");
                         player.sendMessage("§a  → Tu Vi và trang bị vẫn giữ nguyên");
                         player.sendTitle(
                                 "§c§l💀 ĐỘT PHÁ THẤT BẠI",
-                                "§7Hãy chuẩn bị kỹ hơn và thử lại...",
+                                "§7Cảnh giới tụt xuống " + (afterDemote != null ? afterDemote.getFormattedName() : ""),
                                 10, 60, 20
                         );
+
+                        // Update stat bonuses for demoted realm
+                        realmManager.applyStatBonus(player);
                     }
                 }
             }.runTaskLater(plugin, 40L); // Delay to after respawn
@@ -503,6 +611,11 @@ public class BreakthroughManager implements Listener {
         activeSessions.remove(session.playerId);
         if (session.task != null) {
             session.task.cancel();
+        }
+        // Remove levitation for the player
+        Player p = Bukkit.getPlayer(session.playerId);
+        if (p != null && p.isOnline()) {
+            cleanupLevitation(p);
         }
         // Apply cooldown for major breakthrough
         if (session.isMajor) {

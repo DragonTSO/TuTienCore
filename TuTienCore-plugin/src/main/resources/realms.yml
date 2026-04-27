@@ -33,6 +33,20 @@ realms:
       vien-man:
         tuvi: 4000
         display-name: "&8(&7Phàm Nhân &8♦ &7Viên Mãn&8)"
+    stat-bonus:
+      max-health: 0.0
+      attack-damage: 0.0
+      defense: 0.0
+      movement-speed: 0.0
+      critical-strike-chance: 0.0
+      critical-strike-power: 0.0
+      max-mana: 0.0
+      health-regeneration: 0.0
+      mana-regeneration: 0.0
+      attack-speed: 0.0
+      armor: 0.0
+      armor-toughness: 0.0
+      damage-reduction: 0.0
     breakthrough:
       lightning-bolts: 0
       damage-per-bolt: 0.0
@@ -62,6 +76,20 @@ realms:
       vien-man:
         tuvi: 23000
         display-name: "&8(&aLuyện Khí &8♦ &aViên Mãn&8)"
+    stat-bonus:
+      max-health: 3.0
+      attack-damage: 2.0
+      defense: 2.0
+      movement-speed: 0.5
+      critical-strike-chance: 1.0
+      critical-strike-power: 2.0
+      max-mana: 3.0
+      health-regeneration: 1.0
+      mana-regeneration: 1.0
+      attack-speed: 1.0
+      armor: 1.0
+      armor-toughness: 0.5
+      damage-reduction: 1.0
     breakthrough:
       lightning-bolts: 10
       damage-per-bolt: 3.0
@@ -91,6 +119,20 @@ realms:
       vien-man:
         tuvi: 92000
         display-name: "&8(&aTrúc Cơ &8♦ &aViên Mãn&8)"
+    stat-bonus:
+      max-health: 5.0
+      attack-damage: 3.0
+      defense: 3.0
+      movement-speed: 1.0
+      critical-strike-chance: 2.0
+      critical-strike-power: 4.0
+      max-mana: 5.0
+      health-regeneration: 2.0
+      mana-regeneration: 2.0
+      attack-speed: 1.5
+      armor: 2.0
+      armor-toughness: 1.0
+      damage-reduction: 2.0
     breakthrough:
       lightning-bolts: 10
       damage-per-bolt: 3.0
@@ -120,6 +162,20 @@ realms:
       vien-man:
         tuvi: 325000
         display-name: "&8(&eKim Đan &8♦ &eViên Mãn&8)"
+    stat-bonus:
+      max-health: 8.0
+      attack-damage: 5.0
+      defense: 5.0
+      movement-speed: 1.5
+      critical-strike-chance: 3.0
+      critical-strike-power: 6.0
+      max-mana: 8.0
+      health-regeneration: 3.0
+      mana-regeneration: 3.0
+      attack-speed: 2.0
+      armor: 3.0
+      armor-toughness: 1.5
+      damage-reduction: 3.0
     breakthrough:
       lightning-bolts: 12
       damage-per-bolt: 3.0
@@ -149,6 +205,20 @@ realms:
       vien-man:
         tuvi: 930000
         display-name: "&8(&eNguyên Anh &8♦ &eViên Mãn&8)"
+    stat-bonus:
+      max-health: 12.0
+      attack-damage: 7.0
+      defense: 7.0
+      movement-speed: 2.0
+      critical-strike-chance: 4.0
+      critical-strike-power: 8.0
+      max-mana: 12.0
+      health-regeneration: 4.0
+      mana-regeneration: 4.0
+      attack-speed: 2.5
+      armor: 4.0
+      armor-toughness: 2.0
+      damage-reduction: 4.0
     breakthrough:
       lightning-bolts: 12
       damage-per-bolt: 3.5
@@ -178,6 +248,20 @@ realms:
       vien-man:
         tuvi: 2800000
         display-name: "&8(&5Hóa Thần &8♦ &5Viên Mãn&8)"
+    stat-bonus:
+      max-health: 16.0
+      attack-damage: 10.0
+      defense: 10.0
+      movement-speed: 2.5
+      critical-strike-chance: 5.0
+      critical-strike-power: 10.0
+      max-mana: 16.0
+      health-regeneration: 5.0
+      mana-regeneration: 5.0
+      attack-speed: 3.0
+      armor: 5.0
+      armor-toughness: 2.5
+      damage-reduction: 5.0
     breakthrough:
       lightning-bolts: 14
       damage-per-bolt: 4.0
@@ -207,6 +291,20 @@ realms:
       vien-man:
         tuvi: 7500000
         display-name: "&8(&5Luyện Hư &8♦ &5Viên Mãn&8)"
+    stat-bonus:
+      max-health: 20.0
+      attack-damage: 13.0
+      defense: 13.0
+      movement-speed: 3.0
+      critical-strike-chance: 6.0
+      critical-strike-power: 12.0
+      max-mana: 20.0
+      health-regeneration: 6.0
+      mana-regeneration: 6.0
+      attack-speed: 3.5
+      armor: 6.0
+      armor-toughness: 3.0
+      damage-reduction: 6.0
     breakthrough:
       lightning-bolts: 14
       damage-per-bolt: 4.0
@@ -239,6 +337,20 @@ realms:
       vien-man:
         tuvi: 19000000
         display-name: "&7(&bĐại Thừa &7♦ &bViên Mãn&7)"
+    stat-bonus:
+      max-health: 25.0
+      attack-damage: 16.0
+      defense: 16.0
+      movement-speed: 3.5
+      critical-strike-chance: 7.0
+      critical-strike-power: 15.0
+      max-mana: 25.0
+      health-regeneration: 7.0
+      mana-regeneration: 7.0
+      attack-speed: 4.0
+      armor: 8.0
+      armor-toughness: 3.5
+      damage-reduction: 7.0
     breakthrough:
       lightning-bolts: 18
       damage-per-bolt: 4.5
@@ -268,6 +380,20 @@ realms:
       vien-man:
         tuvi: 47000000
         display-name: "&7(&bĐộ Kiếp &7♦ &bViên Mãn&7)"
+    stat-bonus:
+      max-health: 30.0
+      attack-damage: 20.0
+      defense: 20.0
+      movement-speed: 4.0
+      critical-strike-chance: 8.0
+      critical-strike-power: 18.0
+      max-mana: 30.0
+      health-regeneration: 8.0
+      mana-regeneration: 8.0
+      attack-speed: 4.5
+      armor: 10.0
+      armor-toughness: 4.0
+      damage-reduction: 8.0
     breakthrough:
       lightning-bolts: 18
       damage-per-bolt: 5.0
@@ -297,6 +423,20 @@ realms:
       vien-man:
         tuvi: 115000000
         display-name: "&7(&3Tiên Nhân &7♦ &3Viên Mãn&7)"
+    stat-bonus:
+      max-health: 36.0
+      attack-damage: 24.0
+      defense: 24.0
+      movement-speed: 4.5
+      critical-strike-chance: 9.0
+      critical-strike-power: 22.0
+      max-mana: 36.0
+      health-regeneration: 9.0
+      mana-regeneration: 9.0
+      attack-speed: 5.0
+      armor: 12.0
+      armor-toughness: 4.5
+      damage-reduction: 9.0
     breakthrough:
       lightning-bolts: 21
       damage-per-bolt: 5.0
@@ -326,6 +466,20 @@ realms:
       vien-man:
         tuvi: 285000000
         display-name: "&7(&3Thiên Tiên &7♦ &3Viên Mãn&7)"
+    stat-bonus:
+      max-health: 42.0
+      attack-damage: 28.0
+      defense: 28.0
+      movement-speed: 5.0
+      critical-strike-chance: 10.0
+      critical-strike-power: 26.0
+      max-mana: 42.0
+      health-regeneration: 10.0
+      mana-regeneration: 10.0
+      attack-speed: 5.5
+      armor: 14.0
+      armor-toughness: 5.0
+      damage-reduction: 10.0
     breakthrough:
       lightning-bolts: 21
       damage-per-bolt: 5.5
@@ -355,6 +509,20 @@ realms:
       vien-man:
         tuvi: 660000000
         display-name: "&7(&6Kim Tiên &7♦ &6Viên Mãn&7)"
+    stat-bonus:
+      max-health: 50.0
+      attack-damage: 33.0
+      defense: 33.0
+      movement-speed: 5.5
+      critical-strike-chance: 12.0
+      critical-strike-power: 30.0
+      max-mana: 50.0
+      health-regeneration: 12.0
+      mana-regeneration: 12.0
+      attack-speed: 6.0
+      armor: 16.0
+      armor-toughness: 5.5
+      damage-reduction: 12.0
     breakthrough:
       lightning-bolts: 24
       damage-per-bolt: 6.0
@@ -384,6 +552,20 @@ realms:
       vien-man:
         tuvi: 1430000000
         display-name: "&7(&6Thái Ất &7♦ &6Viên Mãn&7)"
+    stat-bonus:
+      max-health: 58.0
+      attack-damage: 38.0
+      defense: 38.0
+      movement-speed: 6.0
+      critical-strike-chance: 14.0
+      critical-strike-power: 35.0
+      max-mana: 58.0
+      health-regeneration: 14.0
+      mana-regeneration: 14.0
+      attack-speed: 6.5
+      armor: 18.0
+      armor-toughness: 6.0
+      damage-reduction: 14.0
     breakthrough:
       lightning-bolts: 24
       damage-per-bolt: 6.0
@@ -416,6 +598,20 @@ realms:
       vien-man:
         tuvi: 3350000000
         display-name: "&e(&d&lĐại La &6♦ &d&lViên Mãn&e)"
+    stat-bonus:
+      max-health: 66.0
+      attack-damage: 44.0
+      defense: 44.0
+      movement-speed: 6.5
+      critical-strike-chance: 16.0
+      critical-strike-power: 40.0
+      max-mana: 66.0
+      health-regeneration: 16.0
+      mana-regeneration: 16.0
+      attack-speed: 7.0
+      armor: 20.0
+      armor-toughness: 6.5
+      damage-reduction: 16.0
     breakthrough:
       lightning-bolts: 27
       damage-per-bolt: 6.5
@@ -445,6 +641,20 @@ realms:
       vien-man:
         tuvi: 7600000000
         display-name: "&e(&d&lChuẩn Thánh &6♦ &d&lViên Mãn&e)"
+    stat-bonus:
+      max-health: 75.0
+      attack-damage: 50.0
+      defense: 50.0
+      movement-speed: 7.0
+      critical-strike-chance: 18.0
+      critical-strike-power: 45.0
+      max-mana: 75.0
+      health-regeneration: 18.0
+      mana-regeneration: 18.0
+      attack-speed: 7.5
+      armor: 22.0
+      armor-toughness: 7.0
+      damage-reduction: 18.0
     breakthrough:
       lightning-bolts: 27
       damage-per-bolt: 7.0
@@ -474,6 +684,20 @@ realms:
       vien-man:
         tuvi: 19000000000
         display-name: "&e(&c&lThánh Nhân &6♦ &c&lViên Mãn&e)"
+    stat-bonus:
+      max-health: 85.0
+      attack-damage: 56.0
+      defense: 56.0
+      movement-speed: 7.5
+      critical-strike-chance: 20.0
+      critical-strike-power: 50.0
+      max-mana: 85.0
+      health-regeneration: 20.0
+      mana-regeneration: 20.0
+      attack-speed: 8.0
+      armor: 25.0
+      armor-toughness: 7.5
+      damage-reduction: 20.0
     breakthrough:
       lightning-bolts: 30
       damage-per-bolt: 7.0
@@ -503,6 +727,20 @@ realms:
       vien-man:
         tuvi: 48000000000
         display-name: "&e(&c&lThiên Đế &6♦ &c&lViên Mãn&e)"
+    stat-bonus:
+      max-health: 95.0
+      attack-damage: 63.0
+      defense: 63.0
+      movement-speed: 8.0
+      critical-strike-chance: 22.0
+      critical-strike-power: 55.0
+      max-mana: 95.0
+      health-regeneration: 22.0
+      mana-regeneration: 22.0
+      attack-speed: 8.5
+      armor: 28.0
+      armor-toughness: 8.0
+      damage-reduction: 22.0
     breakthrough:
       lightning-bolts: 30
       damage-per-bolt: 7.5
@@ -532,6 +770,20 @@ realms:
       vien-man:
         tuvi: 96000000000
         display-name: "&e(&4&lĐạo Tổ &6♦ &4&lViên Mãn&e)"
+    stat-bonus:
+      max-health: 110.0
+      attack-damage: 72.0
+      defense: 72.0
+      movement-speed: 8.5
+      critical-strike-chance: 25.0
+      critical-strike-power: 60.0
+      max-mana: 110.0
+      health-regeneration: 25.0
+      mana-regeneration: 25.0
+      attack-speed: 9.0
+      armor: 30.0
+      armor-toughness: 8.5
+      damage-reduction: 25.0
     breakthrough:
       lightning-bolts: 33
       damage-per-bolt: 8.0
@@ -561,6 +813,20 @@ realms:
       vien-man:
         tuvi: 450000000000
         display-name: "&c&l(&4&lHồng Mông &6&l♦ &4&lViên Mãn&c&l)"
+    stat-bonus:
+      max-health: 130.0
+      attack-damage: 85.0
+      defense: 85.0
+      movement-speed: 9.0
+      critical-strike-chance: 28.0
+      critical-strike-power: 70.0
+      max-mana: 130.0
+      health-regeneration: 28.0
+      mana-regeneration: 28.0
+      attack-speed: 10.0
+      armor: 35.0
+      armor-toughness: 9.0
+      damage-reduction: 28.0
     breakthrough:
       lightning-bolts: 36
       damage-per-bolt: 8.0
@@ -597,6 +863,8 @@ breakthrough:
   sub-realm-broadcast-radius: 30
   dan-loss-percent: 50
   fail-damage-multiplier: 2.0
+  fail-demote: true
+  fail-demote-min-realm: 1
   dot-pha-dan-item: "DOT_PHA_DAN"
   dot-pha-dan-amounts:
     2: 1

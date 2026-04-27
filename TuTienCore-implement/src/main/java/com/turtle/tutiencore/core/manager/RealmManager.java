@@ -54,8 +54,13 @@ public class RealmManager implements Listener {
     private int subRealmBroadcastRadius;
     private int danLossPercent;
     private double failDamageMultiplier;
+    private boolean failDemote;
+    private int failDemoteMinRealm;
     private String dotPhaDanItem;
     private Map<Integer, Integer> dotPhaDanAmounts = new HashMap<>();
+
+    // MythicLib stat modifier key prefix
+    private static final String STAT_MOD_PREFIX = "tutien_realm_";
 
     public RealmManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -128,10 +133,25 @@ public class RealmManager implements Listener {
                 double dmgPerBolt = bt != null ? bt.getDouble("damage-per-bolt", 0) : 0;
                 double successRate = bt != null ? bt.getDouble("success-rate", 100) : 100;
 
+                // Load stat bonus (dynamic map — supports ALL stats)
+                Map<String, Double> statBonuses = new HashMap<>();
+                ConfigurationSection sb = rs.getConfigurationSection("stat-bonus");
+                if (sb != null) {
+                    for (String statKey : sb.getKeys(false)) {
+                        double value = sb.getDouble(statKey, 0);
+                        if (value > 0) {
+                            // Convert config key to MythicLib stat name
+                            // e.g. "max-health" → "MAX_HEALTH"
+                            String statName = statKey.toUpperCase().replace('-', '_');
+                            statBonuses.put(statName, value);
+                        }
+                    }
+                }
+
                 Realm realm = new Realm(id, name, displayName, english, tier,
                         tuViRequired, thucLucRequired, color,
                         soKy, trungKy, hauKy, dinhPhong, vienMan,
-                        bolts, dmgPerBolt, successRate);
+                        bolts, dmgPerBolt, successRate, statBonuses);
 
                 // Set sub-realm display names
                 if (trungKyDisplay != null) realm.setSubRealmDisplayName(SubRealm.TRUNG_KY, trungKyDisplay);
@@ -165,6 +185,8 @@ public class RealmManager implements Listener {
             subRealmBroadcastRadius = btGeneral.getInt("sub-realm-broadcast-radius", 30);
             danLossPercent = btGeneral.getInt("dan-loss-percent", 50);
             failDamageMultiplier = btGeneral.getDouble("fail-damage-multiplier", 2.0);
+            failDemote = btGeneral.getBoolean("fail-demote", true);
+            failDemoteMinRealm = btGeneral.getInt("fail-demote-min-realm", 1);
             dotPhaDanItem = btGeneral.getString("dot-pha-dan-item", "DOT_PHA_DAN");
 
             ConfigurationSection danAmounts = btGeneral.getConfigurationSection("dot-pha-dan-amounts");
@@ -397,12 +419,110 @@ public class RealmManager implements Listener {
     }
 
     /**
-     * Handle breakthrough failure
+     * Handle breakthrough failure — apply cooldown and demote realm if enabled
      */
     public void handleBreakthroughFailure(UUID uuid) {
         PlayerRealm pr = getPlayerRealm(uuid);
         pr.applyCooldown(cooldownSeconds * 1000L);
+
+        // Demote realm if enabled
+        if (failDemote && pr.getRealmId() > failDemoteMinRealm) {
+            int demotedId = pr.getRealmId() - 1;
+            pr.setRealmId(demotedId);
+            pr.setSubRealm(SubRealm.VIEN_MAN); // Tụt bậc nhưng ở Viên Mãn
+        }
+
         savePlayerRealm(uuid);
+    }
+
+    /**
+     * Check if fail-demote is enabled
+     */
+    public boolean isFailDemoteEnabled() { return failDemote; }
+
+    // ==========================================
+    // STAT BONUS (MythicLib StatModifier)
+    // ==========================================
+
+    /**
+     * Apply stat bonuses for the player's CURRENT realm using MythicLib.
+     * Removes old modifiers first, then applies new ones.
+     */
+    public void applyStatBonus(Player player) {
+        UUID uuid = player.getUniqueId();
+        Realm realm = getPlayerCurrentRealm(uuid);
+        if (realm == null) return;
+
+        try {
+            io.lumine.mythic.lib.api.player.MMOPlayerData mmoData =
+                    io.lumine.mythic.lib.api.player.MMOPlayerData.get(uuid);
+            if (mmoData == null) return;
+
+            io.lumine.mythic.lib.api.stat.StatMap statMap = mmoData.getStatMap();
+            if (statMap == null) return;
+
+            // Remove old TuTien modifiers
+            removeStatBonus(player);
+
+            // Apply new modifiers for each stat in this realm
+            for (Map.Entry<String, Double> entry : realm.getStatBonuses().entrySet()) {
+                String stat = entry.getKey();
+                double percent = entry.getValue();
+                if (percent <= 0) continue;
+
+                String key = STAT_MOD_PREFIX + stat;
+                double value = percent / 100.0; // Convert % to decimal for RELATIVE
+
+                io.lumine.mythic.lib.api.stat.modifier.StatModifier modifier =
+                        new io.lumine.mythic.lib.api.stat.modifier.StatModifier(
+                                key, stat, value,
+                                io.lumine.mythic.lib.api.stat.modifier.ModifierType.RELATIVE);
+
+                io.lumine.mythic.lib.api.stat.StatInstance instance = statMap.getInstance(stat);
+                if (instance != null) {
+                    instance.addModifier(modifier);
+                }
+            }
+
+            plugin.getLogger().info("Applied " + realm.getStatBonuses().size()
+                    + " stat bonuses for " + player.getName() + " (" + realm.getName() + ")");
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("MythicLib not available — stat bonuses skipped for " + player.getName());
+        }
+    }
+
+    /**
+     * Remove all TuTien stat bonuses from a player.
+     */
+    public void removeStatBonus(Player player) {
+        UUID uuid = player.getUniqueId();
+        Realm realm = getPlayerCurrentRealm(uuid);
+
+        try {
+            io.lumine.mythic.lib.api.player.MMOPlayerData mmoData =
+                    io.lumine.mythic.lib.api.player.MMOPlayerData.get(uuid);
+            if (mmoData == null) return;
+
+            io.lumine.mythic.lib.api.stat.StatMap statMap = mmoData.getStatMap();
+            if (statMap == null) return;
+
+            // Remove modifiers for ALL possible stats (check all realms)
+            Set<String> allStats = new HashSet<>();
+            for (Realm r : realms.values()) {
+                allStats.addAll(r.getStatBonuses().keySet());
+            }
+
+            for (String stat : allStats) {
+                String key = STAT_MOD_PREFIX + stat;
+                io.lumine.mythic.lib.api.stat.StatInstance instance = statMap.getInstance(stat);
+                if (instance != null) {
+                    instance.removeModifier(key);
+                }
+            }
+        } catch (Exception e) {
+            // MythicLib not loaded — silently ignore
+        }
     }
 
     // ==========================================
@@ -509,6 +629,13 @@ public class RealmManager implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         loadPlayerRealm(event.getPlayer().getUniqueId());
+        // Apply stat bonuses after a short delay (ensure player entity is ready)
+        Player p = event.getPlayer();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline()) {
+                applyStatBonus(p);
+            }
+        }, 20L);
     }
 
     @EventHandler
