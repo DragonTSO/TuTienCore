@@ -100,19 +100,19 @@ cultivation-effects:
     enabled: true
   # Lightning Arcs - Set dien quanh nguoi
   lightning:
-    enabled: true
+    enabled: false
   # Absorption - Linh khi bi hap thu vao nguoi
   absorption:
-    enabled: true
+    enabled: false
   # Ground Circle - Vong tron phap tran duoi chan
   ground-circle:
-    enabled: true
+    enabled: false
   # Energy Pillar - Cot nang luong chieu len troi
   pillar:
-    enabled: true
+    enabled: false
   # Ambient - Hat nang luong bay lo lung
   ambient:
-    enabled: true
+    enabled: false
 
 # ==========================================
 # MAU PARTICLE THEO CLASS (MMOCore)

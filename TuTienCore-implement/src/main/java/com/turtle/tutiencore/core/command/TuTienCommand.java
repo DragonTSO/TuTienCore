@@ -41,6 +41,7 @@ public class TuTienCommand implements CommandExecutor {
             sender.sendMessage("§e[TuTienCore] Commands:");
             sender.sendMessage("§e/ttc tuluyen §7- Toggle cultivation");
             if (sender.hasPermission("tutiencore.admin")) {
+                sender.sendMessage("§c/ttc reload §7- Reload configuration");
                 sender.sendMessage("§c/ttc wand §7- Get Zone Wand");
                 sender.sendMessage("§c/ttc create <zoneName> §7- Create Zone");
                 sender.sendMessage("§c/ttc zonecenter <zoneName> §7- Set Center for particles");
@@ -57,6 +58,12 @@ public class TuTienCommand implements CommandExecutor {
         // --- ADMIN COMMANDS BELOW ---
         if (!sender.hasPermission("tutiencore.admin")) {
             sender.sendMessage(config.getMessage("admin.no-permission", "§cBạn không có quyền dùng lệnh này."));
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("reload")) {
+            config.load();
+            sender.sendMessage("§a[TuTienCore] Đã nạp lại cấu hình!");
             return true;
         }
 

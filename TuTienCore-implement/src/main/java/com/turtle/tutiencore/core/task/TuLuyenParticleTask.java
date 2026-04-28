@@ -59,10 +59,10 @@ public class TuLuyenParticleTask {
         int[][] cached = playerColorCache.get(uuid);
         if (cached != null) return cached;
 
-        // Try to get from MMOCore
-        int[][] colors = resolveMMOCoreColors(player);
-        playerColorCache.put(uuid, colors);
-        return colors;
+        // Fallback: if not cached (shouldn't happen if refreshPlayerColors was called)
+        // Return default — do NOT call MMOCore API from async thread
+        plugin.getLogger().warning("[ClassColor] Cache miss for " + player.getName() + " — using default colors (async context)");
+        return DEFAULT_COLORS;
     }
 
     /**
@@ -71,6 +71,7 @@ public class TuLuyenParticleTask {
      */
     private int[][] resolveMMOCoreColors(Player player) {
         if (Bukkit.getPluginManager().getPlugin("MMOCore") == null) {
+            plugin.getLogger().info("[ClassColor] MMOCore not found → default colors for " + player.getName());
             return DEFAULT_COLORS;
         }
 
@@ -82,29 +83,53 @@ public class TuLuyenParticleTask {
                 if (profess != null) {
                     Map<String, int[][]> classColors = configManager.getClassColors();
                     
-                    String classId = profess.getId().toUpperCase();
-                    int[][] mapped = classColors.get(classId);
-                    if (mapped != null) return mapped;
+                    String rawId = profess.getId();
+                    String className = profess.getName();
+                    
+                    // Possible keys to try in order
+                    String[] keysToTry = {
+                        rawId.toUpperCase(),                                      // Exact ID (KIEMTON)
+                        rawId.toUpperCase().replace("-", "_"),                    // ID with underscores (KIEM_TON)
+                        className.toUpperCase().replace(" ", "_"),                // Name with underscores (KIEM_TIEN)
+                        className.toUpperCase().replace(" ", ""),                 // Name compressed (KIEMTIEN)
+                        rawId.toUpperCase().replace("_", "")                      // ID compressed (KIEMTON)
+                    };
 
-                    // Try by name
-                    String className = profess.getName().toUpperCase()
-                            .replace(" ", "_");
-                    mapped = classColors.get(className);
-                    if (mapped != null) return mapped;
+                    plugin.getLogger().info("[ClassColor] Resolving for " + player.getName() 
+                            + " | MMOCore ID: '" + rawId + "', Name: '" + className + "'");
+                    
+                    for (String key : keysToTry) {
+                        int[][] mapped = classColors.get(key);
+                        if (mapped != null) {
+                            plugin.getLogger().info("[ClassColor] Matched key: '" + key + "'");
+                            return mapped;
+                        }
+                    }
+                    
+                    plugin.getLogger().warning("[ClassColor] NO MATCH in config for player " + player.getName() 
+                            + ". Tried: " + java.util.Arrays.toString(keysToTry) 
+                            + ". Config keys: " + classColors.keySet());
+                } else {
+                    plugin.getLogger().info("[ClassColor] " + player.getName() + " has no MMOCore class.");
                 }
             }
         } catch (Throwable t) {
-            // MMOCore not available or API changed
+            plugin.getLogger().warning("[ClassColor] Error: " + t.getClass().getSimpleName() + ": " + t.getMessage());
         }
 
         return DEFAULT_COLORS;
     }
 
     /**
-     * Refresh color cache for a player (call when they start tu luyen)
+     * Refresh color cache for a player (call when they start tu luyen).
+     * MUST be called from the MAIN THREAD — resolves MMOCore class immediately.
      */
     public void refreshPlayerColors(Player player) {
-        playerColorCache.remove(player.getUniqueId());
+        int[][] colors = resolveMMOCoreColors(player);
+        playerColorCache.put(player.getUniqueId(), colors);
+        plugin.getLogger().info("[ClassColor] Cached colors for " + player.getName() 
+                + ": primary=[" + colors[0][0] + "," + colors[0][1] + "," + colors[0][2] + "]"
+                + " secondary=[" + colors[1][0] + "," + colors[1][1] + "," + colors[1][2] + "]");
     }
 
     /**
@@ -157,8 +182,8 @@ public class TuLuyenParticleTask {
             spawnEnergyBurstRays(world, base, colors);
         }
 
-        // === LAYER 3: Lightning/Electric Arcs (every 10 ticks — reduced from 5) ===
-        if (configManager.isCultLightningEnabled() && (int) globalTick % 5 == 0) {
+        // === LAYER 3: Lightning/Electric Arcs (every 3 ticks — more frequent for visibility) ===
+        if (configManager.isCultLightningEnabled() && (int) globalTick % 3 == 0) {
             spawnLightningArcs(world, base, colors);
         }
 
@@ -215,11 +240,11 @@ public class TuLuyenParticleTask {
     }
 
     /**
-     * LAYER 2: Energy Burst Rays — Tia năng lượng bắn ra từ tâm
+     * LAYER 2: Energy Inward Rays — Tia năng lượng hấp thụ từ ngoài vào tâm
      */
     private void spawnEnergyBurstRays(World world, Location base, int[][] colors) {
         Location chest = base.clone().add(0, 1.2, 0);
-        int rayCount = 3 + random.nextInt(3); // Reduced from 6-9 to 3-5
+        int rayCount = 3 + random.nextInt(3); // 3-5 rays
 
         for (int i = 0; i < rayCount; i++) {
             double angle = random.nextDouble() * Math.PI * 2;
@@ -229,19 +254,22 @@ public class TuLuyenParticleTask {
             double dirY = Math.sin(pitch) * 0.5 + 0.2;
             double dirZ = Math.sin(angle) * Math.cos(pitch);
 
-            double rayLength = 1.0 + random.nextDouble() * 2.0; // Shorter rays
-            int points = (int) (rayLength * 3); // Fewer points
+            double rayLength = 2.0 + random.nextDouble() * 2.5;
+            int points = (int) (rayLength * 3);
 
             for (int j = 0; j < points; j++) {
-                double dist = (j / (double) points) * rayLength;
+                // Reverse: start from outer end, move toward chest
+                double dist = ((points - j) / (double) points) * rayLength;
                 Location rayLoc = chest.clone().add(dirX * dist, dirY * dist, dirZ * dist);
 
-                float fade = 1.0f - (float) (dist / rayLength) * 0.7f;
+                // Dim at outer edge, brighter as it approaches center
+                float progress = j / (float) points; // 0 = outer, 1 = center
+                float fade = 0.3f + progress * 0.7f;
                 int r = (int) (colors[0][0] * fade);
                 int g = (int) (colors[0][1] * fade);
                 int b = (int) (colors[0][2] * fade);
 
-                spawnColoredDust(world, rayLoc, r, g, b, fade * 1.0f);
+                spawnColoredDust(world, rayLoc, r, g, b, (0.5f + progress * 0.8f));
             }
         }
     }
@@ -250,33 +278,33 @@ public class TuLuyenParticleTask {
      * LAYER 3: Lightning/Electric Arcs — sét điện quanh người
      */
     private void spawnLightningArcs(World world, Location base, int[][] colors) {
-        int arcCount = 1 + random.nextInt(2); // Reduced from 2-4 to 1-2
+        int arcCount = 2 + random.nextInt(3); // 2-4 arcs for more visibility
 
         for (int arc = 0; arc < arcCount; arc++) {
             double startAngle = random.nextDouble() * Math.PI * 2;
             double startY = 0.3 + random.nextDouble() * 2.0;
-            double startRadius = 0.8 + random.nextDouble() * 0.8;
+            double startRadius = 0.8 + random.nextDouble() * 1.0;
 
             Location start = base.clone().add(
                     startRadius * Math.cos(startAngle), startY,
                     startRadius * Math.sin(startAngle));
 
             double endAngle = startAngle + (random.nextDouble() - 0.5) * Math.PI;
-            double endY = startY + (random.nextDouble() - 0.5) * 1.5;
-            double endRadius = startRadius + (random.nextDouble() - 0.5) * 0.6;
+            double endY = startY + (random.nextDouble() - 0.5) * 1.8;
+            double endRadius = startRadius + (random.nextDouble() - 0.5) * 0.8;
 
             Location end = base.clone().add(
                     endRadius * Math.cos(endAngle), Math.max(0.1, endY),
                     endRadius * Math.sin(endAngle));
 
-            int segments = 4 + random.nextInt(3); // Reduced from 6-10 to 4-6
+            int segments = 6 + random.nextInt(4); // 6-9 segments for longer arcs
             Location prev = start.clone();
 
             for (int i = 1; i <= segments; i++) {
                 double progress = i / (double) segments;
-                double jitterX = (random.nextDouble() - 0.5) * 0.3;
-                double jitterY = (random.nextDouble() - 0.5) * 0.3;
-                double jitterZ = (random.nextDouble() - 0.5) * 0.3;
+                double jitterX = (random.nextDouble() - 0.5) * 0.4;
+                double jitterY = (random.nextDouble() - 0.5) * 0.4;
+                double jitterZ = (random.nextDouble() - 0.5) * 0.4;
 
                 Location point = new Location(world,
                         start.getX() + (end.getX() - start.getX()) * progress + jitterX,
@@ -284,7 +312,7 @@ public class TuLuyenParticleTask {
                         start.getZ() + (end.getZ() - start.getZ()) * progress + jitterZ);
 
                 double dist = prev.distance(point);
-                int linePoints = Math.max(2, (int) (dist * 4)); // Reduced density
+                int linePoints = Math.max(3, (int) (dist * 6)); // Denser line
                 for (int j = 0; j < linePoints; j++) {
                     double lt = j / (double) linePoints;
                     Location lineLoc = new Location(world,
@@ -292,11 +320,15 @@ public class TuLuyenParticleTask {
                             prev.getY() + (point.getY() - prev.getY()) * lt,
                             prev.getZ() + (point.getZ() - prev.getZ()) * lt);
 
-                    // Bright white-tinted version of primary color
-                    int r = Math.min(255, colors[0][0] + 100);
-                    int g = Math.min(255, colors[0][1] + 100);
-                    int b = Math.min(255, colors[0][2] + 100);
-                    spawnColoredDust(world, lineLoc, r, g, b, 0.6f);
+                    // Core: pure primary color, big dust for bold arcs
+                    spawnColoredDust(world, lineLoc, colors[0][0], colors[0][1], colors[0][2], 1.0f);
+                    // Glow: white-tinted overlay for brightness
+                    if (j % 2 == 0) {
+                        int r = Math.min(255, colors[0][0] + 120);
+                        int g = Math.min(255, colors[0][1] + 120);
+                        int b = Math.min(255, colors[0][2] + 120);
+                        spawnColoredDust(world, lineLoc, r, g, b, 0.6f);
+                    }
                 }
                 prev = point;
             }

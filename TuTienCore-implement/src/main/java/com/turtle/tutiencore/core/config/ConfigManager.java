@@ -105,17 +105,26 @@ public class ConfigManager {
 
         // Load class colors
         classColors.clear();
-        if (config.isConfigurationSection("class-colors")) {
-            for (String classId : config.getConfigurationSection("class-colors").getKeys(false)) {
-                List<Integer> rgb = config.getIntegerList("class-colors." + classId);
-                if (rgb.size() >= 6) {
-                    classColors.put(classId.toUpperCase(), new int[][]{
-                        {rgb.get(0), rgb.get(1), rgb.get(2)},
-                        {rgb.get(3), rgb.get(4), rgb.get(5)}
-                    });
-                }
+        if (!config.isConfigurationSection("class-colors")) {
+            // Auto-inject default class colors for servers with old config.yml
+            plugin.getLogger().info("[ClassColor] 'class-colors' section not found — injecting defaults...");
+            config.set("class-colors.KIEMTON", java.util.Arrays.asList(255, 215, 0, 255, 140, 0));
+            config.set("class-colors.VANPHAP", java.util.Arrays.asList(212, 160, 23, 139, 105, 20));
+            config.set("class-colors.BATHE", java.util.Arrays.asList(68, 136, 255, 34, 68, 170));
+            config.set("class-colors.DUOCTIEN", java.util.Arrays.asList(85, 255, 85, 0, 170, 68));
+            config.set("class-colors.ANHSAT", java.util.Arrays.asList(255, 68, 68, 255, 102, 0));
+            plugin.saveConfig();
+        }
+        for (String classId : config.getConfigurationSection("class-colors").getKeys(false)) {
+            List<Integer> rgb = config.getIntegerList("class-colors." + classId);
+            if (rgb.size() >= 6) {
+                classColors.put(classId.toUpperCase(), new int[][]{
+                    {rgb.get(0), rgb.get(1), rgb.get(2)},
+                    {rgb.get(3), rgb.get(4), rgb.get(5)}
+                });
             }
         }
+        plugin.getLogger().info("[ClassColor] Loaded " + classColors.size() + " class colors: " + classColors.keySet());
 
         tuluyenModel = config.getString("tuluyen-model", "toado");
     }
