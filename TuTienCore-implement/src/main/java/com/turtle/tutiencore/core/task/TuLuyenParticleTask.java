@@ -3,6 +3,7 @@ package com.turtle.tutiencore.core.task;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -12,18 +13,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Tu Luyện Particle Effect System
  * 
- * Creates an epic cultivation meditation visual effect:
- * - Double helix spiral aura (cyan energy swirls)
- * - Energy burst rays shooting outward
- * - Lightning-like electric arcs around the player
- * - Inward absorption particles (spiritual energy gathering)
- * - Ground runic circle
- * - Vertical energy pillar
+ * Creates cultivation meditation visual effects with class-based colors.
+ * Colors are determined by the player's MMOCore class.
  */
 public class TuLuyenParticleTask {
 
@@ -36,6 +35,12 @@ public class TuLuyenParticleTask {
     // Animation state
     private double globalTick = 0;
 
+    // Default cyan color (fallback when no class)
+    private static final int[][] DEFAULT_COLORS = {{0, 220, 255}, {100, 255, 230}};
+
+    // Cache player class colors (refreshed when they start tu luyen)
+    private final Map<UUID, int[][]> playerColorCache = new HashMap<>();
+
     public TuLuyenParticleTask(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
@@ -43,6 +48,70 @@ public class TuLuyenParticleTask {
 
     public void setTuLuyenManager(TuLuyenManager tuLuyenManager) {
         this.tuLuyenManager = tuLuyenManager;
+    }
+
+    /**
+     * Get the color palette for a player based on their MMOCore class.
+     * Returns [primary RGB, secondary RGB].
+     */
+    public int[][] getPlayerColors(Player player) {
+        UUID uuid = player.getUniqueId();
+        int[][] cached = playerColorCache.get(uuid);
+        if (cached != null) return cached;
+
+        // Try to get from MMOCore
+        int[][] colors = resolveMMOCoreColors(player);
+        playerColorCache.put(uuid, colors);
+        return colors;
+    }
+
+    /**
+     * Resolve colors from MMOCore class.
+     * Called once when player starts tu luyen, cached afterward.
+     */
+    private int[][] resolveMMOCoreColors(Player player) {
+        if (Bukkit.getPluginManager().getPlugin("MMOCore") == null) {
+            return DEFAULT_COLORS;
+        }
+
+        try {
+            net.Indyuce.mmocore.api.player.PlayerData data = 
+                    net.Indyuce.mmocore.api.player.PlayerData.get(player);
+            if (data != null) {
+                net.Indyuce.mmocore.api.player.PlayerClass profess = data.getProfess();
+                if (profess != null) {
+                    Map<String, int[][]> classColors = configManager.getClassColors();
+                    
+                    String classId = profess.getId().toUpperCase();
+                    int[][] mapped = classColors.get(classId);
+                    if (mapped != null) return mapped;
+
+                    // Try by name
+                    String className = profess.getName().toUpperCase()
+                            .replace(" ", "_");
+                    mapped = classColors.get(className);
+                    if (mapped != null) return mapped;
+                }
+            }
+        } catch (Throwable t) {
+            // MMOCore not available or API changed
+        }
+
+        return DEFAULT_COLORS;
+    }
+
+    /**
+     * Refresh color cache for a player (call when they start tu luyen)
+     */
+    public void refreshPlayerColors(Player player) {
+        playerColorCache.remove(player.getUniqueId());
+    }
+
+    /**
+     * Clear color cache for a player (call when they stop tu luyen)
+     */
+    public void clearPlayerColors(UUID uuid) {
+        playerColorCache.remove(uuid);
     }
 
     // Keep this method if it was called elsewhere, but we won't do much inside it now
@@ -67,7 +136,7 @@ public class TuLuyenParticleTask {
                 }
             }
         };
-        auraTask.runTaskTimerAsynchronously(plugin, 0L, 1L); // Every tick for smooth animation
+        auraTask.runTaskTimerAsynchronously(plugin, 0L, 2L); // Every 2 ticks (was 1, reduced for performance)
     }
 
     /**
@@ -76,105 +145,101 @@ public class TuLuyenParticleTask {
     private void spawnCultivationEffect(Player player) {
         Location base = player.getLocation();
         World world = player.getWorld();
+        int[][] colors = getPlayerColors(player);
 
-        // === LAYER 1: Double Helix Energy Spiral ===
+        // === LAYER 1: Double Helix Energy Spiral (every 2 ticks now) ===
         if (configManager.isCultHelixEnabled()) {
-            spawnDoubleHelix(world, base);
+            spawnDoubleHelix(world, base, colors);
         }
 
-        // === LAYER 2: Energy Burst Rays (every 3 ticks) ===
-        if (configManager.isCultRaysEnabled() && (int) globalTick % 3 == 0) {
-            spawnEnergyBurstRays(world, base);
+        // === LAYER 2: Energy Burst Rays (every 8 ticks — reduced from 3) ===
+        if (configManager.isCultRaysEnabled() && (int) globalTick % 4 == 0) {
+            spawnEnergyBurstRays(world, base, colors);
         }
 
-        // === LAYER 3: Lightning/Electric Arcs (every 5 ticks) ===
+        // === LAYER 3: Lightning/Electric Arcs (every 10 ticks — reduced from 5) ===
         if (configManager.isCultLightningEnabled() && (int) globalTick % 5 == 0) {
-            spawnLightningArcs(world, base);
+            spawnLightningArcs(world, base, colors);
         }
 
-        // === LAYER 4: Inward Absorption Particles (every 2 ticks) ===
+        // === LAYER 4: Inward Absorption Particles (every 4 ticks — reduced from 2) ===
         if (configManager.isCultAbsorptionEnabled() && (int) globalTick % 2 == 0) {
-            spawnAbsorptionParticles(world, base);
+            spawnAbsorptionParticles(world, base, colors);
         }
 
-        // === LAYER 5: Ground Runic Circle (every 4 ticks) ===
-        if (configManager.isCultGroundCircleEnabled() && (int) globalTick % 4 == 0) {
-            spawnGroundCircle(world, base);
+        // === LAYER 5: Ground Runic Circle (every 6 ticks — reduced from 4) ===
+        if (configManager.isCultGroundCircleEnabled() && (int) globalTick % 3 == 0) {
+            spawnGroundCircle(world, base, colors);
         }
 
-        // === LAYER 6: Vertical Energy Pillar (every 6 ticks) ===
-        if (configManager.isCultPillarEnabled() && (int) globalTick % 6 == 0) {
-            spawnEnergyPillar(world, base);
+        // === LAYER 6: Vertical Energy Pillar (every 10 ticks — reduced from 6) ===
+        if (configManager.isCultPillarEnabled() && (int) globalTick % 5 == 0) {
+            spawnEnergyPillar(world, base, colors);
         }
 
-        // === LAYER 7: Ambient Floating Particles ===
+        // === LAYER 7: Ambient Floating Particles (every 6 ticks — reduced from 3) ===
         if (configManager.isCultAmbientEnabled() && (int) globalTick % 3 == 0) {
-            spawnAmbientFloatingParticles(world, base);
+            spawnAmbientFloatingParticles(world, base, colors);
         }
     }
 
     /**
-     * LAYER 1: Double Helix - Two intertwined spiral arms rotating around the player
-     * Creates the main swirling energy effect seen in the reference image
+     * LAYER 1: Double Helix — Two intertwined spiral arms
      */
-    private void spawnDoubleHelix(World world, Location base) {
-        double speed = globalTick * 0.15; // Rotation speed
-        double heightRange = 2.5; // Total height of helix
+    private void spawnDoubleHelix(World world, Location base, int[][] colors) {
+        double speed = globalTick * 0.15;
+        double heightRange = 2.5;
 
         for (int arm = 0; arm < 2; arm++) {
-            double armOffset = arm * Math.PI; // 180 degree offset between arms
+            double armOffset = arm * Math.PI;
 
-            // Each arm has multiple points for a smooth trail
-            for (int i = 0; i < 8; i++) {
-                double t = speed + (i * 0.25) + armOffset;
-                double radius = 1.0 + Math.sin(globalTick * 0.05 + i * 0.3) * 0.3; // Pulsing radius
+            // Reduced from 8 to 5 points per arm
+            for (int i = 0; i < 5; i++) {
+                double t = speed + (i * 0.35) + armOffset;
+                double radius = 1.0 + Math.sin(globalTick * 0.05 + i * 0.3) * 0.3;
                 double x = radius * Math.cos(t);
                 double z = radius * Math.sin(t);
                 double y = (((globalTick * 0.08 + i * 0.15) % heightRange));
 
                 Location loc = base.clone().add(x, y, z);
 
-                // Main cyan/aqua color
-                spawnColoredDust(world, loc, 0, 220, 255, 1.2f);
+                // Primary color
+                spawnColoredDust(world, loc, colors[0][0], colors[0][1], colors[0][2], 1.2f);
 
-                // Secondary white glow trail
+                // Secondary glow trail (every other point)
                 if (i % 2 == 0) {
-                    spawnColoredDust(world, loc, 180, 240, 255, 0.8f);
+                    spawnColoredDust(world, loc, colors[1][0], colors[1][1], colors[1][2], 0.8f);
                 }
             }
         }
     }
 
     /**
-     * LAYER 2: Energy Burst Rays - Tia năng lượng bắn ra từ tâm
-     * Creates the explosive ray effect spreading outward from the player
+     * LAYER 2: Energy Burst Rays — Tia năng lượng bắn ra từ tâm
      */
-    private void spawnEnergyBurstRays(World world, Location base) {
+    private void spawnEnergyBurstRays(World world, Location base, int[][] colors) {
         Location chest = base.clone().add(0, 1.2, 0);
-        int rayCount = 6 + random.nextInt(4); // 6-9 rays
+        int rayCount = 3 + random.nextInt(3); // Reduced from 6-9 to 3-5
 
         for (int i = 0; i < rayCount; i++) {
-            // Random direction for each ray
             double angle = random.nextDouble() * Math.PI * 2;
-            double pitch = (random.nextDouble() - 0.3) * Math.PI * 0.6; // Slightly upward bias
+            double pitch = (random.nextDouble() - 0.3) * Math.PI * 0.6;
 
             double dirX = Math.cos(angle) * Math.cos(pitch);
-            double dirY = Math.sin(pitch) * 0.5 + 0.2; // Upward tendency
+            double dirY = Math.sin(pitch) * 0.5 + 0.2;
             double dirZ = Math.sin(angle) * Math.cos(pitch);
 
-            // Each ray has multiple points along its length
-            double rayLength = 1.5 + random.nextDouble() * 2.5;
-            int points = (int) (rayLength * 4);
+            double rayLength = 1.0 + random.nextDouble() * 2.0; // Shorter rays
+            int points = (int) (rayLength * 3); // Fewer points
 
             for (int j = 0; j < points; j++) {
                 double dist = (j / (double) points) * rayLength;
                 Location rayLoc = chest.clone().add(dirX * dist, dirY * dist, dirZ * dist);
 
-                // Fade from bright cyan to transparent as distance increases
                 float fade = 1.0f - (float) (dist / rayLength) * 0.7f;
-                int r = (int) (30 * fade);
-                int g = (int) (200 + 55 * fade);
-                int b = 255;
+                int r = (int) (colors[0][0] * fade);
+                int g = (int) (colors[0][1] * fade);
+                int b = (int) (colors[0][2] * fade);
 
                 spawnColoredDust(world, rayLoc, r, g, b, fade * 1.0f);
             }
@@ -182,43 +247,33 @@ public class TuLuyenParticleTask {
     }
 
     /**
-     * LAYER 3: Lightning/Electric Arcs - Sét điện quanh người
-     * Creates jagged lightning bolts circling around the player
+     * LAYER 3: Lightning/Electric Arcs — sét điện quanh người
      */
-    private void spawnLightningArcs(World world, Location base) {
-        int arcCount = 2 + random.nextInt(3);
+    private void spawnLightningArcs(World world, Location base, int[][] colors) {
+        int arcCount = 1 + random.nextInt(2); // Reduced from 2-4 to 1-2
 
         for (int arc = 0; arc < arcCount; arc++) {
-            // Random start point on a sphere around the player
             double startAngle = random.nextDouble() * Math.PI * 2;
             double startY = 0.3 + random.nextDouble() * 2.0;
             double startRadius = 0.8 + random.nextDouble() * 0.8;
 
             Location start = base.clone().add(
-                    startRadius * Math.cos(startAngle),
-                    startY,
-                    startRadius * Math.sin(startAngle)
-            );
+                    startRadius * Math.cos(startAngle), startY,
+                    startRadius * Math.sin(startAngle));
 
-            // Random end point
             double endAngle = startAngle + (random.nextDouble() - 0.5) * Math.PI;
             double endY = startY + (random.nextDouble() - 0.5) * 1.5;
             double endRadius = startRadius + (random.nextDouble() - 0.5) * 0.6;
 
             Location end = base.clone().add(
-                    endRadius * Math.cos(endAngle),
-                    Math.max(0.1, endY),
-                    endRadius * Math.sin(endAngle)
-            );
+                    endRadius * Math.cos(endAngle), Math.max(0.1, endY),
+                    endRadius * Math.sin(endAngle));
 
-            // Draw jagged line between start and end
-            int segments = 6 + random.nextInt(5);
+            int segments = 4 + random.nextInt(3); // Reduced from 6-10 to 4-6
             Location prev = start.clone();
 
             for (int i = 1; i <= segments; i++) {
                 double progress = i / (double) segments;
-
-                // Interpolate with random jitter
                 double jitterX = (random.nextDouble() - 0.5) * 0.3;
                 double jitterY = (random.nextDouble() - 0.5) * 0.3;
                 double jitterZ = (random.nextDouble() - 0.5) * 0.3;
@@ -226,142 +281,129 @@ public class TuLuyenParticleTask {
                 Location point = new Location(world,
                         start.getX() + (end.getX() - start.getX()) * progress + jitterX,
                         start.getY() + (end.getY() - start.getY()) * progress + jitterY,
-                        start.getZ() + (end.getZ() - start.getZ()) * progress + jitterZ
-                );
+                        start.getZ() + (end.getZ() - start.getZ()) * progress + jitterZ);
 
-                // Draw line from prev to point
                 double dist = prev.distance(point);
-                int linePoints = Math.max(2, (int) (dist * 6));
+                int linePoints = Math.max(2, (int) (dist * 4)); // Reduced density
                 for (int j = 0; j < linePoints; j++) {
-                    double t = j / (double) linePoints;
+                    double lt = j / (double) linePoints;
                     Location lineLoc = new Location(world,
-                            prev.getX() + (point.getX() - prev.getX()) * t,
-                            prev.getY() + (point.getY() - prev.getY()) * t,
-                            prev.getZ() + (point.getZ() - prev.getZ()) * t
-                    );
+                            prev.getX() + (point.getX() - prev.getX()) * lt,
+                            prev.getY() + (point.getY() - prev.getY()) * lt,
+                            prev.getZ() + (point.getZ() - prev.getZ()) * lt);
 
-                    // Bright white-cyan for lightning
-                    spawnColoredDust(world, lineLoc, 200, 240, 255, 0.6f);
+                    // Bright white-tinted version of primary color
+                    int r = Math.min(255, colors[0][0] + 100);
+                    int g = Math.min(255, colors[0][1] + 100);
+                    int b = Math.min(255, colors[0][2] + 100);
+                    spawnColoredDust(world, lineLoc, r, g, b, 0.6f);
                 }
-
                 prev = point;
             }
         }
     }
 
     /**
-     * LAYER 4: Absorption Particles - Linh khí bị hấp thụ vào người
-     * Particles fly inward towards the player's chest from far away
+     * LAYER 4: Absorption Particles — Linh khí bị hấp thụ vào người
      */
-    private void spawnAbsorptionParticles(World world, Location base) {
+    private void spawnAbsorptionParticles(World world, Location base, int[][] colors) {
         Location chest = base.clone().add(0, 1.0, 0);
 
-        for (int i = 0; i < 4; i++) {
-            // Spawn from random positions in a 4-block radius
+        for (int i = 0; i < 3; i++) { // Reduced from 4 to 3
             double angle = random.nextDouble() * Math.PI * 2;
             double radius = 2.0 + random.nextDouble() * 3.0;
             double y = random.nextDouble() * 3.0;
 
             Location outerLoc = base.clone().add(
-                    radius * Math.cos(angle),
-                    y,
-                    radius * Math.sin(angle)
-            );
+                    radius * Math.cos(angle), y, radius * Math.sin(angle));
 
-            // Direction pointing inward to player chest
             Vector dir = chest.toVector().subtract(outerLoc.toVector()).normalize();
 
-            // Use END_ROD for a glowing flying effect toward the player
             try {
                 world.spawnParticle(Particle.END_ROD, outerLoc, 0,
                         dir.getX(), dir.getY(), dir.getZ(), 0.12);
             } catch (Exception ignored) {}
 
-            // Also spawn some with Dust for color
-            spawnColoredDust(world, outerLoc, 100, 255, 230, 1.0f);
+            spawnColoredDust(world, outerLoc, colors[1][0], colors[1][1], colors[1][2], 1.0f);
         }
     }
 
     /**
-     * LAYER 5: Ground Runic Circle - Vòng tròn pháp trận dưới chân
-     * Creates a glowing circle on the ground beneath the player
+     * LAYER 5: Ground Runic Circle — Vòng tròn pháp trận dưới chân
      */
-    private void spawnGroundCircle(World world, Location base) {
+    private void spawnGroundCircle(World world, Location base, int[][] colors) {
         double radius = 1.8;
-        double rotation = globalTick * 0.08; // Slowly rotating
-        int points = 24;
+        double rotation = globalTick * 0.08;
+        int points = 16; // Reduced from 24
 
         for (int i = 0; i < points; i++) {
             double angle = (2 * Math.PI * i / points) + rotation;
             double x = radius * Math.cos(angle);
             double z = radius * Math.sin(angle);
-
             Location loc = base.clone().add(x, 0.05, z);
 
-            // Alternating colors for a mystical look
-            if (i % 3 == 0) {
-                spawnColoredDust(world, loc, 0, 255, 220, 0.8f); // Cyan
+            if (i % 2 == 0) {
+                spawnColoredDust(world, loc, colors[0][0], colors[0][1], colors[0][2], 0.8f);
             } else {
-                spawnColoredDust(world, loc, 100, 180, 255, 0.6f); // Light blue
+                spawnColoredDust(world, loc, colors[1][0], colors[1][1], colors[1][2], 0.6f);
             }
         }
 
-        // Inner circle
+        // Inner circle — reduced from 12 to 8 points
         double innerRadius = 0.9;
-        for (int i = 0; i < 12; i++) {
-            double angle = (2 * Math.PI * i / 12) - rotation * 1.5; // Counter-rotation
+        for (int i = 0; i < 8; i++) {
+            double angle = (2 * Math.PI * i / 8) - rotation * 1.5;
             double x = innerRadius * Math.cos(angle);
             double z = innerRadius * Math.sin(angle);
-
             Location loc = base.clone().add(x, 0.05, z);
-            spawnColoredDust(world, loc, 200, 255, 255, 0.5f); // White-cyan
+
+            // Lighter tint of primary
+            int r = Math.min(255, colors[0][0] + 80);
+            int g = Math.min(255, colors[0][1] + 80);
+            int b = Math.min(255, colors[0][2] + 80);
+            spawnColoredDust(world, loc, r, g, b, 0.5f);
         }
     }
 
     /**
-     * LAYER 6: Vertical Energy Pillar - Cột năng lượng chiếu thẳng lên trời
-     * A thin beam of energy shooting upward from the player
+     * LAYER 6: Vertical Energy Pillar — Cột năng lượng chiếu lên trời
      */
-    private void spawnEnergyPillar(World world, Location base) {
-        double pillarHeight = 4.0 + Math.sin(globalTick * 0.03) * 1.5; // Pulsing height
-        int points = (int) (pillarHeight * 3);
+    private void spawnEnergyPillar(World world, Location base, int[][] colors) {
+        double pillarHeight = 3.0 + Math.sin(globalTick * 0.03) * 1.0; // Slightly shorter
+        int points = (int) (pillarHeight * 2); // Reduced density from *3 to *2
 
         for (int i = 0; i < points; i++) {
             double y = (i / (double) points) * pillarHeight;
             double wobble = Math.sin(globalTick * 0.1 + y * 2) * 0.1;
-
             Location loc = base.clone().add(wobble, y, wobble);
 
-            // Fade from bright at bottom to transparent at top
             float intensity = 1.0f - (float) (y / pillarHeight) * 0.8f;
-            int r = (int) (50 * intensity);
-            int g = (int) (220 * intensity);
-            int b = 255;
+            int r = (int) (colors[0][0] * intensity);
+            int g = (int) (colors[0][1] * intensity);
+            int b = (int) (colors[0][2] * intensity);
 
             spawnColoredDust(world, loc, r, g, b, intensity * 0.7f);
         }
     }
 
     /**
-     * LAYER 7: Ambient Floating Particles - Hạt năng lượng bay lơ lửng
-     * Small glowing specs floating around the player
+     * LAYER 7: Ambient Floating Particles — Hạt năng lượng bay lơ lửng
      */
-    private void spawnAmbientFloatingParticles(World world, Location base) {
-        for (int i = 0; i < 3; i++) {
+    private void spawnAmbientFloatingParticles(World world, Location base, int[][] colors) {
+        for (int i = 0; i < 2; i++) { // Reduced from 3 to 2
             double x = (random.nextDouble() - 0.5) * 4;
             double y = random.nextDouble() * 3;
             double z = (random.nextDouble() - 0.5) * 4;
 
             Location loc = base.clone().add(x, y, z);
 
-            // Slow upward float
             try {
                 world.spawnParticle(Particle.END_ROD, loc, 0, 0, 0.02, 0, 0.01);
             } catch (Exception ignored) {}
 
-            // Enchantment table particles (spiritual energy text)
+            // Enchantment particles
             try {
-                world.spawnParticle(Particle.ENCHANT, base.clone().add(0, 1, 0), 3,
+                world.spawnParticle(Particle.ENCHANT, base.clone().add(0, 1, 0), 2,
                         1.5, 1.0, 1.5, 0.5);
             } catch (Exception ignored) {}
         }
@@ -382,7 +424,7 @@ public class TuLuyenParticleTask {
             );
             world.spawnParticle(Particle.DUST, loc, 1, 0, 0, 0, 0, dust);
         } catch (Exception e) {
-            // Fallback for older versions: use REDSTONE
+            // Fallback for older versions
             try {
                 world.spawnParticle(Particle.valueOf("REDSTONE"), loc, 0,
                         r / 255.0, g / 255.0, b / 255.0, 1);

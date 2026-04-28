@@ -151,6 +151,9 @@ public class TuLuyenManager implements Listener {
         tuLuyenPlayers.put(player.getUniqueId(), stand);
         tuLuyenTargets.put(player.getUniqueId(), zone);
 
+        // Refresh class-based particle colors
+        lineTask.refreshPlayerColors(player);
+
         if (!configManager.getMsgStarted().isEmpty()) {
             player.sendMessage(configManager.getMsgStarted());
         }
@@ -173,6 +176,10 @@ public class TuLuyenManager implements Listener {
             
             stand.remove();
         }
+
+        // Clear color cache
+        lineTask.clearPlayerColors(player.getUniqueId());
+
         if (!configManager.getMsgStopped().isEmpty()) {
             player.sendMessage(configManager.getMsgStopped());
         }

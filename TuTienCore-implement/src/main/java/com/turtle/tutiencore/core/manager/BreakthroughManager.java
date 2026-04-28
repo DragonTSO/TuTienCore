@@ -930,6 +930,7 @@ public class BreakthroughManager implements Listener {
         Player p = Bukkit.getPlayer(session.playerId);
         if (p != null && p.isOnline()) {
             cleanupBreakthroughEffects(p);
+            resetWeather(p);
         }
         // Apply cooldown for major breakthrough
         if (session.isMajor) {

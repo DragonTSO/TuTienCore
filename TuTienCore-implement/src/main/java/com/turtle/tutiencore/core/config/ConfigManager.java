@@ -7,6 +7,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import lombok.Getter;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Getter
 public class ConfigManager {
@@ -48,6 +51,9 @@ public class ConfigManager {
     private boolean cultGroundCircleEnabled;
     private boolean cultPillarEnabled;
     private boolean cultAmbientEnabled;
+
+    // Class-based particle colors (loaded from config)
+    private final Map<String, int[][]> classColors = new HashMap<>();
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -97,7 +103,28 @@ public class ConfigManager {
         cultPillarEnabled = config.getBoolean("cultivation-effects.pillar.enabled", true);
         cultAmbientEnabled = config.getBoolean("cultivation-effects.ambient.enabled", true);
 
+        // Load class colors
+        classColors.clear();
+        if (config.isConfigurationSection("class-colors")) {
+            for (String classId : config.getConfigurationSection("class-colors").getKeys(false)) {
+                List<Integer> rgb = config.getIntegerList("class-colors." + classId);
+                if (rgb.size() >= 6) {
+                    classColors.put(classId.toUpperCase(), new int[][]{
+                        {rgb.get(0), rgb.get(1), rgb.get(2)},
+                        {rgb.get(3), rgb.get(4), rgb.get(5)}
+                    });
+                }
+            }
+        }
+
         tuluyenModel = config.getString("tuluyen-model", "toado");
+    }
+
+    /**
+     * Get class color mapping. Key = class ID (uppercase), Value = [primary RGB, secondary RGB].
+     */
+    public Map<String, int[][]> getClassColors() {
+        return classColors;
     }
 
     private String tuluyenModel;

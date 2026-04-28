@@ -114,6 +114,20 @@ cultivation-effects:
   ambient:
     enabled: true
 
+# ==========================================
+# MAU PARTICLE THEO CLASS (MMOCore)
+# ==========================================
+# Khi player /tuluyen, particle se tu dong doi mau theo class MMOCore
+# Format: "CLASS_ID": [R1, G1, B1, R2, G2, B2] (primary + secondary)
+# Neu MMOCore khong co hoac player chua chon class → dung mau cyan mac dinh
+class-colors:
+  KIEM_TIEN: [255, 215, 0, 255, 140, 0]      # Gold → Orange
+  THIEN_CO: [212, 160, 23, 139, 105, 20]     # Dark Gold → Brown
+  KIM_THAN: [68, 136, 255, 34, 68, 170]      # Blue → Dark Blue
+  LINH_DUOC: [85, 255, 85, 0, 170, 68]       # Green → Forest Green
+  VO_ANH: [255, 68, 68, 255, 102, 0]         # Red → Orange
+  # Them class moi: "TEN_CLASS": [R1, G1, B1, R2, G2, B2]
+
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
 tuluyen-model: "be_tutien_tier1"
 
