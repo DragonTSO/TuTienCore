@@ -59,6 +59,21 @@ public class RealmManager implements Listener {
     private String dotPhaDanItem;
     private Map<Integer, Integer> dotPhaDanAmounts = new HashMap<>();
 
+    // Default bolt settings (fallback when per-realm not specified)
+    private int defaultLightningBolts;
+    private double defaultDamagePerBolt;
+
+    // Visual storm bolt settings (configurable from config.yml)
+    private int visualStormInterval; // Interval for visual ambient storm (ticks)
+    private int stormBoltsMin, stormBoltsMax;
+    private int visualBoltsMin, visualBoltsMax;
+    private int closeBoltsMin, closeBoltsMax;
+
+    // Success storm continuation
+    private boolean successStormContinue;
+    private int successStormInterval;
+    private int successStormBolts;
+
     // MythicLib stat modifier key prefix
     private static final String STAT_MOD_PREFIX = "tutien_realm_";
 
@@ -84,6 +99,16 @@ public class RealmManager implements Listener {
             plugin.saveResource("realms.yml", false);
         }
         realmConfig = YamlConfiguration.loadConfiguration(realmConfigFile);
+
+        // Load default bolt settings first (used as fallback for per-realm)
+        ConfigurationSection btDefaults = realmConfig.getConfigurationSection("breakthrough");
+        if (btDefaults != null) {
+            defaultLightningBolts = btDefaults.getInt("default-lightning-bolts", 15);
+            defaultDamagePerBolt = btDefaults.getDouble("default-damage-per-bolt", 4.0);
+        } else {
+            defaultLightningBolts = 15;
+            defaultDamagePerBolt = 4.0;
+        }
 
         // Load all 19 realms
         ConfigurationSection realmsSection = realmConfig.getConfigurationSection("realms");
@@ -133,6 +158,10 @@ public class RealmManager implements Listener {
                 double dmgPerBolt = bt != null ? bt.getDouble("damage-per-bolt", 0) : 0;
                 double successRate = bt != null ? bt.getDouble("success-rate", 100) : 100;
 
+                // Use global defaults as fallback if per-realm value is 0
+                if (bolts <= 0) bolts = defaultLightningBolts;
+                if (dmgPerBolt <= 0) dmgPerBolt = defaultDamagePerBolt;
+
                 // Load stat bonus (dynamic map — supports ALL stats)
                 Map<String, Double> statBonuses = new HashMap<>();
                 ConfigurationSection sb = rs.getConfigurationSection("stat-bonus");
@@ -179,7 +208,7 @@ public class RealmManager implements Listener {
         // Load general breakthrough settings
         ConfigurationSection btGeneral = realmConfig.getConfigurationSection("breakthrough");
         if (btGeneral != null) {
-            cooldownSeconds = btGeneral.getInt("cooldown-seconds", 3600);
+            cooldownSeconds = btGeneral.getInt("cooldown-seconds", 1800);
             lightningIntervalTicks = btGeneral.getInt("lightning-interval-ticks", 50);
             weatherRadius = btGeneral.getInt("weather-radius", 50);
             subRealmBroadcastRadius = btGeneral.getInt("sub-realm-broadcast-radius", 30);
@@ -188,6 +217,26 @@ public class RealmManager implements Listener {
             failDemote = btGeneral.getBoolean("fail-demote", true);
             failDemoteMinRealm = btGeneral.getInt("fail-demote-min-realm", 1);
             dotPhaDanItem = btGeneral.getString("dot-pha-dan-item", "DOT_PHA_DAN");
+
+            // Default lightning bolt settings (fallback for per-realm)
+            defaultLightningBolts = btGeneral.getInt("default-lightning-bolts", 15);
+            defaultDamagePerBolt = btGeneral.getDouble("default-damage-per-bolt", 4.0);
+
+            // Visual storm settings — loaded from config.yml (lightning-storm section)
+            // These are VISUAL ONLY (no damage), separate from realms.yml damaging bolts
+            FileConfiguration mainConfig = plugin.getConfig();
+            visualStormInterval = mainConfig.getInt("lightning-storm.storm-interval", 3);
+            stormBoltsMin = mainConfig.getInt("lightning-storm.storm-bolts-min", 6);
+            stormBoltsMax = mainConfig.getInt("lightning-storm.storm-bolts-max", 15);
+            visualBoltsMin = mainConfig.getInt("lightning-storm.visual-bolts-min", 8);
+            visualBoltsMax = mainConfig.getInt("lightning-storm.visual-bolts-max", 24);
+            closeBoltsMin = mainConfig.getInt("lightning-storm.close-bolts-min", 2);
+            closeBoltsMax = mainConfig.getInt("lightning-storm.close-bolts-max", 6);
+
+            // Success storm continuation — from config.yml
+            successStormContinue = mainConfig.getBoolean("lightning-storm.success-storm-continue", true);
+            successStormInterval = mainConfig.getInt("lightning-storm.success-storm-interval", 5);
+            successStormBolts = mainConfig.getInt("lightning-storm.success-storm-bolts", 10);
 
             ConfigurationSection danAmounts = btGeneral.getConfigurationSection("dot-pha-dan-amounts");
             if (danAmounts != null) {
@@ -487,8 +536,8 @@ public class RealmManager implements Listener {
             plugin.getLogger().info("Applied " + realm.getStatBonuses().size()
                     + " stat bonuses for " + player.getName() + " (" + realm.getName() + ")");
 
-        } catch (Exception e) {
-            plugin.getLogger().warning("MythicLib not available — stat bonuses skipped for " + player.getName());
+        } catch (Throwable e) {
+            plugin.getLogger().warning("MythicLib not available — stat bonuses skipped for " + player.getName() + ": " + e.getMessage());
         }
     }
 
@@ -517,10 +566,10 @@ public class RealmManager implements Listener {
                 String key = STAT_MOD_PREFIX + stat;
                 io.lumine.mythic.lib.api.stat.StatInstance instance = statMap.getInstance(stat);
                 if (instance != null) {
-                    instance.removeModifier(key);
+                    instance.remove(key);
                 }
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             // MythicLib not loaded — silently ignore
         }
     }
@@ -617,6 +666,22 @@ public class RealmManager implements Listener {
     public int getDanLossPercent() { return danLossPercent; }
     public double getFailDamageMultiplier() { return failDamageMultiplier; }
     public String getDotPhaDanItem() { return dotPhaDanItem; }
+    public int getDefaultLightningBolts() { return defaultLightningBolts; }
+    public double getDefaultDamagePerBolt() { return defaultDamagePerBolt; }
+
+    // Visual storm bolt config getters
+    public int getVisualStormInterval() { return visualStormInterval; }
+    public int getStormBoltsMin() { return stormBoltsMin; }
+    public int getStormBoltsMax() { return stormBoltsMax; }
+    public int getVisualBoltsMin() { return visualBoltsMin; }
+    public int getVisualBoltsMax() { return visualBoltsMax; }
+    public int getCloseBoltsMin() { return closeBoltsMin; }
+    public int getCloseBoltsMax() { return closeBoltsMax; }
+
+    // Success storm config getters
+    public boolean isSuccessStormContinue() { return successStormContinue; }
+    public int getSuccessStormInterval() { return successStormInterval; }
+    public int getSuccessStormBolts() { return successStormBolts; }
 
     public int getDotPhaDanRequired(int targetRealmId) {
         return dotPhaDanAmounts.getOrDefault(targetRealmId, 1);

@@ -218,8 +218,8 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             majorLore.add("§7  Số tia sét: §c" + nextRealm.getLightningBolts());
             majorLore.add("§7  DMG/tia: §c" + nextRealm.getDamagePerBolt() + " ❤");
             majorLore.add("§7  Tổng DMG: §c" + String.format("%.0f", nextRealm.getTotalDamageSuccess()) + " ❤");
-            majorLore.add("§7  Tỉ lệ: §e" + String.format("%.0f%%", nextRealm.getSuccessRate()));
-            majorLore.add("§7  DMG fail roll: §4" + String.format("%.0f", nextRealm.getTotalDamageFail()) + " ❤ §c(x2!)");
+            majorLore.add("§e  Sống sót qua sét = §a§lThành Công");
+            majorLore.add("§c  Chết bởi sét = §4§lThất Bại");
             majorLore.add("");
 
             // Đột Phá Đan requirement
@@ -314,10 +314,12 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             confirmLore.add("");
             confirmLore.add("§c⚠ CẢNH BÁO:");
             confirmLore.add("§c  Tia sét sẽ giáng xuống bạn!");
-            confirmLore.add("§c  Nếu chết → Thất bại + Cooldown");
-            confirmLore.add("§c  Mất 50% Đột Phá Đan đã dùng");
+            confirmLore.add("§c  Sống sót = Thành công");
+            confirmLore.add("§c  Chết = Thất bại:");
+            confirmLore.add("§4    → Tụt 1 bậc cảnh giới");
+            confirmLore.add("§4    → Cooldown 30 phút");
+            confirmLore.add("§c    → Mất 50% Đột Phá Đan đã dùng");
             confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            confirmLore.add("§e  Tỉ lệ thành công: §a" + String.format("%.0f%%", nextRealm.getSuccessRate()));
         } else {
             SubRealm nextSub = pr.getSubRealm().next();
             confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");

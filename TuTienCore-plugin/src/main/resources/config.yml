@@ -128,3 +128,31 @@ breakthrough:
   sub-success-model: "ascent"
   # Thời gian hiển thị model (giây) 
   model-duration: 5
+
+# ==========================================
+# HIỆU ỨNG TIA SÉT ĐỘT PHÁ (Lightning Storm)
+# ==========================================
+# Cấu hình số lượng tia sét VISUAL (không gây damage)
+# Tạo hiệu ứng bão sét hoành tráng khi đột phá
+lightning-storm:
+  # ── TỐC ĐỘ BÃO SÉT VISUAL ──
+  # Mỗi bao nhiêu tick thì spawn 1 đợt sét VISUAL (không gây damage)
+  # Giá trị nhỏ = bão sét dày đặc hơn. VD: 3 = rất nhanh, 10 = chậm hơn
+  storm-interval: 3
+  # Sét ambient liên tục (visual only, tạo bầu không khí)
+  storm-bolts-min: 6
+  storm-bolts-max: 15
+  # Sét visual mỗi lần damaging bolt (rải khắp 40x40)
+  visual-bolts-min: 8
+  visual-bolts-max: 24
+  # Sét gần player (visual only, tạo cảm giác nguy hiểm)
+  close-bolts-min: 2
+  close-bolts-max: 6
+
+  # ── SÉT SAU THÀNH CÔNG ──
+  # Sét tiếp tục đánh trong lúc animation "actived" chạy
+  success-storm-continue: true
+  # Mỗi bao nhiêu tick đánh 1 lần (5 tick = 0.25 giây)
+  success-storm-interval: 5
+  # Số tia sét visual mỗi lần trong lúc success animation
+  success-storm-bolts: 10

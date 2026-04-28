@@ -29,11 +29,12 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Quản lý quá trình Đột Phá Cảnh Giới — Thiên Lôi Kiếp ⚡
  * 
- * Khi người chơi kích hoạt đột phá:
- * 1. Roll tỉ lệ thành công (ẩn)
- * 2. Trời tối, sấm rền
- * 3. Sét giáng lần lượt (2-3 giây/tia)
- * 4. Sống sót = thành công, Chết = thất bại
+ * Flow:
+ * 1. /dotpha → xác nhận → title countdown 3→2→1 (thiên lôi sắp giáng)
+ * 2. SAU countdown → bão sét bắt đầu, sét đánh liên tục
+ * 3. Sống sót hết tia sét = thành công → tàng hình + animation "actived"
+ *    Sét vẫn đánh trong suốt animation. Kết thúc animation → hiện lại.
+ * 4. Chết = thất bại → tụt 1 bậc + cooldown 30 phút
  */
 public class BreakthroughManager implements Listener {
 
@@ -58,27 +59,26 @@ public class BreakthroughManager implements Listener {
      */
     private static class BreakthroughSession {
         final UUID playerId;
-        final boolean isMajor; // true = Đại Cảnh Giới, false = Tiểu Cảnh Giới
+        final boolean isMajor;
         final int totalBolts;
         final double baseDamagePerBolt;
-        final boolean rollSuccess;
-        final double failMultiplier;
-        final Realm targetRealm; // null for sub-realm
-        final SubRealm targetSubRealm; // null for major realm
+        final Realm targetRealm;
+        final SubRealm targetSubRealm;
         int boltsRemaining;
         BukkitRunnable task;
-        Location startLocation; // Where player started (ground level)
-        int currentLevitationLevel; // Current levitation strength (increases over time)
+        BukkitRunnable auraTask;
+        BukkitRunnable stormTask; // Continuous ambient lightning storm
+        Location startLocation;
+        int currentLevitationLevel;
+        volatile boolean completed; // Guard against double-execution
 
         BreakthroughSession(UUID playerId, boolean isMajor, int totalBolts,
-                            double baseDamagePerBolt, boolean rollSuccess, double failMultiplier,
+                            double baseDamagePerBolt,
                             Realm targetRealm, SubRealm targetSubRealm) {
             this.playerId = playerId;
             this.isMajor = isMajor;
             this.totalBolts = totalBolts;
             this.baseDamagePerBolt = baseDamagePerBolt;
-            this.rollSuccess = rollSuccess;
-            this.failMultiplier = failMultiplier;
             this.targetRealm = targetRealm;
             this.targetSubRealm = targetSubRealm;
             this.boltsRemaining = totalBolts;
@@ -134,17 +134,12 @@ public class BreakthroughManager implements Listener {
             return;
         }
 
-        // Roll success
-        double successRate = nextRealm.getSuccessRate();
-        boolean rollSuccess = ThreadLocalRandom.current().nextDouble(100.0) < successRate;
-
-        double actualDmg = rollSuccess ? nextRealm.getDamagePerBolt() 
-                                       : nextRealm.getDamagePerBolt() * realmManager.getFailDamageMultiplier();
+        // Sống sót = thành công, Chết = thất bại (không pre-roll)
+        double actualDmg = nextRealm.getDamagePerBolt();
 
         BreakthroughSession session = new BreakthroughSession(
                 uuid, true,
                 nextRealm.getLightningBolts(), actualDmg,
-                rollSuccess, realmManager.getFailDamageMultiplier(),
                 nextRealm, null
         );
 
@@ -155,10 +150,17 @@ public class BreakthroughManager implements Listener {
                 + nextRealm.getFormattedName() + "§e§l!";
         Bukkit.broadcastMessage(startMsg);
 
+        // Apply breakthrough potion effects
+        applyBreakthroughEffects(player, true);
+
         // Start weather effects
         startWeatherEffects(player);
 
-        // Begin lightning sequence
+        // Start persistent aura particles
+        startAuraTask(player, session);
+
+        // NOTE: Ambient storm starts AFTER countdown (inside startLightningSequence)
+        // Begin lightning sequence (countdown 3→2→1 → sét bắt đầu)
         startLightningSequence(player, session);
     }
 
@@ -203,7 +205,6 @@ public class BreakthroughManager implements Listener {
         BreakthroughSession session = new BreakthroughSession(
                 uuid, false,
                 bolts, dmg,
-                true, 1.0, // Sub-realm always 100% success
                 null, nextSub
         );
 
@@ -213,7 +214,14 @@ public class BreakthroughManager implements Listener {
         String startMsg = "§e⚡ " + player.getName() + " §eđang đột phá tầng nhỏ → " + nextSub.getDisplayName() + "!";
         broadcastNearby(player, startMsg, realmManager.getSubRealmBroadcastRadius());
 
-        // Lighter effects for sub-realm
+        // Apply lighter breakthrough effects
+        applyBreakthroughEffects(player, false);
+
+        // Start aura particles
+        startAuraTask(player, session);
+
+        // NOTE: Ambient storm starts AFTER countdown (inside startLightningSequence)
+        // Begin lightning sequence (countdown 3→2→1 → sét bắt đầu)
         startLightningSequence(player, session);
     }
 
@@ -232,12 +240,57 @@ public class BreakthroughManager implements Listener {
         int intervalTicks = realmManager.getLightningIntervalTicks();
         session.startLocation = player.getLocation().clone();
 
-        // Countdown before first bolt
+        // Phase 1: Countdown 3 → 2 → 1 (mỗi giây 1 lần, chưa có sét)
         player.sendMessage("§6§l⚡ Thiên Lôi Kiếp bắt đầu trong 3 giây... Chuẩn bị!");
 
-        session.task = new BukkitRunnable() {
+        // Countdown task — runs every 20 ticks (1 second)
+        new BukkitRunnable() {
             int countdown = 3;
-            boolean started = false;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !activeSessions.containsKey(player.getUniqueId())) {
+                    cancel();
+                    return;
+                }
+
+                if (countdown > 0) {
+                    player.sendTitle(
+                            "§c§l" + countdown,
+                            "§e⚡ Thiên Lôi sắp giáng!",
+                            5, 15, 5
+                    );
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 
+                            SoundCategory.WEATHER, 2.0f, 0.5f);
+                    // Energy gathering particles during countdown
+                    spawnEnergyGathering(player, 4 - countdown);
+                    countdown--;
+                } else {
+                    // Countdown xong → BẮT ĐẦU bão sét
+                    cancel();
+                    player.sendTitle(
+                            "§c§l⚡ THIÊN LÔI KIẾP ⚡",
+                            session.isMajor ? "§eSống sót qua " + session.totalBolts + " tia sét!" 
+                                           : "§eTiểu Lôi Kiếp — " + session.totalBolts + " tia sét",
+                            10, 40, 10
+                    );
+                    // Start Levitation
+                    applyLevitation(player, session, 1);
+                    // BẮT ĐẦU ambient storm SAU countdown
+                    startAmbientStorm(player, session);
+                    // BẮT ĐẦU lightning phase
+                    startLightningPhase(player, session, intervalTicks);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Phase 2: Lightning strikes — sét đánh liên tục sau countdown.
+     * Sống sót hết = thành công, chết = thất bại.
+     */
+    private void startLightningPhase(Player player, BreakthroughSession session, int intervalTicks) {
+        session.task = new BukkitRunnable() {
             int boltsFired = 0;
 
             @Override
@@ -247,32 +300,6 @@ public class BreakthroughManager implements Listener {
                     cancelSession(session);
                     cancel();
                     return;
-                }
-
-                // Countdown phase
-                if (!started) {
-                    if (countdown > 0) {
-                        player.sendTitle(
-                                "§c§l" + countdown,
-                                "§e⚡ Thiên Lôi sắp giáng!",
-                                5, 15, 5
-                        );
-                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 
-                                SoundCategory.WEATHER, 2.0f, 0.5f);
-                        countdown--;
-                        return;
-                    } else {
-                        started = true;
-                        player.sendTitle(
-                                "§c§l⚡ THIÊN LÔI KIẾP ⚡",
-                                session.isMajor ? "§eSống sót qua " + session.totalBolts + " tia sét!" 
-                                               : "§eTiểu Lôi Kiếp — " + session.totalBolts + " tia sét",
-                                10, 40, 10
-                        );
-                        // Start with Levitation 1
-                        applyLevitation(player, session, 1);
-                        return;
-                    }
                 }
 
                 // Lightning phase
@@ -302,15 +329,15 @@ public class BreakthroughManager implements Listener {
 
                 } else {
                     // All bolts survived → SUCCESS
-                    cleanupLevitation(player);
-                    handleBreakthroughSuccess(player, session);
+                    // CRITICAL: cancel FIRST to prevent re-entry if success handler throws
                     cancel();
+                    cleanupBreakthroughEffects(player);
+                    handleBreakthroughSuccess(player, session);
                 }
             }
         };
 
-        // Run countdown every second (20 ticks), then lightning at interval
-        session.task.runTaskTimer(plugin, 20L, intervalTicks);
+        session.task.runTaskTimer(plugin, 0L, intervalTicks);
     }
 
     /**
@@ -334,9 +361,199 @@ public class BreakthroughManager implements Listener {
         player.removePotionEffect(PotionEffectType.LEVITATION);
         // Give slow-falling to prevent fall damage
         player.addPotionEffect(new PotionEffect(
-                PotionEffectType.SLOW_FALLING, 200, 0, // 10 seconds
+                PotionEffectType.SLOW_FALLING, 200, 0,
                 false, true, true
         ));
+    }
+
+    /**
+     * Apply potion effects at the start of breakthrough.
+     */
+    private void applyBreakthroughEffects(Player player, boolean isMajor) {
+        // Glowing — let nearby players see them
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.GLOWING, 999999, 0, false, false, true));
+        // Resistance — slight protection so they can survive
+        int resLevel = isMajor ? 1 : 2;
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.RESISTANCE, 999999, resLevel, false, false, true));
+    }
+
+    /**
+     * Remove all breakthrough potion effects + levitation.
+     */
+    private void cleanupBreakthroughEffects(Player player) {
+        cleanupLevitation(player);
+        player.removePotionEffect(PotionEffectType.GLOWING);
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+        // Stop aura task
+        BreakthroughSession session = activeSessions.get(player.getUniqueId());
+        if (session != null) {
+            if (session.auraTask != null) session.auraTask.cancel();
+            if (session.stormTask != null) session.stormTask.cancel();
+        }
+    }
+
+    // ==========================================
+    // PLAYER AURA EFFECTS (persistent during breakthrough)
+    // ==========================================
+
+    /**
+     * Start a persistent aura particle task that runs every 2 ticks.
+     * Creates spiral energy, ground runes, and absorption pillar around the player.
+     */
+    private void startAuraTask(Player player, BreakthroughSession session) {
+        session.auraTask = new BukkitRunnable() {
+            int tick = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !activeSessions.containsKey(player.getUniqueId())) {
+                    cancel();
+                    return;
+                }
+
+                try {
+                Location loc = player.getLocation();
+                World world = player.getWorld();
+                double progress = session.totalBolts > 0 
+                        ? 1.0 - ((double) session.boltsRemaining / session.totalBolts) 
+                        : 0.0;
+                tick++;
+
+                // ── 1) DOUBLE SPIRAL — two opposing energy spirals around player ──
+                double angle1 = tick * 0.3;
+                double angle2 = angle1 + Math.PI; // opposite spiral
+                double spiralRadius = 1.5 + progress * 0.5;
+                for (int i = 0; i < 2; i++) {
+                    double a = (i == 0) ? angle1 : angle2;
+                    double sx = Math.cos(a) * spiralRadius;
+                    double sz = Math.sin(a) * spiralRadius;
+                    double sy = (tick * 0.15) % 3.0; // rises 0→3 blocks, repeats
+                    Location spiralLoc = loc.clone().add(sx, sy, sz);
+                    world.spawnParticle(Particle.END_ROD, spiralLoc, 1, 0, 0, 0, 0);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, spiralLoc, 1, 0.05, 0.05, 0.05, 0);
+                }
+
+                // ── 2) GROUND RUNE CIRCLE — every 3 ticks ──
+                if (tick % 3 == 0) {
+                    double runeRadius = 2.5 + progress;
+                    int points = 12;
+                    for (int i = 0; i < points; i++) {
+                        double ra = (2 * Math.PI / points) * i + tick * 0.05;
+                        double rx = Math.cos(ra) * runeRadius;
+                        double rz = Math.sin(ra) * runeRadius;
+                        Location runeLoc = loc.clone().add(rx, 0.1, rz);
+                        world.spawnParticle(Particle.ENCHANT, runeLoc, 3, 0.1, 0, 0.1, 0.5);
+                    }
+                }
+
+                // ── 3) ENERGY ABSORPTION — particles fly toward player ──
+                if (tick % 5 == 0) {
+                    ThreadLocalRandom rand = ThreadLocalRandom.current();
+                    int absorptionCount = 3 + (int) (progress * 5);
+                    for (int i = 0; i < absorptionCount; i++) {
+                        double ox = rand.nextDouble(-4, 5);
+                        double oy = rand.nextDouble(0, 4);
+                        double oz = rand.nextDouble(-4, 5);
+                        Location from = loc.clone().add(ox, oy, oz);
+                        // Direction vector toward player
+                        double dx = (loc.getX() - from.getX()) * 0.15;
+                        double dy = (loc.getY() + 1 - from.getY()) * 0.15;
+                        double dz = (loc.getZ() - from.getZ()) * 0.15;
+                        world.spawnParticle(Particle.ENCHANT, from, 0, dx, dy, dz, 1.0);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, from, 0, dx, dy, dz, 0.8);
+                    }
+                }
+
+                // ── 4) LIGHT PILLAR — vertical beam above player, grows with progress ──
+                if (tick % 4 == 0 && session.isMajor) {
+                    double pillarHeight = 3 + progress * 8;
+                    for (double y = 0; y < pillarHeight; y += 0.5) {
+                        Location pillarLoc = loc.clone().add(0, y + 1, 0);
+                        world.spawnParticle(Particle.END_ROD, pillarLoc, 1, 0.15, 0, 0.15, 0);
+                    }
+                }
+
+                // ── 5) SHOCKWAVE RING — expanding ring every 15 ticks ──
+                if (tick % 15 == 0) {
+                    double ringRadius = 2 + progress * 3;
+                    int ringPoints = 24;
+                    for (int i = 0; i < ringPoints; i++) {
+                        double ra = (2 * Math.PI / ringPoints) * i;
+                        double rx = Math.cos(ra) * ringRadius;
+                        double rz = Math.sin(ra) * ringRadius;
+                        Location ringLoc = loc.clone().add(rx, 1.0, rz);
+                        world.spawnParticle(Particle.CLOUD, ringLoc, 1, 0, 0, 0, 0.02);
+                    }
+                }
+                } catch (Throwable t) {
+                    // Particle API errors should not crash the task
+                }
+            }
+        };
+        session.auraTask.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
+     * Start a continuous ambient lightning storm that runs every 3 ticks.
+     * Visual-only lightning bolts rain across the 40x40 area independently
+     * of the main damaging bolt sequence. Creates a persistent storm effect.
+     */
+    private void startAmbientStorm(Player player, BreakthroughSession session) {
+        session.stormTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline() || !activeSessions.containsKey(player.getUniqueId())) {
+                    cancel();
+                    return;
+                }
+
+                Location loc = player.getLocation();
+                World world = player.getWorld();
+                ThreadLocalRandom rand = ThreadLocalRandom.current();
+                double progress = 1.0 - ((double) session.boltsRemaining / session.totalBolts);
+
+                // Scale: min bolts early → max bolts late (from config)
+                int minBolts = realmManager.getStormBoltsMin();
+                int maxBolts = realmManager.getStormBoltsMax();
+                int stormBolts = minBolts + (int) (progress * (maxBolts - minBolts)) + rand.nextInt(0, 3);
+
+                for (int i = 0; i < stormBolts; i++) {
+                    double ox = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+                    double oz = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+                    Location strikeLoc = loc.clone().add(ox, 0, oz);
+                    strikeLoc.setY(world.getHighestBlockYAt(strikeLoc) + 1);
+                    world.strikeLightningEffect(strikeLoc);
+                }
+            }
+        };
+        session.stormTask.runTaskTimer(plugin, 0L, realmManager.getVisualStormInterval()); // From config.yml storm-interval
+    }
+
+    /**
+     * Spawn energy gathering particles during countdown phase.
+     * Intensity increases each second (phase 1→3).
+     */
+    private void spawnEnergyGathering(Player player, int phase) {
+        Location loc = player.getLocation();
+        World world = player.getWorld();
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+        int count = 10 + phase * 10;
+        double radius = 6 - phase; // Shrinks as countdown approaches 0
+        for (int i = 0; i < count; i++) {
+            double ox = rand.nextDouble(-radius, radius + 1);
+            double oy = rand.nextDouble(0, 5);
+            double oz = rand.nextDouble(-radius, radius + 1);
+            Location from = loc.clone().add(ox, oy, oz);
+            double dx = (loc.getX() - from.getX()) * 0.2;
+            double dy = (loc.getY() + 1 - from.getY()) * 0.2;
+            double dz = (loc.getZ() - from.getZ()) * 0.2;
+            world.spawnParticle(Particle.ENCHANT, from, 0, dx, dy, dz, 1.0);
+            world.spawnParticle(Particle.END_ROD, from, 0, dx, dy, dz, 0.5);
+        }
+        // Whoosh sound
+        world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, SoundCategory.MASTER, 1.5f, 0.5f + phase * 0.3f);
     }
 
     /**
@@ -356,50 +573,77 @@ public class BreakthroughManager implements Listener {
     }
 
     /**
-     * Strike lightning at a random position within LIGHTNING_RADIUS of the player.
-     * Also deals damage to the player based on their height.
+     * Strike a massive lightning storm across the 40x40 area around the player.
+     * Creates a dramatic visual: many simultaneous bolts from sky to ground,
+     * intensity scales up as breakthrough progresses.
+     * Only 1 "main" bolt near the player deals actual damage.
      */
     private void strikeRandomLightning(Player player, BreakthroughSession session) {
         Location playerLoc = player.getLocation();
         World world = player.getWorld();
         ThreadLocalRandom rand = ThreadLocalRandom.current();
+        int boltsFired = session.totalBolts - session.boltsRemaining;
 
-        // Random offset within ±LIGHTNING_RADIUS for X, Z, and ±10 for Y
-        double offsetX = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
-        double offsetY = rand.nextDouble(-10, 15);
-        double offsetZ = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+        // ── Intensity scales up as breakthrough progresses ──
+        // Visual bolts from config (min → max as progress increases)
+        double progress = (double) boltsFired / session.totalBolts; // 0.0 → 1.0
+        int minBolts = realmManager.getVisualBoltsMin();
+        int maxBolts = realmManager.getVisualBoltsMax();
+        int halfRange = (maxBolts - minBolts) / 2;
+        int totalVisualBolts = rand.nextInt(minBolts + (int)(progress * halfRange), 
+                minBolts + halfRange + (int)(progress * halfRange) + 1);
 
-        Location strikeLoc = playerLoc.clone().add(offsetX, offsetY, offsetZ);
+        // ── 1) MAIN BOLT — near the player, deals damage ──
+        double mainOffsetX = rand.nextDouble(-5, 6);
+        double mainOffsetZ = rand.nextDouble(-5, 6);
+        Location mainStrikeLoc = playerLoc.clone().add(mainOffsetX, 0, mainOffsetZ);
+        mainStrikeLoc.setY(world.getHighestBlockYAt(mainStrikeLoc) + 1);
+        world.strikeLightningEffect(mainStrikeLoc);
 
-        // Visual lightning at random location
-        world.strikeLightningEffect(strikeLoc);
-
-        // Additional random strikes for visual intensity (no damage)
-        int extraStrikes = rand.nextInt(1, 4); // 1-3 extra visual strikes
-        for (int i = 0; i < extraStrikes; i++) {
-            double ex = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
-            double ey = rand.nextDouble(-5, 20);
-            double ez = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
-            Location extraLoc = playerLoc.clone().add(ex, ey, ez);
-            world.strikeLightningEffect(extraLoc);
-        }
-
-        // Calculate height-scaled damage
-        double damage = calculateDamage(player, session) * 2.0; // Convert hearts to HP
-
-        // Apply damage to the player
+        // Calculate height-scaled damage and apply
+        double damage = calculateDamage(player, session) * 2.0;
         player.damage(damage);
 
-        // Particle effects around the player based on realm tier
+        // ── 2) AMBIENT BOLTS — spread across full 40x40 area, visual only ──
+        for (int i = 0; i < totalVisualBolts; i++) {
+            double offsetX = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+            double offsetZ = rand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+            Location strikeLoc = playerLoc.clone().add(offsetX, 0, offsetZ);
+            strikeLoc.setY(world.getHighestBlockYAt(strikeLoc) + 1);
+            world.strikeLightningEffect(strikeLoc);
+        }
+
+        // ── 3) CLOSE BOLTS — extra bolts very near player (from config) ──
+        int closeBolts = rand.nextInt(realmManager.getCloseBoltsMin(), realmManager.getCloseBoltsMax() + 1);
+        for (int i = 0; i < closeBolts; i++) {
+            double cx = rand.nextDouble(-3, 4);
+            double cz = rand.nextDouble(-3, 4);
+            Location closeLoc = playerLoc.clone().add(cx, 0, cz);
+            closeLoc.setY(world.getHighestBlockYAt(closeLoc) + 1);
+            world.strikeLightningEffect(closeLoc);
+        }
+
+        // ── 4) PARTICLE EFFECTS around the player ──
+        Location particleLoc = playerLoc.clone().add(0, 1, 0);
         if (session.isMajor && session.targetRealm != null) {
             spawnBreakthroughParticles(player, session.targetRealm);
         } else {
-            world.spawnParticle(Particle.ELECTRIC_SPARK, playerLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 20, 0.5, 0.5, 0.5, 0.1);
         }
 
-        // Sound effects
-        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 3.0f, 1.0f);
-        world.playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER, 2.0f, 1.0f);
+        // Extra electric sparks at strike locations for atmosphere
+        world.spawnParticle(Particle.ELECTRIC_SPARK, mainStrikeLoc, 30, 1.5, 0.5, 1.5, 0.15);
+        world.spawnParticle(Particle.END_ROD, playerLoc.clone().add(0, 2, 0), 10, 0.3, 0.5, 0.3, 0.05);
+
+        // ── 5) SOUND EFFECTS — layered thunder ──
+        // Main thunder at player
+        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 3.0f, 0.8f + rand.nextFloat() * 0.4f);
+        // Distant thunder for ambient bolts
+        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER, 2.0f, 0.6f + rand.nextFloat() * 0.8f);
+        // Extra rumble in late phase
+        if (progress > 0.5) {
+            world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 4.0f, 0.4f);
+        }
     }
 
     /**
@@ -462,6 +706,10 @@ public class BreakthroughManager implements Listener {
     // ==========================================
 
     private void handleBreakthroughSuccess(Player player, BreakthroughSession session) {
+        // Guard against double-execution (e.g. if previous run threw exception)
+        if (session.completed) return;
+        session.completed = true;
+
         UUID uuid = player.getUniqueId();
         activeSessions.remove(uuid);
 
@@ -482,16 +730,34 @@ public class BreakthroughManager implements Listener {
                     10, 60, 20
             );
 
-            // Particles celebration
+            // ── DRAMATIC SUCCESS EFFECTS ──
             Location loc = player.getLocation();
-            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(0, 1, 0), 100, 1, 2, 1, 0.5);
-            player.getWorld().spawnParticle(Particle.END_ROD, loc, 80, 2, 3, 2, 0.3);
+            World world = player.getWorld();
+
+            try {
+                // Massive particle explosion
+                world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(0, 1, 0), 200, 2, 3, 2, 0.8);
+                world.spawnParticle(Particle.END_ROD, loc, 150, 3, 4, 3, 0.5);
+
+                // Expanding shockwave rings (animated over 1 second)
+                spawnSuccessShockwave(player);
+
+                // Light pillar burst
+                for (double y = 0; y < 20; y += 0.3) {
+                    Location pillar = loc.clone().add(0, y, 0);
+                    world.spawnParticle(Particle.END_ROD, pillar, 3, 0.2, 0, 0.2, 0.05);
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Particle effect error in breakthrough success: " + t.getMessage());
+            }
 
             // Spawn ModelEngine model on success
             spawnSuccessModel(player, true);
 
-            // Sound
-            player.getWorld().playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 3.0f, 1.0f);
+            // Sounds — layered for epicness
+            world.playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 3.0f, 1.0f);
+            world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.MASTER, 2.0f, 1.5f);
+            world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.MASTER, 1.5f, 0.5f);
 
             // Broadcast
             String successMsg = "§a§l✨ " + player.getName() + " §a§lđã vượt Kiếp Lôi, đột phá thành công " 
@@ -500,6 +766,40 @@ public class BreakthroughManager implements Listener {
 
             // Apply stat bonuses for new realm
             realmManager.applyStatBonus(player);
+
+            // ── SÉT TIẾP TỤC SAU THÀNH CÔNG (trong lúc animation actived) ──
+            if (realmManager.isSuccessStormContinue()) {
+                int stormInterval = realmManager.getSuccessStormInterval();
+                int stormBolts = realmManager.getSuccessStormBolts();
+                int durationTicks = plugin.getConfig().getInt("breakthrough.model-duration", 5) * 20;
+
+                BukkitRunnable successStorm = new BukkitRunnable() {
+                    int ticksLeft = durationTicks;
+
+                    @Override
+                    public void run() {
+                        if (!player.isOnline() || ticksLeft <= 0) {
+                            cancel();
+                            return;
+                        }
+
+                        Location sLoc = player.getLocation();
+                        World sWorld = player.getWorld();
+                        ThreadLocalRandom sRand = ThreadLocalRandom.current();
+
+                        for (int i = 0; i < stormBolts; i++) {
+                            double sx = sRand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+                            double sz = sRand.nextDouble(-LIGHTNING_RADIUS, LIGHTNING_RADIUS + 1);
+                            Location sStrike = sLoc.clone().add(sx, 0, sz);
+                            sStrike.setY(sWorld.getHighestBlockYAt(sStrike) + 1);
+                            sWorld.strikeLightningEffect(sStrike);
+                        }
+
+                        ticksLeft -= stormInterval;
+                    }
+                };
+                successStorm.runTaskTimer(plugin, 0L, stormInterval);
+            }
 
         } else {
             // Sub-realm breakthrough success
@@ -552,8 +852,16 @@ public class BreakthroughManager implements Listener {
         if (session.task != null) {
             session.task.cancel();
         }
-        // Remove levitation
-        cleanupLevitation(player);
+        // Cancel aura task
+        if (session.auraTask != null) {
+            session.auraTask.cancel();
+        }
+        // Cancel storm task
+        if (session.stormTask != null) {
+            session.stormTask.cancel();
+        }
+        // Remove all breakthrough effects
+        cleanupBreakthroughEffects(player);
 
         if (session.isMajor) {
             // Apply cooldown + demote
@@ -612,10 +920,16 @@ public class BreakthroughManager implements Listener {
         if (session.task != null) {
             session.task.cancel();
         }
-        // Remove levitation for the player
+        if (session.auraTask != null) {
+            session.auraTask.cancel();
+        }
+        if (session.stormTask != null) {
+            session.stormTask.cancel();
+        }
+        // Remove all effects for the player
         Player p = Bukkit.getPlayer(session.playerId);
         if (p != null && p.isOnline()) {
-            cleanupLevitation(p);
+            cleanupBreakthroughEffects(p);
         }
         // Apply cooldown for major breakthrough
         if (session.isMajor) {
@@ -645,8 +959,7 @@ public class BreakthroughManager implements Listener {
 
     /**
      * Spawn model đột phá: ArmorStand + Model + Player cưỡi lên.
-     * Giống cách TuLuyenManager — player ride ArmorStand nên animation hiển thị trên người chơi.
-     * Sau duration giây sẽ tự dismount + xóa.
+     * Player tàng hình trong lúc animation chạy, hiện lại khi animation kết thúc.
      */
     private void spawnSuccessModel(Player player, boolean isMajor) {
         if (!plugin.getConfig().getBoolean("breakthrough.enabled", true)) return;
@@ -681,10 +994,23 @@ public class BreakthroughManager implements Listener {
                     com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
             modeledEntity.addModel(activeModel, true);
 
-            // Player cưỡi lên ArmorStand → animation sẽ hiển thị trên người chơi
+            // Player cưỡi lên ArmorStand
             stand.addPassenger(player);
 
-            plugin.getLogger().info("Breakthrough model '" + modelId + "' — player " + player.getName() + " mounted");
+            // ── TÀN HÌNH PLAYER trong lúc animation ──
+            // Add invisibility potion effect
+            player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.INVISIBILITY, duration * 20 + 20, 0,
+                    false, false, false // No particles, no icon
+            ));
+            // Hide player from all other players
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (!online.equals(player)) {
+                    online.hidePlayer(plugin, player);
+                }
+            }
+
+            plugin.getLogger().info("Breakthrough model '" + modelId + "' — player " + player.getName() + " mounted (invisible)");
 
             // Delay 2 ticks rồi chạy animation "actived"
             final com.ticxo.modelengine.api.model.ActiveModel finalModel = activeModel;
@@ -700,7 +1026,7 @@ public class BreakthroughManager implements Listener {
                 }
             }.runTaskLater(plugin, 2L);
 
-            // Sau duration giây: dismount player, xóa model + ArmorStand
+            // Sau duration giây: dismount, xóa model, HIỆN LẠI player
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -716,11 +1042,65 @@ public class BreakthroughManager implements Listener {
                     } catch (Exception ignored) {}
                     // Xóa ArmorStand
                     stand.remove();
+
+                    // ── HIỆN LẠI PLAYER ──
+                    if (player.isOnline()) {
+                        player.removePotionEffect(PotionEffectType.INVISIBILITY);
+                        for (Player online : Bukkit.getOnlinePlayers()) {
+                            if (!online.equals(player)) {
+                                online.showPlayer(plugin, player);
+                            }
+                        }
+                        // Flash effect khi hiện lại
+                        Location pLoc = player.getLocation();
+                        player.getWorld().spawnParticle(Particle.FLASH, pLoc.clone().add(0, 1, 0), 2, 0, 0, 0, 0);
+                        player.getWorld().spawnParticle(Particle.END_ROD, pLoc, 50, 1, 2, 1, 0.3);
+                        player.getWorld().playSound(pLoc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 2.0f, 1.2f);
+                        plugin.getLogger().info("Player " + player.getName() + " is now visible again");
+                    }
                 }
             }.runTaskLater(plugin, duration * 20L);
 
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to spawn breakthrough model: " + modelId + " — " + e.getMessage());
+            // Ensure player is visible if model spawn fails
+            player.removePotionEffect(PotionEffectType.INVISIBILITY);
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (!online.equals(player)) {
+                    online.showPlayer(plugin, player);
+                }
+            }
+        }
+    }
+
+    /**
+     * Spawn expanding shockwave rings on breakthrough success.
+     * 5 rings expanding outward over 1 second.
+     */
+    private void spawnSuccessShockwave(Player player) {
+        Location center = player.getLocation().clone().add(0, 1, 0);
+        World world = player.getWorld();
+
+        for (int wave = 0; wave < 5; wave++) {
+            final int waveIndex = wave;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+                    double radius = 2 + waveIndex * 3; // 2, 5, 8, 11, 14 blocks
+                    int points = 24 + waveIndex * 8; // More points for larger rings
+                    for (int i = 0; i < points; i++) {
+                        double angle = (2 * Math.PI / points) * i;
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        Location ringLoc = center.clone().add(x, 0, z);
+                        world.spawnParticle(Particle.CLOUD, ringLoc, 1, 0, 0, 0, 0.02);
+                        world.spawnParticle(Particle.END_ROD, ringLoc, 1, 0, 0.2, 0, 0.05);
+                    }
+                    // Sound for each wave
+                    world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_BLAST, SoundCategory.MASTER, 1.5f, 0.5f + waveIndex * 0.2f);
+                }
+            }.runTaskLater(plugin, wave * 4L); // 4 ticks apart (0.2 sec)
         }
     }
 
@@ -753,6 +1133,12 @@ public class BreakthroughManager implements Listener {
         for (BreakthroughSession session : activeSessions.values()) {
             if (session.task != null) {
                 session.task.cancel();
+            }
+            if (session.auraTask != null) {
+                session.auraTask.cancel();
+            }
+            if (session.stormTask != null) {
+                session.stormTask.cancel();
             }
         }
         activeSessions.clear();
