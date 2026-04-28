@@ -628,11 +628,11 @@ public class BreakthroughManager implements Listener {
         if (session.isMajor && session.targetRealm != null) {
             spawnBreakthroughParticles(player, session.targetRealm);
         } else {
-            world.spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.END_ROD, particleLoc, 20, 0.5, 0.5, 0.5, 0.1);
         }
 
         // Extra electric sparks at strike locations for atmosphere
-        world.spawnParticle(Particle.ELECTRIC_SPARK, mainStrikeLoc, 30, 1.5, 0.5, 1.5, 0.15);
+        world.spawnParticle(Particle.SOUL_FIRE_FLAME, mainStrikeLoc, 15, 1.5, 0.5, 1.5, 0.05);
         world.spawnParticle(Particle.END_ROD, playerLoc.clone().add(0, 2, 0), 10, 0.3, 0.5, 0.3, 0.05);
 
         // ── 5) SOUND EFFECTS — layered thunder ──
@@ -656,21 +656,21 @@ public class BreakthroughManager implements Listener {
         switch (realm.getTier()) {
             case PHAM_GIOI:
                 // Yellow-green particles
-                world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 1, 1, 1, 0.1);
+                world.spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 15, 1, 1, 1, 0.05);
                 world.spawnParticle(Particle.END_ROD, loc, 15, 0.5, 1, 0.5, 0.05);
                 break;
             case TIEN_GIOI:
                 // Blue-purple particles
                 world.spawnParticle(Particle.DRAGON_BREATH, loc, 40, 1, 1.5, 1, 0.05);
                 world.spawnParticle(Particle.END_ROD, loc, 25, 1, 1.5, 1, 0.1);
-                world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.5, 0.5, 0.5, 0.2);
+                world.spawnParticle(Particle.ENCHANT, loc, 30, 0.5, 0.5, 0.5, 1.0);
                 break;
             case THAN_GIOI:
                 // Red-gold divine particles
                 world.spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 50, 1.5, 2, 1.5, 0.1);
                 world.spawnParticle(Particle.END_ROD, loc, 40, 2, 2, 2, 0.15);
                 world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 20, 1, 1.5, 1, 0.3);
-                world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 40, 1, 1, 1, 0.2);
+                world.spawnParticle(Particle.END_ROD, loc, 25, 1, 1, 1, 0.15);
                 break;
         }
     }
@@ -1051,11 +1051,15 @@ public class BreakthroughManager implements Listener {
                                 online.showPlayer(plugin, player);
                             }
                         }
-                        // Flash effect khi hiện lại
-                        Location pLoc = player.getLocation();
-                        player.getWorld().spawnParticle(Particle.FLASH, pLoc.clone().add(0, 1, 0), 2, 0, 0, 0, 0);
-                        player.getWorld().spawnParticle(Particle.END_ROD, pLoc, 50, 1, 2, 1, 0.3);
-                        player.getWorld().playSound(pLoc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 2.0f, 1.2f);
+                        // Re-appear effects
+                        try {
+                            Location pLoc = player.getLocation();
+                            player.getWorld().spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 1, 0), 50, 1, 2, 1, 0.3);
+                            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, pLoc, 30, 1, 1, 1, 0.5);
+                            player.getWorld().playSound(pLoc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 2.0f, 1.2f);
+                        } catch (Throwable t) {
+                            // Particle API errors should not prevent player from becoming visible
+                        }
                         plugin.getLogger().info("Player " + player.getName() + " is now visible again");
                     }
                 }
