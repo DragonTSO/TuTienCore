@@ -2,6 +2,7 @@ package com.turtle.tutiencore.core.command;
 
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.model.CuboidZone;
@@ -20,11 +21,15 @@ public class TuTienCommand implements CommandExecutor {
     private final TuLuyenManager tuLuyenManager;
     private final ZoneManager zoneManager;
     private final ConfigManager config;
+    private final DotPhaCommand dotPhaCommand;
+    private final FlySwordManager flySwordManager;
 
-    public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config) {
+    public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config, DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
+        this.dotPhaCommand = dotPhaCommand;
+        this.flySwordManager = flySwordManager;
     }
 
     @Override
@@ -63,6 +68,8 @@ public class TuTienCommand implements CommandExecutor {
 
         if (args[0].equalsIgnoreCase("reload")) {
             config.load();
+            dotPhaCommand.loadConfig();
+            flySwordManager.loadConfig();
             sender.sendMessage("§a[TuTienCore] Đã nạp lại cấu hình!");
             return true;
         }

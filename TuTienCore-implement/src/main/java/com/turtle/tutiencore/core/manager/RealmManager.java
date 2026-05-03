@@ -6,7 +6,10 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.RealmTier;
 import com.turtle.tutiencore.api.realm.SubRealm;
 
+import me.clip.placeholderapi.PlaceholderAPI;
+
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -125,32 +128,40 @@ public class RealmManager implements Listener {
                 String displayName = rs.getString("display-name", color + name);
                 long tuViRequired = rs.getLong("tuvi-required", 0);
                 long thucLucRequired = rs.getLong("thuc-luc-required", 0);
+                double moneyRequired = rs.getDouble("money-required", 0);
 
                 // Parse sub-realms (nested: tuvi + display-name)
                 ConfigurationSection sub = rs.getConfigurationSection("sub-realms");
                 long soKy = 0, trungKy = 0, hauKy = 0, dinhPhong = 0, vienMan = 0;
                 String trungKyDisplay = null, hauKyDisplay = null, dinhPhongDisplay = null, vienManDisplay = null;
+                Map<SubRealm, Long> subThucLucRequirements = new EnumMap<>(SubRealm.class);
+                Map<SubRealm, Double> subMoneyRequirements = new EnumMap<>(SubRealm.class);
 
                 if (sub != null) {
                     // Sơ Kỳ
                     ConfigurationSection soKySec = sub.getConfigurationSection("so-ky");
                     soKy = soKySec != null ? soKySec.getLong("tuvi", 0) : sub.getLong("so-ky", 0);
+                    loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.SO_KY, soKySec);
                     // Trung Kỳ
                     ConfigurationSection trungKySec = sub.getConfigurationSection("trung-ky");
                     trungKy = trungKySec != null ? trungKySec.getLong("tuvi", 0) : sub.getLong("trung-ky", 0);
                     trungKyDisplay = trungKySec != null ? trungKySec.getString("display-name") : null;
+                    loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.TRUNG_KY, trungKySec);
                     // Hậu Kỳ
                     ConfigurationSection hauKySec = sub.getConfigurationSection("hau-ky");
                     hauKy = hauKySec != null ? hauKySec.getLong("tuvi", 0) : sub.getLong("hau-ky", 0);
                     hauKyDisplay = hauKySec != null ? hauKySec.getString("display-name") : null;
+                    loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.HAU_KY, hauKySec);
                     // Đỉnh Phong
                     ConfigurationSection dinhPhongSec = sub.getConfigurationSection("dinh-phong");
                     dinhPhong = dinhPhongSec != null ? dinhPhongSec.getLong("tuvi", 0) : sub.getLong("dinh-phong", 0);
                     dinhPhongDisplay = dinhPhongSec != null ? dinhPhongSec.getString("display-name") : null;
+                    loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.DINH_PHONG, dinhPhongSec);
                     // Viên Mãn
                     ConfigurationSection vienManSec = sub.getConfigurationSection("vien-man");
                     vienMan = vienManSec != null ? vienManSec.getLong("tuvi", 0) : sub.getLong("vien-man", 0);
                     vienManDisplay = vienManSec != null ? vienManSec.getString("display-name") : null;
+                    loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.VIEN_MAN, vienManSec);
                 }
 
                 ConfigurationSection bt = rs.getConfigurationSection("breakthrough");
@@ -178,7 +189,7 @@ public class RealmManager implements Listener {
                 }
 
                 Realm realm = new Realm(id, name, displayName, english, tier,
-                        tuViRequired, thucLucRequired, color,
+                        tuViRequired, thucLucRequired, moneyRequired, color,
                         soKy, trungKy, hauKy, dinhPhong, vienMan,
                         bolts, dmgPerBolt, successRate, statBonuses);
 
@@ -187,6 +198,12 @@ public class RealmManager implements Listener {
                 if (hauKyDisplay != null) realm.setSubRealmDisplayName(SubRealm.HAU_KY, hauKyDisplay);
                 if (dinhPhongDisplay != null) realm.setSubRealmDisplayName(SubRealm.DINH_PHONG, dinhPhongDisplay);
                 if (vienManDisplay != null) realm.setSubRealmDisplayName(SubRealm.VIEN_MAN, vienManDisplay);
+                for (SubRealm subRealm : subThucLucRequirements.keySet()) {
+                    realm.setSubRealmThucLucRequirement(subRealm, subThucLucRequirements.get(subRealm));
+                }
+                for (SubRealm subRealm : subMoneyRequirements.keySet()) {
+                    realm.setSubRealmMoneyRequirement(subRealm, subMoneyRequirements.get(subRealm));
+                }
 
                 realms.put(id, realm);
             }
@@ -247,6 +264,19 @@ public class RealmManager implements Listener {
         }
 
         plugin.getLogger().info("Loaded " + realms.size() + " realms from realms.yml");
+    }
+
+    private void loadSubRealmRequirements(Map<SubRealm, Long> thucLucRequirements,
+                                          Map<SubRealm, Double> moneyRequirements,
+                                          SubRealm subRealm,
+                                          ConfigurationSection section) {
+        if (section == null) return;
+        if (section.contains("thuc-luc-required")) {
+            thucLucRequirements.put(subRealm, section.getLong("thuc-luc-required", 0));
+        }
+        if (section.contains("money-required")) {
+            moneyRequirements.put(subRealm, section.getDouble("money-required", 0));
+        }
     }
 
     // ==========================================
@@ -423,7 +453,6 @@ public class RealmManager implements Listener {
     public List<String> checkBreakthroughConditions(UUID uuid) {
         List<String> failures = new ArrayList<>();
         PlayerRealm pr = getPlayerRealm(uuid);
-        Realm currentRealm = realms.get(pr.getRealmId());
         Realm nextRealm = realms.get(pr.getRealmId() + 1);
 
         if (nextRealm == null) {
@@ -442,6 +471,33 @@ public class RealmManager implements Listener {
             failures.add("§cTu Vi chưa đủ! Cần: " + formatNumber(nextRealm.getTuViRequired()) + " | Hiện tại: " + formatNumber((long) tuVi));
         }
 
+        // Check Thực Lực from PlaceholderAPI when the next realm requires it.
+        long thucLucRequired = nextRealm.getThucLucRequired();
+        if (thucLucRequired > 0) {
+            String placeholder = plugin.getConfig().getString("breakthrough.thuc-luc-placeholder", "").trim();
+            if (placeholder.isEmpty()) {
+                failures.add("§cChưa cấu hình placeholder Thực Lực! Cần chỉnh breakthrough.thuc-luc-placeholder trong config.yml");
+            } else if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+                failures.add("§cThiếu PlaceholderAPI để kiểm tra Thực Lực!");
+            } else {
+                long thucLuc = getThucLuc(uuid);
+                if (thucLuc < thucLucRequired) {
+                    failures.add("§cThực Lực chưa đủ! Cần: " + formatNumber(thucLucRequired) + " | Hiện tại: " + formatNumber(thucLuc));
+                }
+            }
+        }
+
+        // Check Vault money when configured for the next realm.
+        double moneyRequired = nextRealm.getMoneyRequired();
+        if (moneyRequired > 0) {
+            Double balance = getVaultBalance(uuid);
+            if (balance == null) {
+                failures.add("§cThiếu Vault/Economy để kiểm tra tiền đột phá!");
+            } else if (balance < moneyRequired) {
+                failures.add("§cTiền chưa đủ! Cần: " + formatMoney(moneyRequired) + " | Hiện tại: " + formatMoney(balance));
+            }
+        }
+
         // Check cooldown
         if (pr.isOnCooldown()) {
             long remaining = pr.getRemainingCooldownSeconds();
@@ -451,6 +507,90 @@ public class RealmManager implements Listener {
         }
 
         return failures;
+    }
+
+    public List<String> checkSubRealmBreakthroughConditions(UUID uuid, SubRealm nextSub) {
+        List<String> failures = new ArrayList<>();
+        Realm realm = getPlayerCurrentRealm(uuid);
+        if (realm == null || nextSub == null) return failures;
+
+        double tuVi = TuTien.getApi().getTuVi(uuid);
+        long tuViRequired = realm.getTuViForSubRealm(nextSub);
+        if (tuVi < tuViRequired) {
+            failures.add("§cTu Vi chưa đủ! Cần: " + formatNumber(tuViRequired) + " | Hiện tại: " + formatNumber((long) tuVi));
+        }
+
+        long thucLucRequired = realm.getThucLucForSubRealm(nextSub);
+        if (thucLucRequired > 0) {
+            String placeholder = plugin.getConfig().getString("breakthrough.thuc-luc-placeholder", "").trim();
+            if (placeholder.isEmpty()) {
+                failures.add("§cChưa cấu hình placeholder Thực Lực! Cần chỉnh breakthrough.thuc-luc-placeholder trong config.yml");
+            } else if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+                failures.add("§cThiếu PlaceholderAPI để kiểm tra Thực Lực!");
+            } else {
+                long thucLuc = getThucLuc(uuid);
+                if (thucLuc < thucLucRequired) {
+                    failures.add("§cThực Lực chưa đủ! Cần: " + formatNumber(thucLucRequired) + " | Hiện tại: " + formatNumber(thucLuc));
+                }
+            }
+        }
+
+        double moneyRequired = realm.getMoneyForSubRealm(nextSub);
+        if (moneyRequired > 0) {
+            Double balance = getVaultBalance(uuid);
+            if (balance == null) {
+                failures.add("§cThiếu Vault/Economy để kiểm tra tiền đột phá!");
+            } else if (balance < moneyRequired) {
+                failures.add("§cTiền chưa đủ! Cần: " + formatMoney(moneyRequired) + " | Hiện tại: " + formatMoney(balance));
+            }
+        }
+
+        return failures;
+    }
+
+    public long getThucLuc(UUID uuid) {
+        return parseLongRequirement(getThucLucDisplay(uuid));
+    }
+
+    public String getThucLucDisplay(UUID uuid) {
+        String placeholder = plugin.getConfig().getString("breakthrough.thuc-luc-placeholder", "").trim();
+        if (placeholder.isEmpty() || Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) return "0";
+
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+        return PlaceholderAPI.setPlaceholders(offlinePlayer, placeholder);
+    }
+
+    public double getMoney(UUID uuid) {
+        Double balance = getVaultBalance(uuid);
+        return balance != null ? balance : 0;
+    }
+
+    private Double getVaultBalance(UUID uuid) {
+        try {
+            Class<?> econClass = Class.forName("net.milkbowl.vault.economy.Economy");
+            Object registration = Bukkit.getServicesManager().getRegistration(econClass);
+            if (registration == null) return null;
+
+            Object econ = registration.getClass().getMethod("getProvider").invoke(registration);
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+            return (double) econ.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(econ, offlinePlayer);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private long parseLongRequirement(String value) {
+        if (value == null) return 0;
+        String cleaned = value.replace(",", "").replace(" ", "").trim();
+        try {
+            return (long) Double.parseDouble(cleaned);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    public static String formatMoney(double amount) {
+        return formatNumber((long) amount);
     }
 
     /**
@@ -525,7 +665,7 @@ public class RealmManager implements Listener {
                 io.lumine.mythic.lib.api.stat.modifier.StatModifier modifier =
                         new io.lumine.mythic.lib.api.stat.modifier.StatModifier(
                                 key, stat, value,
-                                io.lumine.mythic.lib.api.stat.modifier.ModifierType.RELATIVE);
+                                io.lumine.mythic.lib.player.modifier.ModifierType.RELATIVE);
 
                 io.lumine.mythic.lib.api.stat.StatInstance instance = statMap.getInstance(stat);
                 if (instance != null) {

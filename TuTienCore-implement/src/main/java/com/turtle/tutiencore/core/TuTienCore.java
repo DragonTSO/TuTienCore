@@ -8,6 +8,7 @@ import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
+import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
@@ -32,7 +33,9 @@ public class TuTienCore {
     private TuLuyenManager tuLuyenManager;
     private RealmManager realmManager;
     private BreakthroughManager breakthroughManager;
+    private FlySwordManager flySwordManager;
     private RealmListGUI realmListGUI;
+    private DotPhaCommand dotPhaCommand;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -64,24 +67,25 @@ public class TuTienCore {
         // Realm & Breakthrough System
         this.realmManager = new RealmManager(plugin);
         this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
+        this.flySwordManager = new FlySwordManager(plugin);
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
 
         // Inject managers into API impl so it can delegate calls
         this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
 
         // Register commands
-        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager);
+        // Register /dotpha command
+        this.dotPhaCommand = new DotPhaCommand(plugin, realmManager, breakthroughManager, realmListGUI);
+        if (plugin.getCommand("dotpha") != null) {
+            plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
+        }
+
+        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
         if (plugin.getCommand("tuluyen") != null) {
             plugin.getCommand("tuluyen").setExecutor(commandHandler);
-        }
-
-        // Register /dotpha command
-        DotPhaCommand dotPhaCommand = new DotPhaCommand(plugin, realmManager, breakthroughManager, realmListGUI);
-        if (plugin.getCommand("dotpha") != null) {
-            plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }
 
         // Register /canhgioi command
@@ -119,6 +123,9 @@ public class TuTienCore {
         }
         if (breakthroughManager != null) {
             breakthroughManager.cleanup();
+        }
+        if (flySwordManager != null) {
+            flySwordManager.stopTask();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

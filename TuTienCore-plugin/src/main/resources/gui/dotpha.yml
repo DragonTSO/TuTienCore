@@ -1,129 +1,55 @@
 # ==========================================
-# TuTienCore — Đột Phá GUI Configuration
+# TuTienCore - /dotpha GUI Configuration
 # ==========================================
-# Tùy chỉnh giao diện menu /dotpha
-# Sử dụng & color codes cho tên và lore
-# Hỗ trợ PlaceholderAPI: %player_name%, %tutien_tuvi%, v.v.
+# Chinh title, item, slot, material va lore cua menu /dotpha.
+# Ho tro mau &: &a, &c, &l...
+# Ho tro PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
+# Ho tro placeholder noi bo: {realm}, {sub_realm}, {next_realm}, {next_sub_realm},
+# {tuvi}, {tuvi_required}, {thuc_luc}, {thuc_luc_required}, {money}, {money_required},
+# {lightning_bolts}, {damage_per_bolt}, {total_damage}, {status_tuvi}, {status_thuc_luc},
+# {status_money}, {status_cooldown}, {cooldown}.
 
-# ==========================================
-# REQUIREMENTS GUIDE
-# ==========================================
-# Mỗi item có thể có click_requirement để kiểm tra điều kiện khi click.
-# Nếu không đạt → deny_commands được thực thi.
-#
-# Các loại requirement hỗ trợ:
-#
-#   has permission:
-#     type: "has permission"
-#     permission: "some.permission"
-#
-#   has money (Vault):
-#     type: "has money"
-#     amount: 1000
-#
-#   has item:
-#     type: "has item"
-#     material: DIAMOND
-#     amount: 5
-#     name: "&eTên Item"           # (tùy chọn)
-#
-#   placeholder compare (so sánh số):
-#     type: ">"                    # Hỗ trợ: ==, !=, >, <, >=, <=
-#     input: "%tutien_tuvi_int%"
-#     output: "5000"
-#
-#   string equals:
-#     type: "string equals"
-#     input: "%tutien_canhgioi%"
-#     output: "Luyện Khí"
-#
-#   string equals ignorecase:
-#     type: "string equals ignorecase"
-#     input: "%some_placeholder%"
-#     output: "value"
-#
-#   string contains:
-#     type: "string contains"
-#     input: "%some_placeholder%"
-#     output: "partial"
-#
-# Đảo ngược requirement bằng dấu ! trước type:
-#   type: "!has permission"  → kiểm tra KHÔNG CÓ permission
-#
-# Actions trong deny_commands / success_commands:
-#   "[message] &cBạn không đủ điều kiện!"
-#   "[player] some_command"
-#   "[console] give %player% diamond 1"
-#   "[sound] ENTITY_VILLAGER_NO"
-#   "[close]"
-
-# ==========================================
-# GUI CHÍNH (54 slots = 6 rows)
-# ==========================================
 main-menu:
   title: "&5&l⚡ Đột Phá Cảnh Giới ⚡"
   size: 54
 
-  # Requirement mở menu (tùy chọn)
-  open_requirement:
-    requirements:
-      check_not_in_breakthrough:
-        type: "string equals"
-        input: "%tutien_dotpha_ready%"
-        output: "true"
-        deny_commands:
-          - "[message] &c⚡ Bạn đang trong quá trình đột phá!"
-          - "[sound] ENTITY_VILLAGER_NO"
-
-  # ==========================================
-  # ITEMS
-  # ==========================================
   items:
-    # Viền trang trí
     border:
       slots: "0-8,45-53,9,18,27,36,17,26,35,44"
       material: PURPLE_STAINED_GLASS_PANE
       name: "&5"
 
-    # Slot 13: Thông tin cảnh giới hiện tại
     current-realm:
       slot: 13
       material: NETHER_STAR
-      name: "%tutien_canhgioi_full% &7— &e%tutien_canhgioi_tang%"
+      name: "{realm} &7— &e{sub_realm}"
       lore:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Đại Giới: &e%tutien_canhgioi_daigioi%"
-        - "&7Cảnh Giới: %tutien_canhgioi_full%"
-        - "&7Tầng Nhỏ: &e%tutien_canhgioi_tang%"
+        - "&7Cảnh Giới: {realm}"
+        - "&7Tầng Nhỏ: &e{sub_realm}"
         - ""
-        - "&7Tu Vi: &b%tutien_tuvi_formatted%"
+        - "&7Tu Vi: &b{tuvi}"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
 
-    # Slot 20: Đột phá tầng nhỏ
     sub-realm-breakthrough:
       slot: 20
-      material: EXPERIENCE_BOTTLE
+      material-ready: EXPERIENCE_BOTTLE
+      material-locked: GLASS_BOTTLE
       name: "&e⚡ Đột Phá Tầng Nhỏ"
       lore:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Tầng hiện tại: &e%tutien_canhgioi_tang%"
+        - "&7Đột phá: &e{sub_realm} &7→ &a{next_sub_realm}"
         - ""
-        - "&e⚡ Tiểu Lôi Kiếp — Sét nhẹ"
+        - "{status_tuvi} Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
+        - "{status_thuc_luc} Thực Lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
+        - "{status_money} Tiền: &b{money} &7/ &e{money_required}"
+        - ""
+        - "&e⚡ Tiểu Lôi Kiếp:"
+        - "&7  Số tia sét: &c{lightning_bolts}"
+        - "&7  DMG/tia: &c{damage_per_bolt} ❤"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&a&l▶ Click để đột phá tầng nhỏ!"
-      click_requirement:
-        requirements:
-          check_not_vienman:
-            type: "!string equals"
-            input: "%tutien_canhgioi_tang%"
-            output: "Viên Mãn"
-            deny_commands:
-              - "[message] &cBạn đã đạt Viên Mãn! Hãy đột phá đại cảnh giới."
-              - "[sound] ENTITY_VILLAGER_NO"
-        deny_commands:
-          - "[message] &cChưa đủ điều kiện đột phá tầng nhỏ!"
 
-    # Slot 22: Danh sách cảnh giới
     realm-list:
       slot: 22
       material: BOOK
@@ -131,41 +57,32 @@ main-menu:
       lore:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&7Hệ thống 19 Cảnh Giới"
-        - "&7Hiện tại: %tutien_canhgioi_full%"
+        - "&7Hiện tại: {realm}"
+        - "&7Tầng nhỏ: &e{sub_realm}"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&eClick để xem danh sách."
 
-    # Slot 24: Đột phá đại cảnh giới
     major-breakthrough:
       slot: 24
-      material: END_CRYSTAL
+      material-ready: END_CRYSTAL
+      material-locked: BARRIER
       name: "&c&l⚡ Đột Phá Đại Cảnh Giới"
       lore:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Cảnh giới hiện tại: %tutien_canhgioi_full%"
+        - "&7Đột phá → {next_realm}"
         - ""
-        - "&c&l⚡ Thiên Lôi Kiếp sẽ giáng xuống!"
-        - "&c  Nếu chết → Thất bại + Cooldown"
+        - "{status_tuvi} Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
+        - "{status_thuc_luc} Thực Lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
+        - "{status_money} Tiền: &b{money} &7/ &e{money_required}"
+        - "{status_cooldown} Cooldown: &e{cooldown}s"
+        - ""
+        - "&c&l⚡ Thiên Lôi Kiếp:"
+        - "&7  Số tia sét: &c{lightning_bolts}"
+        - "&7  DMG/tia: &c{damage_per_bolt} ❤"
+        - "&7  Tổng DMG: &c{total_damage} ❤"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&a&l▶ Click để mở xác nhận!"
-      click_requirement:
-        requirements:
-          check_vienman:
-            type: "string equals"
-            input: "%tutien_canhgioi_tang%"
-            output: "Viên Mãn"
-            deny_commands:
-              - "[message] &cCần đạt Viên Mãn trước khi đột phá đại cảnh giới!"
-          check_cooldown:
-            type: "string equals"
-            input: "%tutien_dotpha_ready%"
-            output: "true"
-            deny_commands:
-              - "[message] &cĐang cooldown! Còn %tutien_dotpha_cooldown% giây."
-              - "[sound] ENTITY_VILLAGER_NO"
-        deny_commands:
-          - "[message] &c&l⚠ Chưa đủ điều kiện đột phá!"
 
-    # Slot 31: Mẹo chiến thuật
     tips:
       slot: 31
       material: WRITABLE_BOOK
@@ -184,19 +101,13 @@ main-menu:
         - "&c  Không thể nhờ người khác heal!"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
 
-    # Slot 49: Nút đóng
     close-button:
       slot: 49
       material: BARRIER
       name: "&c&lĐóng Menu"
       lore:
         - "&7Click để đóng"
-      click_commands:
-        - "[close]"
 
-# ==========================================
-# GUI XÁC NHẬN (27 slots = 3 rows)
-# ==========================================
 confirm-menu:
   title: "&c&l⚡ XÁC NHẬN ĐỘT PHÁ ⚡"
   size: 27
@@ -205,21 +116,20 @@ confirm-menu:
     material: BLACK_STAINED_GLASS_PANE
 
   items:
-    # Slot 13: Thông tin đột phá
     info:
       slot: 13
       material: LIGHTNING_ROD
       name: "&e&l⚡ Thông Tin Đột Phá"
       lore:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Cảnh giới: %tutien_canhgioi_full%"
+        - "&7Cảnh giới: {realm}"
+        - "&7Tầng nhỏ: &e{sub_realm}"
         - ""
         - "&c⚠ CẢNH BÁO:"
         - "&c  Tia sét sẽ giáng xuống bạn!"
-        - "&c  Nếu chết → Thất bại + Cooldown"
+        - "&c  Chết = thất bại và cooldown"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
 
-    # Slot 11: Nút xác nhận
     confirm:
       slot: 11
       material: LIME_CONCRETE
@@ -227,17 +137,7 @@ confirm-menu:
       lore:
         - "&a&lBắt đầu Thiên Lôi Kiếp!"
         - "&7Click để xác nhận"
-      click_requirement:
-        requirements:
-          final_check_cooldown:
-            type: "string equals"
-            input: "%tutien_dotpha_ready%"
-            output: "true"
-            deny_commands:
-              - "[message] &cĐang cooldown!"
-              - "[sound] ENTITY_VILLAGER_NO"
 
-    # Slot 15: Nút hủy
     cancel:
       slot: 15
       material: RED_CONCRETE
@@ -245,7 +145,3 @@ confirm-menu:
       lore:
         - "&cHủy bỏ đột phá"
         - "&7Click để quay lại"
-      click_commands:
-        - "[close]"
-        - "[message] &7Đã hủy đột phá."
-        - "[sound] UI_BUTTON_CLICK"

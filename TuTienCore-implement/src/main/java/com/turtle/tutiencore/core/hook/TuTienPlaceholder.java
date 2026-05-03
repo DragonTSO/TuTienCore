@@ -3,10 +3,13 @@ package com.turtle.tutiencore.core.hook;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
+import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.UUID;
 
 public class TuTienPlaceholder extends PlaceholderExpansion {
 
@@ -101,8 +104,11 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
             return String.valueOf(pr.getRemainingCooldownSeconds());
         }
         else if (params.equalsIgnoreCase("dotpha_ready")) {
-            PlayerRealm pr = realmManager.getPlayerRealm(player.getUniqueId());
-            return String.valueOf(!pr.isOnCooldown());
+            return isReadyForNextBreakthrough(player.getUniqueId()) ? "V" : "X";
+        }
+        else if (params.equalsIgnoreCase("dotpha_next_tuvi_required")
+                || params.equalsIgnoreCase("dotpha_next_tuvi_required_formatted")) {
+            return getNextTuViRequired(player.getUniqueId());
         }
 
         // ==========================================
@@ -151,6 +157,31 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         }
 
         return null; // Unknown placeholder
+    }
+
+    private boolean isReadyForNextBreakthrough(UUID uuid) {
+        PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+        if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
+            SubRealm nextSub = pr.getSubRealm().next();
+            return nextSub != null && realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub).isEmpty();
+        }
+        return realmManager.getNextRealm(uuid) != null && realmManager.checkBreakthroughConditions(uuid).isEmpty();
+    }
+
+    private String getNextTuViRequired(UUID uuid) {
+        PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+        Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
+        if (currentRealm == null) {
+            return "0";
+        }
+
+        if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
+            SubRealm nextSub = pr.getSubRealm().next();
+            return nextSub != null ? String.format("%,d", currentRealm.getTuViForSubRealm(nextSub)) : "0";
+        }
+
+        Realm nextRealm = realmManager.getNextRealm(uuid);
+        return nextRealm != null ? String.format("%,d", nextRealm.getTuViRequired()) : "0";
     }
 
     private String formatCompact(double number) {

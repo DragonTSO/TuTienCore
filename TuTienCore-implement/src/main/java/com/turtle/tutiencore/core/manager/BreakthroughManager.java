@@ -189,16 +189,16 @@ public class BreakthroughManager implements Listener {
             return;
         }
 
-        // Check Tu Vi
-        Realm realm = realmManager.getPlayerCurrentRealm(uuid);
-        long required = realm.getTuViForSubRealm(nextSub);
-        double tuVi = com.turtle.tutiencore.api.TuTien.getApi().getTuVi(uuid);
-        if (tuVi < required) {
-            player.sendMessage("§cTu Vi chưa đủ! Cần: §e" + RealmManager.formatNumber(required) 
-                    + " §c| Hiện tại: §e" + RealmManager.formatNumber((long) tuVi));
+        List<String> failures = realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub);
+        if (!failures.isEmpty()) {
+            player.sendMessage("§c§l⚠ Chưa đủ điều kiện đột phá:");
+            for (String msg : failures) {
+                player.sendMessage("  " + msg);
+            }
             return;
         }
 
+        Realm realm = realmManager.getPlayerCurrentRealm(uuid);
         int bolts = realmManager.getSubRealmBolts(currentSub);
         double dmg = realmManager.getSubRealmDmg(currentSub);
 

@@ -12,6 +12,30 @@ tu-luyen:
   points-per-interval: 10
   # Command de cho diem Tu Vi, su dung %player% cho ten, va %points% cho so luong
   give-command: "eco give %player% %points%"
+  bossbar:
+    enabled: true
+    color: BLUE
+    style: SEGMENTED_10
+    title: "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7= &6{total}"
+  hologram:
+    enabled: true
+    # Requires FancyHolograms. Hologram is created when /tuluyen starts and removed when it stops.
+    y-offset: 2.4
+    visibility-distance: 32
+    update-interval: 20
+    text-shadow: true
+    see-through: false
+    lines:
+      - "&eTrạng thái: &aBế quan tu luyện"
+      - ""
+      - "&fCơ bản: &b+{base}"
+      - ""
+      - "&aBonus: &a+{bonus}%"
+      - "&dMôi Trường Tu Luyện: &d+{environment}%"
+      - "&6Tu Vi Thực Nhận: &6+{total}"
+  environment-bonus:
+    worlds: {}
+    regions: {}
 
 # ==========================================
 # PERMISSIONS
@@ -132,11 +156,23 @@ class-colors:
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
 tuluyen-model: "be_tutien_tier1"
 
+# ModelEngine kiếm bay hiển thị dưới chân khi người chơi đang fly
+fly-sword:
+  enabled: true
+  model: "kiembay"
+  y-offset: -0.05
+  scale: 1.5
+  require-permission: false
+  permission: "tutiencore.flysword"
+
 # Model hiện lên khi đột phá thành công
 # Để trống "" nếu không có ModelEngine
 breakthrough:
   # Bật/tắt model đột phá (true/false)
   enabled: true
+  # PlaceholderAPI placeholder dùng làm Thực Lực khi /dotpha đại cảnh giới.
+  # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
+  thuc-luc-placeholder: ""
   # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công
   major-success-model: "ascent"
   # Model hiện khi đột phá TẦNG NHỎ thành công

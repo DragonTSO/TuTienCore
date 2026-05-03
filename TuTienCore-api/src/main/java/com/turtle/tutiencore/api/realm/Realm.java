@@ -18,6 +18,7 @@ public class Realm {
     private final RealmTier tier;
     private final long tuViRequired;
     private final long thucLucRequired;
+    private final double moneyRequired;
     private final String color;
 
     // Sub-realm Tu Vi thresholds
@@ -29,6 +30,8 @@ public class Realm {
 
     // Sub-realm display names (key = SubRealm enum)
     private final Map<SubRealm, String> subRealmDisplayNames = new HashMap<>();
+    private final Map<SubRealm, Long> subRealmThucLucRequirements = new HashMap<>();
+    private final Map<SubRealm, Double> subRealmMoneyRequirements = new HashMap<>();
 
     // Breakthrough settings
     private final int lightningBolts;
@@ -39,7 +42,33 @@ public class Realm {
     private final Map<String, Double> statBonuses;
 
     public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
-                 long tuViRequired, long thucLucRequired, String color,
+                  long tuViRequired, long thucLucRequired, String color,
+                  long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
+                  long dinhPhongTuVi, long vienManTuVi,
+                 int lightningBolts, double damagePerBolt, double successRate,
+                 Map<String, Double> statBonuses) {
+        this.id = id;
+        this.name = name;
+        this.displayName = displayName;
+        this.englishName = englishName;
+        this.tier = tier;
+        this.tuViRequired = tuViRequired;
+        this.thucLucRequired = thucLucRequired;
+        this.moneyRequired = 0;
+        this.color = color;
+        this.soKyTuVi = soKyTuVi;
+        this.trungKyTuVi = trungKyTuVi;
+        this.hauKyTuVi = hauKyTuVi;
+        this.dinhPhongTuVi = dinhPhongTuVi;
+        this.vienManTuVi = vienManTuVi;
+        this.lightningBolts = lightningBolts;
+        this.damagePerBolt = damagePerBolt;
+        this.successRate = successRate;
+        this.statBonuses = statBonuses != null ? new HashMap<>(statBonuses) : new HashMap<>();
+    }
+
+    public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
+                 long tuViRequired, long thucLucRequired, double moneyRequired, String color,
                  long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
                  long dinhPhongTuVi, long vienManTuVi,
                  int lightningBolts, double damagePerBolt, double successRate,
@@ -51,6 +80,7 @@ public class Realm {
         this.tier = tier;
         this.tuViRequired = tuViRequired;
         this.thucLucRequired = thucLucRequired;
+        this.moneyRequired = moneyRequired;
         this.color = color;
         this.soKyTuVi = soKyTuVi;
         this.trungKyTuVi = trungKyTuVi;
@@ -67,6 +97,19 @@ public class Realm {
 
     public void setSubRealmDisplayName(SubRealm subRealm, String displayName) {
         subRealmDisplayNames.put(subRealm, displayName);
+    }
+
+    public void setSubRealmRequirements(SubRealm subRealm, long thucLucRequired, double moneyRequired) {
+        subRealmThucLucRequirements.put(subRealm, thucLucRequired);
+        subRealmMoneyRequirements.put(subRealm, moneyRequired);
+    }
+
+    public void setSubRealmThucLucRequirement(SubRealm subRealm, long thucLucRequired) {
+        subRealmThucLucRequirements.put(subRealm, thucLucRequired);
+    }
+
+    public void setSubRealmMoneyRequirement(SubRealm subRealm, double moneyRequired) {
+        subRealmMoneyRequirements.put(subRealm, moneyRequired);
     }
 
     /**
@@ -90,6 +133,7 @@ public class Realm {
     public RealmTier getTier() { return tier; }
     public long getTuViRequired() { return tuViRequired; }
     public long getThucLucRequired() { return thucLucRequired; }
+    public double getMoneyRequired() { return moneyRequired; }
     public String getColor() { return color; }
     public String getColorTranslated() { return ChatColor.translateAlternateColorCodes('&', color); }
     public String getDisplayName() { return displayName; }
@@ -127,6 +171,32 @@ public class Realm {
             case DINH_PHONG: return dinhPhongTuVi;
             case VIEN_MAN: return vienManTuVi;
             default: return soKyTuVi;
+        }
+    }
+
+    public long getThucLucForSubRealm(SubRealm subRealm) {
+        Long configured = subRealmThucLucRequirements.get(subRealm);
+        return configured != null ? configured : scaleSubRealmRequirement(thucLucRequired, subRealm);
+    }
+
+    public double getMoneyForSubRealm(SubRealm subRealm) {
+        Double configured = subRealmMoneyRequirements.get(subRealm);
+        return configured != null ? configured : scaleSubRealmRequirement(moneyRequired, subRealm);
+    }
+
+    private long scaleSubRealmRequirement(long requirement, SubRealm subRealm) {
+        return (long) scaleSubRealmRequirement((double) requirement, subRealm);
+    }
+
+    private double scaleSubRealmRequirement(double requirement, SubRealm subRealm) {
+        if (requirement <= 0 || subRealm == null) return 0;
+        switch (subRealm) {
+            case SO_KY: return 0;
+            case TRUNG_KY: return requirement * 0.25;
+            case HAU_KY: return requirement * 0.5;
+            case DINH_PHONG: return requirement * 0.75;
+            case VIEN_MAN: return requirement;
+            default: return 0;
         }
     }
 
