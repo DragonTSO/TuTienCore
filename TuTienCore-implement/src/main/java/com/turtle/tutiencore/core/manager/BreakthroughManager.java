@@ -162,6 +162,10 @@ public class BreakthroughManager implements Listener {
         String startMsg = "§e§l⚡ " + player.getName() + " §e§lđang vượt §c§lThiên Lôi Kiếp §e§lđể đột phá " 
                 + nextRealm.getFormattedName() + "§e§l!";
         Bukkit.broadcastMessage(startMsg);
+        playConfiguredSound(player.getWorld(), player.getLocation(),
+                "breakthrough.sounds.start-initiation",
+                Sound.BLOCK_BEACON_ACTIVATE, SoundCategory.MASTER,
+                1.5f, 0.8f);
 
         // Apply breakthrough potion effects
         applyBreakthroughEffects(player, true);
@@ -229,6 +233,10 @@ public class BreakthroughManager implements Listener {
         // Local broadcast only
         String startMsg = "§e⚡ " + player.getName() + " §eđang đột phá tầng nhỏ → " + nextSub.getDisplayName() + "!";
         broadcastNearby(player, startMsg, realmManager.getSubRealmBroadcastRadius());
+        playConfiguredSound(player.getWorld(), player.getLocation(),
+                "breakthrough.sounds.start-initiation",
+                Sound.BLOCK_BEACON_ACTIVATE, SoundCategory.MASTER,
+                1.5f, 0.8f);
 
         // Apply lighter breakthrough effects
         applyBreakthroughEffects(player, false);
@@ -1358,7 +1366,8 @@ public class BreakthroughManager implements Listener {
         float volume = (float) section.getDouble("volume", fallbackVolume);
         float pitch = (float) section.getDouble("pitch", fallbackPitch);
 
-        world.playSound(location, sound, category, clampVolume(volume), clampPitch(pitch + pitchOffset));
+        playConfiguredSoundByName(world, location, soundName, sound, category,
+                clampVolume(volume), clampPitch(pitch + pitchOffset));
     }
 
     private Sound parseSound(String soundName, Sound fallbackSound) {
@@ -1366,6 +1375,22 @@ public class BreakthroughManager implements Listener {
             return Sound.valueOf(soundName.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return fallbackSound;
+        }
+    }
+
+    private void playConfiguredSoundByName(World world, Location location, String configuredSoundName,
+                                           Sound fallbackSound, SoundCategory category,
+                                           float volume, float pitch) {
+        String normalizedSoundName = configuredSoundName == null ? "" : configuredSoundName.trim();
+        if (normalizedSoundName.isEmpty() || normalizedSoundName.equalsIgnoreCase("NONE")) {
+            return;
+        }
+
+        try {
+            Sound sound = Sound.valueOf(normalizedSoundName.toUpperCase(Locale.ROOT));
+            world.playSound(location, sound, category, volume, pitch);
+        } catch (IllegalArgumentException ignored) {
+            world.playSound(location, normalizedSoundName, category, volume, pitch);
         }
     }
 

@@ -214,7 +214,14 @@ breakthrough:
   # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
   thuc-luc-placeholder: ""
   # Sound config cho luong dot pha. Dat sound: "NONE" de tat rieng tung sound.
+  # Ho tro ca Bukkit Sound enum va custom sound tu resource pack, vd: "minecraft:entity.lightning_bolt.thunder"
+  # hoac "yourpack:breakthrough_charge".
   sounds:
+    start-initiation:
+      sound: "BLOCK_BEACON_ACTIVATE"
+      category: MASTER
+      volume: 1.5
+      pitch: 0.8
     countdown-thunder:
       sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
       category: WEATHER
