@@ -14,7 +14,7 @@ import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.util.Vector3f;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
 import com.turtle.tutiencore.api.TuTien;
@@ -27,6 +27,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -37,6 +38,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -117,11 +119,10 @@ public class PlayerHologramManager implements Listener {
 
             PacketHologram hologram = holograms.computeIfAbsent(owner.getUniqueId(), uuid -> new PacketHologram());
             String text = buildText(owner);
-            Location location = getDisplayLocation(owner);
 
             for (Player viewer : Bukkit.getOnlinePlayers()) {
                 if (shouldSee(viewer, owner)) {
-                    hologram.showOrUpdate(viewer, location, text);
+                    hologram.showOrUpdate(viewer, owner, text);
                 } else {
                     hologram.hide(viewer);
                 }
@@ -163,9 +164,8 @@ public class PlayerHologramManager implements Listener {
         return viewer.getLocation().distanceSquared(owner.getLocation()) <= viewRange * viewRange;
     }
 
-    private Location getDisplayLocation(Player player) {
-        double yOffset = plugin.getConfig().getDouble("player-hologram.y-offset", 2.55);
-        Location location = player.getLocation().clone().add(0, yOffset, 0);
+    private Location getSpawnLocation(Player player) {
+        Location location = player.getLocation().clone();
         location.setPitch(0.0f);
         return location;
     }
@@ -232,12 +232,13 @@ public class PlayerHologramManager implements Listener {
         int teleportDuration = Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.teleport-duration", 2)));
         int lineWidth = Math.max(1, plugin.getConfig().getInt("player-hologram.line-width", 200));
         float viewRange = (float) Math.max(1.0, plugin.getConfig().getDouble("player-hologram.view-range", 32.0));
+        float yTranslation = getPassengerTranslationYOffset();
 
         metadata.add(new EntityData<>(5, EntityDataTypes.BOOLEAN, true));
         metadata.add(new EntityData<>(8, EntityDataTypes.INT, 0));
         metadata.add(new EntityData<>(9, EntityDataTypes.INT, 0));
         metadata.add(new EntityData<>(10, EntityDataTypes.INT, teleportDuration));
-        metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, Vector3f.zero()));
+        metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, new Vector3f(0.0f, yTranslation, 0.0f)));
         metadata.add(new EntityData<>(12, EntityDataTypes.VECTOR3F, new Vector3f(scale, scale, scale)));
         metadata.add(new EntityData<>(13, EntityDataTypes.QUATERNION, IDENTITY_ROTATION));
         metadata.add(new EntityData<>(14, EntityDataTypes.QUATERNION, IDENTITY_ROTATION));
@@ -251,6 +252,12 @@ public class PlayerHologramManager implements Listener {
         metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, (byte) -1));
         metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, getStyleFlags()));
         return metadata;
+    }
+
+    private float getPassengerTranslationYOffset() {
+        double yOffset = plugin.getConfig().getDouble("player-hologram.y-offset", 2.55);
+        double passengerBaseOffset = plugin.getConfig().getDouble("player-hologram.passenger-base-offset", 1.35);
+        return (float) Math.max(-5.0, Math.min(5.0, yOffset - passengerBaseOffset));
     }
 
     private byte getStyleFlags() {
@@ -444,6 +451,37 @@ public class PlayerHologramManager implements Listener {
         return false;
     }
 
+    private Player getPlayerByEntityId(int entityId) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getEntityId() == entityId) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    private int[] getPassengerIds(Player owner) {
+        List<Entity> passengers = owner.getPassengers();
+        int[] ids = new int[passengers.size()];
+        for (int i = 0; i < passengers.size(); i++) {
+            ids[i] = passengers.get(i).getEntityId();
+        }
+        return ids;
+    }
+
+    private int[] appendPassenger(int[] passengers, int passengerId) {
+        int[] source = passengers != null ? passengers : new int[0];
+        for (int id : source) {
+            if (id == passengerId) {
+                return source;
+            }
+        }
+
+        int[] updated = Arrays.copyOf(source, source.length + 1);
+        updated[source.length] = passengerId;
+        return updated;
+    }
+
     private void stopTask() {
         if (task != null) {
             task.cancel();
@@ -498,16 +536,20 @@ public class PlayerHologramManager implements Listener {
         private final int entityId = NEXT_ENTITY_ID.incrementAndGet();
         private final UUID entityUuid = UUID.randomUUID();
         private final Set<UUID> viewers = ConcurrentHashMap.newKeySet();
-        private volatile String lastText = "";
+        private final Map<UUID, String> lastTextByViewer = new ConcurrentHashMap<>();
 
-        private void showOrUpdate(Player viewer, Location location, String text) {
+        private void showOrUpdate(Player viewer, Player owner, String text) {
             User user = getUser(viewer);
             if (user == null || user.getChannel() == null) {
                 viewers.remove(viewer.getUniqueId());
+                lastTextByViewer.remove(viewer.getUniqueId());
                 return;
             }
 
-            boolean firstSpawn = viewers.add(viewer.getUniqueId());
+            UUID viewerId = viewer.getUniqueId();
+            boolean firstSpawn = viewers.add(viewerId);
+            String previousText = lastTextByViewer.get(viewerId);
+            Location location = getSpawnLocation(owner);
             if (firstSpawn) {
                 user.sendPacket(new WrapperPlayServerSpawnEntity(
                         entityId,
@@ -521,18 +563,29 @@ public class PlayerHologramManager implements Listener {
                         Optional.of(Vector3d.zero())
                 ));
                 user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
-            } else if (!text.equals(lastText)) {
+                attachToOwner(user, owner);
+            } else if (!text.equals(previousText)) {
                 user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
             }
 
-            user.sendPacket(new WrapperPlayServerEntityTeleport(entityId, toVector(location), location.getYaw(), 0.0f, false));
-            lastText = text;
+            lastTextByViewer.put(viewerId, text);
+        }
+
+        private void attachToOwner(User user, Player owner) {
+            int[] passengers = appendPassenger(getPassengerIds(owner), entityId);
+            user.sendPacket(new WrapperPlayServerSetPassengers(owner.getEntityId(), passengers));
+        }
+
+        private boolean isShownTo(UUID viewerId) {
+            return viewers.contains(viewerId);
         }
 
         private void hide(Player viewer) {
-            if (!viewers.remove(viewer.getUniqueId())) {
+            UUID viewerId = viewer.getUniqueId();
+            if (!viewers.remove(viewerId)) {
                 return;
             }
+            lastTextByViewer.remove(viewerId);
 
             User user = getUser(viewer);
             if (user != null && user.getChannel() != null) {
@@ -547,6 +600,7 @@ public class PlayerHologramManager implements Listener {
                     hide(viewer);
                 } else {
                     viewers.remove(viewerId);
+                    lastTextByViewer.remove(viewerId);
                 }
             }
         }
@@ -564,7 +618,47 @@ public class PlayerHologramManager implements Listener {
 
         @Override
         public void onPacketSend(PacketSendEvent event) {
-            if (!hideVanillaName() || event.getPacketType() != PacketType.Play.Server.TEAMS) {
+            if (event.getPacketType() == PacketType.Play.Server.TEAMS) {
+                handleTeamsPacket(event);
+                return;
+            }
+
+            if (event.getPacketType() == PacketType.Play.Server.SET_PASSENGERS) {
+                handleSetPassengersPacket(event);
+            }
+        }
+
+        private void handleSetPassengersPacket(PacketSendEvent event) {
+            if (!isEnabled()) {
+                return;
+            }
+
+            UUID viewerId = event.getUser().getUUID();
+            if (viewerId == null) {
+                return;
+            }
+
+            WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(event);
+            Player owner = getPlayerByEntityId(packet.getEntityId());
+            if (owner == null) {
+                return;
+            }
+
+            PacketHologram hologram = holograms.get(owner.getUniqueId());
+            if (hologram == null || !hologram.isShownTo(viewerId)) {
+                return;
+            }
+
+            int[] passengers = packet.getPassengers();
+            int[] updated = appendPassenger(passengers, hologram.entityId);
+            if (updated != passengers) {
+                packet.setPassengers(updated);
+                event.markForReEncode(true);
+            }
+        }
+
+        private void handleTeamsPacket(PacketSendEvent event) {
+            if (!hideVanillaName()) {
                 return;
             }
 

@@ -5,12 +5,14 @@ debug: false
 
 player-hologram:
   enabled: true
-  # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay below instead.
+  # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay passenger above the player.
   hide-vanilla-name: true
   # Show the hologram to its owner too. false = only other players see it.
   show-self: false
-  # Position above player feet. Tune this if hats/models overlap.
+  # Final height above player feet. Tune this if hats/models overlap.
   y-offset: 2.55
+  # Client passenger anchor for a standing player. y-offset - passenger-base-offset becomes the TextDisplay translation.
+  passenger-base-offset: 1.35
   update-interval: 5
   teleport-duration: 2
   view-range: 32.0
