@@ -18,6 +18,15 @@ tu-luyen:
     enabled: true
     chance-percent: 20.0
     multiplier: 2.0
+  sounds:
+    interval-reset:
+      enabled: true
+      # Ho tro ca Bukkit Sound enum va custom sound tu resource pack.
+      # Vi du: ENTITY_EXPERIENCE_ORB_PICKUP hoac yourpack:tu_luyen_cycle
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      category: MASTER
+      volume: 1.0
+      pitch: 1.15
   bossbar:
     enabled: true
     color: BLUE

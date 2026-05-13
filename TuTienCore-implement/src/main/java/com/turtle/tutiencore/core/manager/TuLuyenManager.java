@@ -12,6 +12,8 @@ import com.turtle.tutiencore.api.realm.SubRealm;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -32,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -93,6 +96,7 @@ public class TuLuyenManager implements Listener {
                     if (reward.lightningTriggered) {
                         player.getWorld().strikeLightningEffect(player.getLocation());
                     }
+                    playIntervalResetSound(player);
                     
                     if (!configManager.getMsgReceived().isEmpty()) {
                         String msg = "§6✦ " + configManager.getMsgReceived()
@@ -382,6 +386,49 @@ public class TuLuyenManager implements Listener {
 
         capWarningTimes.put(player.getUniqueId(), now);
         player.sendMessage("§cTu Vi đã đạt giới hạn hiện tại! §eHãy /dotpha để mở giới hạn tu luyện tiếp theo.");
+    }
+
+    private void playIntervalResetSound(Player player) {
+        if (!configManager.isTuLuyenIntervalResetSoundEnabled()) {
+            return;
+        }
+
+        String soundName = configManager.getTuLuyenIntervalResetSound();
+        if (soundName == null || soundName.trim().isEmpty() || soundName.equalsIgnoreCase("NONE")) {
+            return;
+        }
+
+        SoundCategory category = parseSoundCategory(configManager.getTuLuyenIntervalResetSoundCategory());
+        float volume = clampVolume(configManager.getTuLuyenIntervalResetSoundVolume());
+        float pitch = clampPitch(configManager.getTuLuyenIntervalResetSoundPitch());
+        String normalizedSoundName = soundName.trim();
+
+        try {
+            Sound sound = Sound.valueOf(normalizedSoundName.toUpperCase(Locale.ROOT));
+            player.playSound(player.getLocation(), sound, category, volume, pitch);
+        } catch (IllegalArgumentException ignored) {
+            player.playSound(player.getLocation(), normalizedSoundName, category, volume, pitch);
+        }
+    }
+
+    private SoundCategory parseSoundCategory(String categoryName) {
+        if (categoryName == null || categoryName.trim().isEmpty()) {
+            return SoundCategory.MASTER;
+        }
+
+        try {
+            return SoundCategory.valueOf(categoryName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return SoundCategory.MASTER;
+        }
+    }
+
+    private float clampVolume(float volume) {
+        return Math.max(0.0f, volume);
+    }
+
+    private float clampPitch(float pitch) {
+        return Math.max(0.5f, Math.min(2.0f, pitch));
     }
 
     private double getEnvironmentBonus(Player player) {

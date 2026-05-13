@@ -665,7 +665,7 @@ public class RealmManager implements Listener {
                 io.lumine.mythic.lib.api.stat.modifier.StatModifier modifier =
                         new io.lumine.mythic.lib.api.stat.modifier.StatModifier(
                                 key, stat, value,
-                                io.lumine.mythic.lib.api.stat.modifier.ModifierType.RELATIVE);
+                                io.lumine.mythic.lib.player.modifier.ModifierType.RELATIVE);
 
                 io.lumine.mythic.lib.api.stat.StatInstance instance = statMap.getInstance(stat);
                 if (instance != null) {

@@ -24,6 +24,11 @@ public class ConfigManager {
     private boolean lightningBonusEnabled;
     private double lightningBonusChancePercent;
     private double lightningBonusMultiplier;
+    private boolean tuLuyenIntervalResetSoundEnabled;
+    private String tuLuyenIntervalResetSound;
+    private String tuLuyenIntervalResetSoundCategory;
+    private float tuLuyenIntervalResetSoundVolume;
+    private float tuLuyenIntervalResetSoundPitch;
     private int offlineIntervalSeconds;
     private int offlineClaimX2Cost;
 
@@ -81,6 +86,11 @@ public class ConfigManager {
         lightningBonusEnabled = config.getBoolean("tu-luyen.lightning-bonus.enabled", true);
         lightningBonusChancePercent = Math.max(0.0, Math.min(100.0, config.getDouble("tu-luyen.lightning-bonus.chance-percent", 20.0)));
         lightningBonusMultiplier = Math.max(1.0, config.getDouble("tu-luyen.lightning-bonus.multiplier", 2.0));
+        tuLuyenIntervalResetSoundEnabled = config.getBoolean("tu-luyen.sounds.interval-reset.enabled", true);
+        tuLuyenIntervalResetSound = config.getString("tu-luyen.sounds.interval-reset.sound", "ENTITY_EXPERIENCE_ORB_PICKUP");
+        tuLuyenIntervalResetSoundCategory = config.getString("tu-luyen.sounds.interval-reset.category", "MASTER");
+        tuLuyenIntervalResetSoundVolume = (float) config.getDouble("tu-luyen.sounds.interval-reset.volume", 1.0);
+        tuLuyenIntervalResetSoundPitch = (float) config.getDouble("tu-luyen.sounds.interval-reset.pitch", 1.15);
         offlineIntervalSeconds = Math.max(1, config.getInt("offline-tuluyen.interval-seconds", 60));
         offlineClaimX2Cost = config.getInt("offline-tuluyen.claim-x2-cost", 100);
 
@@ -152,7 +162,7 @@ public class ConfigManager {
     }
 
     public int getPointsPerInterval() {
-        return pointsPerInterval;
+        return pointsPerInterval.roll();
     }
 
     public String getGiveCommand() {
@@ -253,6 +263,26 @@ public class ConfigManager {
 
     public double getLightningBonusMultiplier() {
         return lightningBonusMultiplier;
+    }
+
+    public boolean isTuLuyenIntervalResetSoundEnabled() {
+        return tuLuyenIntervalResetSoundEnabled;
+    }
+
+    public String getTuLuyenIntervalResetSound() {
+        return tuLuyenIntervalResetSound;
+    }
+
+    public String getTuLuyenIntervalResetSoundCategory() {
+        return tuLuyenIntervalResetSoundCategory;
+    }
+
+    public float getTuLuyenIntervalResetSoundVolume() {
+        return tuLuyenIntervalResetSoundVolume;
+    }
+
+    public float getTuLuyenIntervalResetSoundPitch() {
+        return tuLuyenIntervalResetSoundPitch;
     }
 
     public int getOfflineIntervalSeconds() {
