@@ -12,6 +12,7 @@ import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
+import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
@@ -38,6 +39,7 @@ public class TuTienCore {
     private BreakthroughManager breakthroughManager;
     private FlySwordManager flySwordManager;
     private OfflineTuLuyenManager offlineTuLuyenManager;
+    private PlayerHologramManager playerHologramManager;
     private RealmListGUI realmListGUI;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
@@ -67,6 +69,7 @@ public class TuTienCore {
         this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
         this.flySwordManager = new FlySwordManager(plugin);
         this.offlineTuLuyenManager = new OfflineTuLuyenManager(plugin, configManager);
+        this.playerHologramManager = new PlayerHologramManager(plugin, configManager, realmManager);
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
@@ -95,7 +98,7 @@ public class TuTienCore {
             plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }
 
-        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager, realmManager);
+        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager, realmManager, playerHologramManager);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -144,6 +147,9 @@ public class TuTienCore {
         }
         if (offlineTuLuyenManager != null) {
             offlineTuLuyenManager.save();
+        }
+        if (playerHologramManager != null) {
+            playerHologramManager.stop();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

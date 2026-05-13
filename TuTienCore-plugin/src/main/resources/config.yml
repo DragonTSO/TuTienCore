@@ -3,6 +3,35 @@
 
 debug: false
 
+player-hologram:
+  enabled: true
+  # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay below instead.
+  hide-vanilla-name: true
+  # Show the hologram to its owner too. false = only other players see it.
+  show-self: false
+  # Position above player feet. Tune this if hats/models overlap.
+  y-offset: 2.55
+  update-interval: 5
+  teleport-duration: 2
+  view-range: 32.0
+  scale: 1.0
+  line-width: 200
+  text-shadow: true
+  see-through: false
+  default-background: false
+  background-color:
+    a: 0
+    r: 0
+    g: 0
+    b: 0
+  # Supports TuTien placeholders below and PlaceholderAPI placeholders.
+  # Built-in: {player}, {display_name}, {tuvi}, {tuvi_int}, {tuvi_formatted},
+  # {tuvi_compact}, {realm}, {realm_full}, {sub_realm}, {realm_tier}, {world}
+  lines:
+    - "&8[&6*&8] &f{player}"
+    - "&7{realm_full}"
+    - "&fTu Vi: &a{tuvi_compact}"
+
 tu-luyen:
   # Thoi gian (tick) de nhan Tu Vi (20 ticks = 1 giay)
   interval: 100
