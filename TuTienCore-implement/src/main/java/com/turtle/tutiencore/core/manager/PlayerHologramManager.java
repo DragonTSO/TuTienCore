@@ -165,7 +165,8 @@ public class PlayerHologramManager implements Listener {
     }
 
     private Location getSpawnLocation(Player player) {
-        Location location = player.getLocation().clone();
+        double yOffset = plugin.getConfig().getDouble("player-hologram.y-offset", 2.55);
+        Location location = player.getLocation().clone().add(0.0, yOffset, 0.0);
         location.setPitch(0.0f);
         return location;
     }
@@ -180,6 +181,12 @@ public class PlayerHologramManager implements Listener {
     private void removeAllHolograms() {
         for (UUID ownerId : new HashSet<>(holograms.keySet())) {
             removeHologram(ownerId);
+        }
+    }
+
+    private void removeViewer(UUID viewerId) {
+        for (PacketHologram hologram : holograms.values()) {
+            hologram.forgetViewer(viewerId);
         }
     }
 
@@ -512,9 +519,11 @@ public class PlayerHologramManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        removeHologram(event.getPlayer().getUniqueId());
-        viewerTeams.remove(event.getPlayer().getUniqueId());
-        fallbackHiddenNames.remove(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        removeHologram(playerId);
+        removeViewer(playerId);
+        viewerTeams.remove(playerId);
+        fallbackHiddenNames.remove(playerId);
         Bukkit.getScheduler().runTaskLater(plugin, this::syncFallbackNameTeams, 1L);
     }
 
@@ -563,11 +572,11 @@ public class PlayerHologramManager implements Listener {
                         Optional.of(Vector3d.zero())
                 ));
                 user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
-                attachToOwner(user, owner);
             } else if (!text.equals(previousText)) {
                 user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
             }
 
+            attachToOwner(user, owner);
             lastTextByViewer.put(viewerId, text);
         }
 
@@ -578,6 +587,11 @@ public class PlayerHologramManager implements Listener {
 
         private boolean isShownTo(UUID viewerId) {
             return viewers.contains(viewerId);
+        }
+
+        private void forgetViewer(UUID viewerId) {
+            viewers.remove(viewerId);
+            lastTextByViewer.remove(viewerId);
         }
 
         private void hide(Player viewer) {
