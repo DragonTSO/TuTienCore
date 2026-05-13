@@ -58,6 +58,10 @@ public class RealmListGUI implements Listener {
         guiTitle = ChatColor.translateAlternateColorCodes('&', config.getString("title", "&5&l✦ Danh Sách Cảnh Giới ✦"));
     }
 
+    public void reloadConfig() {
+        loadConfig();
+    }
+
     public void open(Player player) {
         UUID uuid = player.getUniqueId();
         int size = config.getInt("size", 54);

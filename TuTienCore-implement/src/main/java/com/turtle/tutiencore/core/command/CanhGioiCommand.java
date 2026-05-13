@@ -215,8 +215,9 @@ public class CanhGioiCommand implements CommandExecutor, TabCompleter {
 
     private void handleReload(CommandSender sender) {
         sender.sendMessage("§e⏳ Đang reload cảnh giới config...");
-        // RealmManager reload could be added later
-        sender.sendMessage("§a✅ Reload hoàn tất! (Cần restart server để áp dụng realms.yml)");
+        realmManager.reload();
+        realmListGUI.reloadConfig();
+        sender.sendMessage("§aReload complete. realms.yml changes are now active.");
     }
 
     // ==========================================

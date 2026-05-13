@@ -97,6 +97,8 @@ public class RealmManager implements Listener {
     // ==========================================
 
     private void loadRealmConfig() {
+        realms.clear();
+        dotPhaDanAmounts.clear();
         realmConfigFile = new File(plugin.getDataFolder(), "realms.yml");
         if (!realmConfigFile.exists()) {
             plugin.saveResource("realms.yml", false);
@@ -264,6 +266,14 @@ public class RealmManager implements Listener {
         }
 
         plugin.getLogger().info("Loaded " + realms.size() + " realms from realms.yml");
+    }
+
+    public void reload() {
+        loadRealmConfig();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            applyStatBonus(player);
+        }
     }
 
     private void loadSubRealmRequirements(Map<SubRealm, Long> thucLucRequirements,

@@ -95,7 +95,7 @@ public class TuTienCore {
             plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }
 
-        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager);
+        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager, realmManager);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
