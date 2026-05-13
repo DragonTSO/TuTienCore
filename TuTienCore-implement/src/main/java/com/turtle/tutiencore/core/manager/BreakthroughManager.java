@@ -9,6 +9,7 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 
 import org.bukkit.*;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -260,8 +261,10 @@ public class BreakthroughManager implements Listener {
                             "§e⚡ Thiên Lôi sắp giáng!",
                             5, 15, 5
                     );
-                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 
-                            SoundCategory.WEATHER, 2.0f, 0.5f);
+                    playConfiguredSound(player.getWorld(), player.getLocation(),
+                            "breakthrough.sounds.countdown-thunder",
+                            Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER,
+                            2.0f, 0.5f);
                     // Energy gathering particles during countdown
                     spawnEnergyGathering(player, 4 - countdown);
                     countdown--;
@@ -553,7 +556,10 @@ public class BreakthroughManager implements Listener {
             world.spawnParticle(Particle.END_ROD, from, 0, dx, dy, dz, 0.5);
         }
         // Whoosh sound
-        world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, SoundCategory.MASTER, 1.5f, 0.5f + phase * 0.3f);
+        playConfiguredSound(world, loc,
+                "breakthrough.sounds.energy-charge",
+                Sound.ENTITY_ENDER_DRAGON_FLAP, SoundCategory.MASTER,
+                1.5f, 0.5f, phase * 0.3f);
     }
 
     /**
@@ -637,12 +643,21 @@ public class BreakthroughManager implements Listener {
 
         // ── 5) SOUND EFFECTS — layered thunder ──
         // Main thunder at player
-        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 3.0f, 0.8f + rand.nextFloat() * 0.4f);
+        playConfiguredSound(world, playerLoc,
+                "breakthrough.sounds.lightning-main",
+                Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER,
+                3.0f, 0.8f, rand.nextFloat() * 0.4f);
         // Distant thunder for ambient bolts
-        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER, 2.0f, 0.6f + rand.nextFloat() * 0.8f);
+        playConfiguredSound(world, playerLoc,
+                "breakthrough.sounds.lightning-impact",
+                Sound.ENTITY_LIGHTNING_BOLT_IMPACT, SoundCategory.WEATHER,
+                2.0f, 0.6f, rand.nextFloat() * 0.8f);
         // Extra rumble in late phase
         if (progress > 0.5) {
-            world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER, 4.0f, 0.4f);
+            playConfiguredSound(world, playerLoc,
+                    "breakthrough.sounds.lightning-rumble",
+                    Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER,
+                    4.0f, 0.4f);
         }
     }
 
@@ -755,9 +770,18 @@ public class BreakthroughManager implements Listener {
             spawnSuccessModel(player, true);
 
             // Sounds — layered for epicness
-            world.playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER, 3.0f, 1.0f);
-            world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.MASTER, 2.0f, 1.5f);
-            world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.MASTER, 1.5f, 0.5f);
+            playConfiguredSound(world, loc,
+                    "breakthrough.sounds.major-success-primary",
+                    Sound.UI_TOAST_CHALLENGE_COMPLETE, SoundCategory.MASTER,
+                    3.0f, 1.0f);
+            playConfiguredSound(world, loc,
+                    "breakthrough.sounds.major-success-secondary",
+                    Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.MASTER,
+                    2.0f, 1.5f);
+            playConfiguredSound(world, loc,
+                    "breakthrough.sounds.major-success-explosion",
+                    Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.MASTER,
+                    1.5f, 0.5f);
 
             // Broadcast
             String successMsg = "§a§l✨ " + player.getName() + " §a§lđã vượt Kiếp Lôi, đột phá thành công " 
@@ -823,7 +847,10 @@ public class BreakthroughManager implements Listener {
             // Lighter celebration
             Location loc = player.getLocation();
             player.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0, 1, 0), 30, 1, 1, 1, 0.2);
-            player.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 2.0f, 1.5f);
+            playConfiguredSound(player.getWorld(), loc,
+                    "breakthrough.sounds.sub-success",
+                    Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER,
+                    2.0f, 1.5f);
 
             // Spawn ModelEngine model on success
             spawnSuccessModel(player, false);
@@ -1057,7 +1084,10 @@ public class BreakthroughManager implements Listener {
                             Location pLoc = player.getLocation();
                             player.getWorld().spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 1, 0), 50, 1, 2, 1, 0.3);
                             player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, pLoc, 30, 1, 1, 1, 0.5);
-                            player.getWorld().playSound(pLoc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 2.0f, 1.2f);
+                            playConfiguredSound(player.getWorld(), pLoc,
+                                    "breakthrough.sounds.model-return",
+                                    Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER,
+                                    2.0f, 1.2f);
                         } catch (Throwable t) {
                             // Particle API errors should not prevent player from becoming visible
                         }
@@ -1103,10 +1133,72 @@ public class BreakthroughManager implements Listener {
                         world.spawnParticle(Particle.END_ROD, ringLoc, 1, 0, 0.2, 0, 0.05);
                     }
                     // Sound for each wave
-                    world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_BLAST, SoundCategory.MASTER, 1.5f, 0.5f + waveIndex * 0.2f);
+                    playConfiguredSound(world, center,
+                            "breakthrough.sounds.success-shockwave",
+                            Sound.ENTITY_FIREWORK_ROCKET_BLAST, SoundCategory.MASTER,
+                            1.5f, 0.5f, waveIndex * 0.2f);
                 }
             }.runTaskLater(plugin, wave * 4L); // 4 ticks apart (0.2 sec)
         }
+    }
+
+    private void playConfiguredSound(World world, Location location, String path,
+                                     Sound fallbackSound, SoundCategory fallbackCategory,
+                                     float fallbackVolume, float fallbackPitch) {
+        playConfiguredSound(world, location, path, fallbackSound, fallbackCategory,
+                fallbackVolume, fallbackPitch, 0.0f);
+    }
+
+    private void playConfiguredSound(World world, Location location, String path,
+                                     Sound fallbackSound, SoundCategory fallbackCategory,
+                                     float fallbackVolume, float fallbackPitch,
+                                     float pitchOffset) {
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection(path);
+        if (section == null) {
+            world.playSound(location, fallbackSound, fallbackCategory,
+                    clampVolume(fallbackVolume), clampPitch(fallbackPitch + pitchOffset));
+            return;
+        }
+
+        String soundName = section.getString("sound", fallbackSound.name());
+        if (soundName == null || soundName.trim().isEmpty() || soundName.equalsIgnoreCase("NONE")) {
+            return;
+        }
+
+        Sound sound = parseSound(soundName, fallbackSound);
+        SoundCategory category = parseCategory(section.getString("category"), fallbackCategory);
+        float volume = (float) section.getDouble("volume", fallbackVolume);
+        float pitch = (float) section.getDouble("pitch", fallbackPitch);
+
+        world.playSound(location, sound, category, clampVolume(volume), clampPitch(pitch + pitchOffset));
+    }
+
+    private Sound parseSound(String soundName, Sound fallbackSound) {
+        try {
+            return Sound.valueOf(soundName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallbackSound;
+        }
+    }
+
+    private SoundCategory parseCategory(String categoryName, SoundCategory fallbackCategory) {
+        if (categoryName == null || categoryName.trim().isEmpty()) {
+            return fallbackCategory;
+        }
+
+        try {
+            return SoundCategory.valueOf(categoryName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallbackCategory;
+        }
+    }
+
+    private float clampVolume(float volume) {
+        return Math.max(0.0f, volume);
+    }
+
+    private float clampPitch(float pitch) {
+        return Math.max(0.0f, Math.min(2.0f, pitch));
     }
 
     // ==========================================

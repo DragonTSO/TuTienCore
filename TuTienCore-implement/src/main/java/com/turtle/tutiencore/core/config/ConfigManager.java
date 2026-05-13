@@ -4,14 +4,11 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import lombok.Getter;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Getter
 public class ConfigManager {
 
     private final JavaPlugin plugin;
@@ -134,6 +131,102 @@ public class ConfigManager {
      */
     public Map<String, int[][]> getClassColors() {
         return classColors;
+    }
+
+    public int getTuLuyenInterval() {
+        return tuLuyenInterval;
+    }
+
+    public double getMaxDistance() {
+        return maxDistance;
+    }
+
+    public int getPointsPerInterval() {
+        return pointsPerInterval;
+    }
+
+    public String getGiveCommand() {
+        return giveCommand;
+    }
+
+    public boolean isSphereEnabled() {
+        return sphereEnabled;
+    }
+
+    public int getSphereInterval() {
+        return sphereInterval;
+    }
+
+    public double getSphereRadius() {
+        return sphereRadius;
+    }
+
+    public int getSpherePoints() {
+        return spherePoints;
+    }
+
+    public int getSphereColorR() {
+        return sphereColorR;
+    }
+
+    public int getSphereColorG() {
+        return sphereColorG;
+    }
+
+    public int getSphereColorB() {
+        return sphereColorB;
+    }
+
+    public double getLineSpacing() {
+        return lineSpacing;
+    }
+
+    public int getLineDuration() {
+        return lineDuration;
+    }
+
+    public int getLineColorR() {
+        return lineColorR;
+    }
+
+    public int getLineColorG() {
+        return lineColorG;
+    }
+
+    public int getLineColorB() {
+        return lineColorB;
+    }
+
+    public boolean isCultHelixEnabled() {
+        return cultHelixEnabled;
+    }
+
+    public boolean isCultRaysEnabled() {
+        return cultRaysEnabled;
+    }
+
+    public boolean isCultLightningEnabled() {
+        return cultLightningEnabled;
+    }
+
+    public boolean isCultAbsorptionEnabled() {
+        return cultAbsorptionEnabled;
+    }
+
+    public boolean isCultGroundCircleEnabled() {
+        return cultGroundCircleEnabled;
+    }
+
+    public boolean isCultPillarEnabled() {
+        return cultPillarEnabled;
+    }
+
+    public boolean isCultAmbientEnabled() {
+        return cultAmbientEnabled;
+    }
+
+    public String getTuluyenModel() {
+        return tuluyenModel;
     }
 
     private String tuluyenModel;

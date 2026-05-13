@@ -173,6 +173,63 @@ breakthrough:
   # PlaceholderAPI placeholder dùng làm Thực Lực khi /dotpha đại cảnh giới.
   # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
   thuc-luc-placeholder: ""
+  # Sound config cho luong dot pha. Dat sound: "NONE" de tat rieng tung sound.
+  sounds:
+    countdown-thunder:
+      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      category: WEATHER
+      volume: 2.0
+      pitch: 0.5
+    energy-charge:
+      sound: "ENTITY_ENDER_DRAGON_FLAP"
+      category: MASTER
+      volume: 1.5
+      pitch: 0.5
+    lightning-main:
+      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      category: WEATHER
+      volume: 3.0
+      pitch: 0.8
+    lightning-impact:
+      sound: "ENTITY_LIGHTNING_BOLT_IMPACT"
+      category: WEATHER
+      volume: 2.0
+      pitch: 0.6
+    lightning-rumble:
+      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      category: WEATHER
+      volume: 4.0
+      pitch: 0.4
+    major-success-primary:
+      sound: "UI_TOAST_CHALLENGE_COMPLETE"
+      category: MASTER
+      volume: 3.0
+      pitch: 1.0
+    major-success-secondary:
+      sound: "ENTITY_ENDER_DRAGON_GROWL"
+      category: MASTER
+      volume: 2.0
+      pitch: 1.5
+    major-success-explosion:
+      sound: "ENTITY_GENERIC_EXPLODE"
+      category: MASTER
+      volume: 1.5
+      pitch: 0.5
+    sub-success:
+      sound: "ENTITY_PLAYER_LEVELUP"
+      category: MASTER
+      volume: 2.0
+      pitch: 1.5
+    model-return:
+      sound: "ENTITY_PLAYER_LEVELUP"
+      category: MASTER
+      volume: 2.0
+      pitch: 1.2
+    success-shockwave:
+      sound: "ENTITY_FIREWORK_ROCKET_BLAST"
+      category: MASTER
+      volume: 1.5
+      pitch: 0.5
   # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công
   major-success-model: "ascent"
   # Model hiện khi đột phá TẦNG NHỎ thành công

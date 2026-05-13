@@ -79,7 +79,7 @@ public class TuLuyenParticleTask {
             net.Indyuce.mmocore.api.player.PlayerData data = 
                     net.Indyuce.mmocore.api.player.PlayerData.get(player);
             if (data != null) {
-                net.Indyuce.mmocore.api.player.profess.PlayerClass profess = data.getProfess();
+                net.Indyuce.mmocore.api.player.PlayerClass profess = data.getProfess();
                 if (profess != null) {
                     Map<String, int[][]> classColors = configManager.getClassColors();
                     

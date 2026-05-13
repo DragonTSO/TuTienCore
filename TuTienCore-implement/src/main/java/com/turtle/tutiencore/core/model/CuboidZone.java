@@ -1,12 +1,10 @@
 package com.turtle.tutiencore.core.model;
 
-import lombok.Data;
 import org.bukkit.Location;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Data
 public class CuboidZone {
     private String id;
     private Location pos1;
@@ -52,5 +50,25 @@ public class CuboidZone {
         CuboidZone zone = new CuboidZone(id, p1, p2);
         zone.setCenter(center);
         return zone;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public Location getPos1() {
+        return pos1;
+    }
+
+    public Location getPos2() {
+        return pos2;
+    }
+
+    public Location getCenter() {
+        return center;
+    }
+
+    public void setCenter(Location center) {
+        this.center = center;
     }
 }
