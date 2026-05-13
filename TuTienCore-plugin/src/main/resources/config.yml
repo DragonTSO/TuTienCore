@@ -8,10 +8,16 @@ tu-luyen:
   interval: 100
   # Khoang cach toi da tu cuc linh khi (blocks) de co the /tuluyen
   max-distance: 10.0
-  # Diem Tu Vi nhan duoc moi lan
+  # Diem Tu Vi nhan duoc moi lan.
   points-per-interval: 10
   # Command de cho diem Tu Vi, su dung %player% cho ten, va %points% cho so luong
   give-command: "eco give %player% %points%"
+  # Ti le Thien Loi ao danh xuong khi nhan Tu Vi. Neu trung, diem Tu Vi lan do duoc nhan multiplier.
+  # strikeLightningEffect chi hien hieu ung/sound, khong gay sat thuong va khong tao lua.
+  lightning-bonus:
+    enabled: true
+    chance-percent: 20.0
+    multiplier: 2.0
   bossbar:
     enabled: true
     color: BLUE
@@ -33,15 +39,30 @@ tu-luyen:
       - "&aBonus: &a+{bonus}%"
       - "&dMôi Trường Tu Luyện: &d+{environment}%"
       - "&6Tu Vi Thực Nhận: &6+{total}"
+    team-bonus:
+      enabled: true
+      # Hien khi BetterteamsAddon bao player co dong doi cung /tuluyen trong pham vi.
+      # Placeholder: {team_bonus}, {team_multiplier}
+      lines:
+        - "&aTông môn: &f+{team_bonus}%"
   environment-bonus:
     worlds: {}
     regions: {}
+
+offline-tuluyen:
+  # Player co permission nay se duoc tich Tu Vi khi offline.
+  permission: "tutiencore.tuluyen.vip"
+  # Offline reward dung points-per-interval ben tren, nhung moi 60 giay offline moi tinh 1 lan.
+  interval-seconds: 60
+  # Chi phi PlayerPoints khi claim x2.
+  claim-x2-cost: 100
 
 # ==========================================
 # PERMISSIONS
 # ==========================================
 # tutiencore.use               - Cho phep /tuluyen va /dotpha (default: true)
 # tutiencore.admin             - Quyen admin: /canhgioi, /tuvi (default: op)
+# tutiencore.tuluyen.vip       - Tich Tu Vi offline va mo GUI claim khi vao lai server
 #
 # Tu Vi Bonus (buff diem thu thap Tu Vi khi tu luyen):
 #   tutiencore.tuvi.bonus.<phan_tram>
@@ -77,6 +98,7 @@ tu-luyen:
 # %tutien_canhgioi_english% - Ten tieng Anh (VD: Qi Refinement)
 # %tutien_dotpha_cooldown% - Cooldown dot pha con lai (giay)
 # %tutien_dotpha_ready%    - San sang dot pha? (true/false)
+# %tutien_dotpha_next_tuvi_required% - Tu Vi can cho dot pha tiep theo
 # 
 # Thong tin bang xep hang (Leaderboard) (Noi X la vi tri hang):
 # %tutien_top_name_X%            - Ten nguoi choi hang X (VD: %tutien_top_name_1%)
@@ -85,6 +107,17 @@ tu-luyen:
 # %tutien_top_tuvi_formatted_X%  - Tu Vi cua hang X (Co dau phay)
 # %tutien_top_tuvi_compact_X%    - Tu Vi cua hang X (Dang gon)
 # ==========================================
+
+placeholders:
+  dotpha-ready:
+    # Output cua %tutien_dotpha_ready% khi nguoi choi du dieu kien dot pha.
+    ready-display-name: "V"
+    # Output cua %tutien_dotpha_ready% khi nguoi choi chua du dieu kien dot pha.
+    not-ready-display-name: "X"
+  dotpha-next-tuvi-required:
+    # Output cua %tutien_dotpha_next_tuvi_required%.
+    # Placeholder ho tro: {value} = so Tu Vi can, da format dau phay.
+    display-name: "{value}"
 
 particles:
   sphere:
@@ -139,12 +172,10 @@ cultivation-effects:
     enabled: false
 
 # ==========================================
-# MAU PARTICLE THEO CLASS (MMOCore)
+# MAU PARTICLE /TULUYEN
 # ==========================================
-# Khi player /tuluyen, particle se tu dong doi mau theo class MMOCore
-# Format: "CLASS_ID": [R1, G1, B1, R2, G2, B2] (primary + secondary)
-# CLASS_ID = ten class trong MMOCore (vd: kiemton, vanphap...)
-# Neu MMOCore khong co hoac player chua chon class → dung mau cyan mac dinh
+# Khi player /tuluyen, particle se tu dong doi mau theo color cua canh gioi hien tai trong realms.yml.
+# class-colors giu lai de tranh pha config cu, hien khong dung cho /tuluyen.
 class-colors:
   KIEMTON: [255, 215, 0, 255, 140, 0]       # Kiếm Tiên — Gold → Orange
   VANPHAP: [212, 160, 23, 139, 105, 20]     # Thiên Cơ — Dark Gold → Brown
@@ -161,7 +192,7 @@ fly-sword:
   enabled: true
   model: "kiembay"
   y-offset: -0.05
-  scale: 1.5
+  scale: 0.95
   require-permission: false
   permission: "tutiencore.flysword"
 
@@ -230,10 +261,17 @@ breakthrough:
       category: MASTER
       volume: 1.5
       pitch: 0.5
-  # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công
-  major-success-model: "ascent"
-  # Model hiện khi đột phá TẦNG NHỎ thành công
-  sub-success-model: "ascent"
+  # MythicMobs mob chạy từ lúc bắt đầu và trong suốt quá trình đột phá.
+  # Mob tự gắn ModelEngine model và chạy state "spawn", không dùng idle.
+  active-mobs:
+    - "TuTienCore_Dien1_Spawn"
+    - "TuTienCore_Rong2_Spawn"
+  # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công.
+  # Để [] nếu chỉ muốn dùng active-mobs trong suốt quá trình đột phá.
+  major-success-models: []
+  # Model hiện khi đột phá TẦNG NHỎ thành công.
+  # Để [] nếu chỉ muốn dùng active-mobs trong suốt quá trình đột phá.
+  sub-success-models: []
   # Thời gian hiển thị model (giây) 
   model-duration: 5
 

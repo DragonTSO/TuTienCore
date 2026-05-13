@@ -3,6 +3,7 @@ package com.turtle.tutiencore.core.command;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.manager.RealmManager;
 
 import org.bukkit.Bukkit;
@@ -27,20 +28,23 @@ import java.util.stream.Collectors;
 public class CanhGioiCommand implements CommandExecutor, TabCompleter {
 
     private final RealmManager realmManager;
+    private final RealmListGUI realmListGUI;
 
-    public CanhGioiCommand(RealmManager realmManager) {
+    public CanhGioiCommand(RealmManager realmManager, RealmListGUI realmListGUI) {
         this.realmManager = realmManager;
+        this.realmListGUI = realmListGUI;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("tutiencore.admin")) {
-            sender.sendMessage("§cBạn không có quyền sử dụng lệnh này!");
+        if (args.length == 0) {
+            handleOpen(sender);
             return true;
         }
 
-        if (args.length == 0) {
-            sendHelp(sender);
+        if (!sender.hasPermission("tutiencore.admin")) {
+            sender.sendMessage("§cBạn không có quyền sử dụng lệnh quản trị cảnh giới!");
+            sender.sendMessage("§7Dùng §e/canhgioi §7để xem danh sách cảnh giới.");
             return true;
         }
 
@@ -63,6 +67,25 @@ public class CanhGioiCommand implements CommandExecutor, TabCompleter {
         }
 
         return true;
+    }
+
+    // ==========================================
+    // /canhgioi
+    // ==========================================
+
+    private void handleOpen(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cLệnh này chỉ dùng được cho người chơi!");
+            return;
+        }
+
+        Player player = (Player) sender;
+        if (!player.hasPermission("tutiencore.use")) {
+            player.sendMessage("§cBạn không có quyền sử dụng lệnh này!");
+            return;
+        }
+
+        realmListGUI.open(player);
     }
 
     // ==========================================
@@ -212,6 +235,8 @@ public class CanhGioiCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§7  → Liệt kê tất cả cảnh giới");
         sender.sendMessage("§e/canhgioi reload");
         sender.sendMessage("§7  → Reload config");
+        sender.sendMessage("§e/canhgioi");
+        sender.sendMessage("§7  → Mở menu cảnh giới");
         sender.sendMessage("§8━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 

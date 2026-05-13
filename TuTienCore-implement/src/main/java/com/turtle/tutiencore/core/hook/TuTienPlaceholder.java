@@ -6,7 +6,10 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
@@ -14,8 +17,10 @@ import java.util.UUID;
 public class TuTienPlaceholder extends PlaceholderExpansion {
 
     private final RealmManager realmManager;
+    private final JavaPlugin plugin;
 
-    public TuTienPlaceholder(RealmManager realmManager) {
+    public TuTienPlaceholder(JavaPlugin plugin, RealmManager realmManager) {
+        this.plugin = plugin;
         this.realmManager = realmManager;
     }
 
@@ -104,11 +109,11 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
             return String.valueOf(pr.getRemainingCooldownSeconds());
         }
         else if (params.equalsIgnoreCase("dotpha_ready")) {
-            return isReadyForNextBreakthrough(player.getUniqueId()) ? "V" : "X";
+            return formatDotPhaReady(plugin.getConfig(), isReadyForNextBreakthrough(player.getUniqueId()));
         }
         else if (params.equalsIgnoreCase("dotpha_next_tuvi_required")
                 || params.equalsIgnoreCase("dotpha_next_tuvi_required_formatted")) {
-            return getNextTuViRequired(player.getUniqueId());
+            return getNextTuViRequired(plugin.getConfig(), player.getUniqueId());
         }
 
         // ==========================================
@@ -168,20 +173,35 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         return realmManager.getNextRealm(uuid) != null && realmManager.checkBreakthroughConditions(uuid).isEmpty();
     }
 
-    private String getNextTuViRequired(UUID uuid) {
+    private String getNextTuViRequired(FileConfiguration config, UUID uuid) {
         PlayerRealm pr = realmManager.getPlayerRealm(uuid);
         Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
         if (currentRealm == null) {
-            return "0";
+            return formatNextTuViRequired(config, "0");
         }
 
+        String value;
         if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
             SubRealm nextSub = pr.getSubRealm().next();
-            return nextSub != null ? String.format("%,d", currentRealm.getTuViForSubRealm(nextSub)) : "0";
+            value = nextSub != null ? String.format("%,d", currentRealm.getTuViForSubRealm(nextSub)) : "0";
+        } else {
+            Realm nextRealm = realmManager.getNextRealm(uuid);
+            value = nextRealm != null ? String.format("%,d", nextRealm.getTuViRequired()) : "0";
         }
+        return formatNextTuViRequired(config, value);
+    }
 
-        Realm nextRealm = realmManager.getNextRealm(uuid);
-        return nextRealm != null ? String.format("%,d", nextRealm.getTuViRequired()) : "0";
+    static String formatDotPhaReady(FileConfiguration config, boolean ready) {
+        String path = ready
+                ? "placeholders.dotpha-ready.ready-display-name"
+                : "placeholders.dotpha-ready.not-ready-display-name";
+        String fallback = ready ? "V" : "X";
+        return ChatColor.translateAlternateColorCodes('&', config.getString(path, fallback));
+    }
+
+    static String formatNextTuViRequired(FileConfiguration config, String value) {
+        String displayName = config.getString("placeholders.dotpha-next-tuvi-required.display-name", "{value}");
+        return ChatColor.translateAlternateColorCodes('&', displayName.replace("{value}", value));
     }
 
     private String formatCompact(double number) {

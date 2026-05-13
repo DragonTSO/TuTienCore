@@ -22,16 +22,16 @@ realms:
         tuvi: 0
         display-name: "&8[&7Phàm Nhân &7Sơ Kỳ&8]"
       trung-ky:
-        tuvi: 500
+        tuvi: 100
         display-name: "&8[&7Phàm Nhân &7Trung Kỳ&8]"
       hau-ky:
-        tuvi: 1200
+        tuvi: 200
         display-name: "&8[&7Phàm Nhân &7Hậu Kỳ&8]"
       dinh-phong:
-        tuvi: 2500
+        tuvi: 300
         display-name: "&8[&7Phàm Nhân &7Đỉnh Phong&8]"
       vien-man:
-        tuvi: 4000
+        tuvi: 500
         display-name: "&8[&7Phàm Nhân &7Viên Mãn&8]"
     stat-bonus:
       max-health: 0.0
@@ -58,23 +58,23 @@ realms:
     english: "Qi Refinement"
     tier: "PHAM_GIOI"
     color: "&a"
-    tuvi-required: 5000
-    thuc-luc-required: 500
+    tuvi-required: 800
+    thuc-luc-required: 10
     sub-realms:
       so-ky:
-        tuvi: 5000
+        tuvi: 10000
         display-name: "&8[&aLuyện Khí &aSơ Kỳ&8]"
       trung-ky:
-        tuvi: 8000
+        tuvi: 18000
         display-name: "&8[&aLuyện Khí &aTrung Kỳ&8]"
       hau-ky:
-        tuvi: 12000
+        tuvi: 32000
         display-name: "&8[&aLuyện Khí &aHậu Kỳ&8]"
       dinh-phong:
-        tuvi: 18000
+        tuvi: 55000
         display-name: "&8[&aLuyện Khí &aĐỉnh Phong&8]"
       vien-man:
-        tuvi: 23000
+        tuvi: 90000
         display-name: "&8[&aLuyện Khí &aViên Mãn&8]"
     stat-bonus:
       max-health: 3.0
@@ -101,23 +101,23 @@ realms:
     english: "Foundation"
     tier: "PHAM_GIOI"
     color: "&a"
-    tuvi-required: 25000
+    tuvi-required: 120000
     thuc-luc-required: 2000
     sub-realms:
       so-ky:
-        tuvi: 25000
+        tuvi: 120000
         display-name: "&8[&aTrúc Cơ &aSơ Kỳ&8]"
       trung-ky:
-        tuvi: 35000
+        tuvi: 180000
         display-name: "&8[&aTrúc Cơ &aTrung Kỳ&8]"
       hau-ky:
-        tuvi: 50000
+        tuvi: 270000
         display-name: "&8[&aTrúc Cơ &aHậu Kỳ&8]"
       dinh-phong:
-        tuvi: 75000
+        tuvi: 400000
         display-name: "&8[&aTrúc Cơ &aĐỉnh Phong&8]"
       vien-man:
-        tuvi: 92000
+        tuvi: 580000
         display-name: "&8[&aTrúc Cơ &aViên Mãn&8]"
     stat-bonus:
       max-health: 5.0
@@ -144,23 +144,23 @@ realms:
     english: "Golden Core"
     tier: "PHAM_GIOI"
     color: "&e"
-    tuvi-required: 100000
+    tuvi-required: 750000
     thuc-luc-required: 8000
     sub-realms:
       so-ky:
-        tuvi: 100000
+        tuvi: 750000
         display-name: "&8[&eKim Đan &eSơ Kỳ&8]"
       trung-ky:
-        tuvi: 135000
+        tuvi: 1050000
         display-name: "&8[&eKim Đan &eTrung Kỳ&8]"
       hau-ky:
-        tuvi: 185000
+        tuvi: 1500000
         display-name: "&8[&eKim Đan &eHậu Kỳ&8]"
       dinh-phong:
-        tuvi: 260000
+        tuvi: 2150000
         display-name: "&8[&eKim Đan &eĐỉnh Phong&8]"
       vien-man:
-        tuvi: 325000
+        tuvi: 3000000
         display-name: "&8[&eKim Đan &eViên Mãn&8]"
     stat-bonus:
       max-health: 8.0
@@ -187,23 +187,23 @@ realms:
     english: "Nascent Soul"
     tier: "PHAM_GIOI"
     color: "&e"
-    tuvi-required: 350000
+    tuvi-required: 4000000
     thuc-luc-required: 25000
     sub-realms:
       so-ky:
-        tuvi: 350000
+        tuvi: 4000000
         display-name: "&8[&eNguyên Anh &eSơ Kỳ&8]"
       trung-ky:
-        tuvi: 450000
+        tuvi: 5600000
         display-name: "&8[&eNguyên Anh &eTrung Kỳ&8]"
       hau-ky:
-        tuvi: 580000
+        tuvi: 7800000
         display-name: "&8[&eNguyên Anh &eHậu Kỳ&8]"
       dinh-phong:
-        tuvi: 780000
+        tuvi: 10800000
         display-name: "&8[&eNguyên Anh &eĐỉnh Phong&8]"
       vien-man:
-        tuvi: 930000
+        tuvi: 15000000
         display-name: "&8[&eNguyên Anh &eViên Mãn&8]"
     stat-bonus:
       max-health: 12.0
@@ -230,23 +230,23 @@ realms:
     english: "Spirit Severing"
     tier: "PHAM_GIOI"
     color: "&5"
-    tuvi-required: 1000000
+    tuvi-required: 20000000
     thuc-luc-required: 80000
     sub-realms:
       so-ky:
-        tuvi: 1000000
+        tuvi: 20000000
         display-name: "&8[&5Hóa Thần &5Sơ Kỳ&8]"
       trung-ky:
-        tuvi: 1300000
+        tuvi: 27000000
         display-name: "&8[&5Hóa Thần &5Trung Kỳ&8]"
       hau-ky:
-        tuvi: 1700000
+        tuvi: 36500000
         display-name: "&8[&5Hóa Thần &5Hậu Kỳ&8]"
       dinh-phong:
-        tuvi: 2300000
+        tuvi: 49000000
         display-name: "&8[&5Hóa Thần &5Đỉnh Phong&8]"
       vien-man:
-        tuvi: 2800000
+        tuvi: 65000000
         display-name: "&8[&5Hóa Thần &5Viên Mãn&8]"
     stat-bonus:
       max-health: 16.0
@@ -273,23 +273,23 @@ realms:
     english: "Void Refining"
     tier: "PHAM_GIOI"
     color: "&5"
-    tuvi-required: 3000000
+    tuvi-required: 85000000
     thuc-luc-required: 200000
     sub-realms:
       so-ky:
-        tuvi: 3000000
+        tuvi: 85000000
         display-name: "&8[&5Luyện Hư &5Sơ Kỳ&8]"
       trung-ky:
-        tuvi: 3800000
+        tuvi: 110000000
         display-name: "&8[&5Luyện Hư &5Trung Kỳ&8]"
       hau-ky:
-        tuvi: 4800000
+        tuvi: 145000000
         display-name: "&8[&5Luyện Hư &5Hậu Kỳ&8]"
       dinh-phong:
-        tuvi: 6200000
+        tuvi: 190000000
         display-name: "&8[&5Luyện Hư &5Đỉnh Phong&8]"
       vien-man:
-        tuvi: 7500000
+        tuvi: 250000000
         display-name: "&8[&5Luyện Hư &5Viên Mãn&8]"
     stat-bonus:
       max-health: 20.0
@@ -319,23 +319,23 @@ realms:
     english: "Mahayana"
     tier: "TIEN_GIOI"
     color: "&b"
-    tuvi-required: 8000000
+    tuvi-required: 320000000
     thuc-luc-required: 500000
     sub-realms:
       so-ky:
-        tuvi: 8000000
+        tuvi: 320000000
         display-name: "&7[&bĐại Thừa &bSơ Kỳ&7]"
       trung-ky:
-        tuvi: 10000000
+        tuvi: 400000000
         display-name: "&7[&bĐại Thừa &bTrung Kỳ&7]"
       hau-ky:
-        tuvi: 13000000
+        tuvi: 495000000
         display-name: "&7[&bĐại Thừa &bHậu Kỳ&7]"
       dinh-phong:
-        tuvi: 16500000
+        tuvi: 610000000
         display-name: "&7[&bĐại Thừa &bĐỉnh Phong&7]"
       vien-man:
-        tuvi: 19000000
+        tuvi: 740000000
         display-name: "&7[&bĐại Thừa &bViên Mãn&7]"
     stat-bonus:
       max-health: 25.0
@@ -362,23 +362,23 @@ realms:
     english: "Tribulation"
     tier: "TIEN_GIOI"
     color: "&b"
-    tuvi-required: 20000000
+    tuvi-required: 800000000
     thuc-luc-required: 800000
     sub-realms:
       so-ky:
-        tuvi: 20000000
+        tuvi: 800000000
         display-name: "&7[&bĐộ Kiếp &bSơ Kỳ&7]"
       trung-ky:
-        tuvi: 25000000
+        tuvi: 850000000
         display-name: "&7[&bĐộ Kiếp &bTrung Kỳ&7]"
       hau-ky:
-        tuvi: 32000000
+        tuvi: 900000000
         display-name: "&7[&bĐộ Kiếp &bHậu Kỳ&7]"
       dinh-phong:
-        tuvi: 40000000
+        tuvi: 945000000
         display-name: "&7[&bĐộ Kiếp &bĐỉnh Phong&7]"
       vien-man:
-        tuvi: 47000000
+        tuvi: 980000000
         display-name: "&7[&bĐộ Kiếp &bViên Mãn&7]"
     stat-bonus:
       max-health: 30.0
@@ -400,29 +400,29 @@ realms:
       success-rate: 65.0
 
   10:
-    name: "Tiên Nhân"
-    display-name: "&7[&3Tiên Nhân&7]"
-    english: "Immortal"
+    name: "Chân Tiên"
+    display-name: "&7[&3Chân Tiên&7]"
+    english: "True Immortal"
     tier: "TIEN_GIOI"
     color: "&3"
-    tuvi-required: 50000000
+    tuvi-required: 990000000
     thuc-luc-required: 1500000
     sub-realms:
       so-ky:
-        tuvi: 50000000
-        display-name: "&7[&3Tiên Nhân &3Sơ Kỳ&7]"
+        tuvi: 990000000
+        display-name: "&7[&3Chân Tiên &3Sơ Kỳ&7]"
       trung-ky:
-        tuvi: 62000000
-        display-name: "&7[&3Tiên Nhân &3Trung Kỳ&7]"
+        tuvi: 995000000
+        display-name: "&7[&3Chân Tiên &3Trung Kỳ&7]"
       hau-ky:
-        tuvi: 78000000
-        display-name: "&7[&3Tiên Nhân &3Hậu Kỳ&7]"
+        tuvi: 998000000
+        display-name: "&7[&3Chân Tiên &3Hậu Kỳ&7]"
       dinh-phong:
-        tuvi: 100000000
-        display-name: "&7[&3Tiên Nhân &3Đỉnh Phong&7]"
+        tuvi: 999500000
+        display-name: "&7[&3Chân Tiên &3Đỉnh Phong&7]"
       vien-man:
-        tuvi: 115000000
-        display-name: "&7[&3Tiên Nhân &3Viên Mãn&7]"
+        tuvi: 1000000000
+        display-name: "&7[&3Chân Tiên &3Viên Mãn&7]"
     stat-bonus:
       max-health: 36.0
       attack-damage: 24.0

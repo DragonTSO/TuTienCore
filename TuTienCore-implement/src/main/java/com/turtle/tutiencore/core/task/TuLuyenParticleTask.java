@@ -1,9 +1,10 @@
 package com.turtle.tutiencore.core.task;
 
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 
-import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -21,24 +22,25 @@ import java.util.UUID;
 /**
  * Tu Luyện Particle Effect System
  * 
- * Creates cultivation meditation visual effects with class-based colors.
- * Colors are determined by the player's MMOCore class.
+ * Creates cultivation meditation visual effects with realm-based colors.
+ * Colors are determined by the player's current Cảnh Giới.
  */
 public class TuLuyenParticleTask {
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private TuLuyenManager tuLuyenManager;
+    private RealmManager realmManager;
     private final Random random = new Random();
     private BukkitRunnable auraTask;
 
     // Animation state
     private double globalTick = 0;
 
-    // Default cyan color (fallback when no class)
+    // Default cyan color (fallback when no realm color)
     private static final int[][] DEFAULT_COLORS = {{0, 220, 255}, {100, 255, 230}};
 
-    // Cache player class colors (refreshed when they start tu luyen)
+    // Cache player realm colors (refreshed when they start tu luyen)
     private final Map<UUID, int[][]> playerColorCache = new HashMap<>();
 
     public TuLuyenParticleTask(JavaPlugin plugin, ConfigManager configManager) {
@@ -50,8 +52,12 @@ public class TuLuyenParticleTask {
         this.tuLuyenManager = tuLuyenManager;
     }
 
+    public void setRealmManager(RealmManager realmManager) {
+        this.realmManager = realmManager;
+    }
+
     /**
-     * Get the color palette for a player based on their MMOCore class.
+     * Get the color palette for a player based on their current realm.
      * Returns [primary RGB, secondary RGB].
      */
     public int[][] getPlayerColors(Player player) {
@@ -60,18 +66,18 @@ public class TuLuyenParticleTask {
         if (cached != null) return cached;
 
         // Fallback: if not cached (shouldn't happen if refreshPlayerColors was called)
-        // Return default — do NOT call MMOCore API from async thread
-        plugin.getLogger().warning("[ClassColor] Cache miss for " + player.getName() + " — using default colors (async context)");
+        // Return default because the aura task runs async.
+        plugin.getLogger().warning("[RealmColor] Cache miss for " + player.getName() + " - using default colors (async context)");
         return DEFAULT_COLORS;
     }
 
     /**
-     * Resolve colors from MMOCore class.
+     * Resolve colors from the player's current realm.
      * Called once when player starts tu luyen, cached afterward.
      */
-    private int[][] resolveMMOCoreColors(Player player) {
-        if (Bukkit.getPluginManager().getPlugin("MMOCore") == null) {
-            plugin.getLogger().info("[ClassColor] MMOCore not found → default colors for " + player.getName());
+    private int[][] resolveRealmColors(Player player) {
+        if (realmManager == null) {
+            plugin.getLogger().warning("[RealmColor] RealmManager not ready - default colors for " + player.getName());
             return DEFAULT_COLORS;
         }
 
@@ -113,21 +119,78 @@ public class TuLuyenParticleTask {
                     plugin.getLogger().info("[ClassColor] " + player.getName() + " has no MMOCore class.");
                 }
             }
+
+            com.turtle.tutiencore.api.realm.Realm realm = realmManager.getPlayerCurrentRealm(player.getUniqueId());
+            if (realm == null) {
+                plugin.getLogger().warning("[RealmColor] No realm found for " + player.getName() + " - using default colors");
+                return DEFAULT_COLORS;
+            }
+
+            int[] primary = toRgb(realm.getColor());
+            int[] secondary = brighten(primary);
+            plugin.getLogger().info("[RealmColor] Resolved " + player.getName()
+                    + " realm=" + realm.getId() + " color=" + realm.getColor());
+            return new int[][]{primary, secondary};
         } catch (Throwable t) {
-            plugin.getLogger().warning("[ClassColor] Error: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+            plugin.getLogger().warning("[RealmColor] Error: " + t.getClass().getSimpleName() + ": " + t.getMessage());
         }
 
         return DEFAULT_COLORS;
     }
 
+    private int[] toRgb(String colorCode) {
+        ChatColor chatColor = ChatColor.getByChar(extractLastColorChar(colorCode));
+        if (chatColor == null) return DEFAULT_COLORS[0];
+
+        switch (chatColor) {
+            case BLACK: return new int[]{0, 0, 0};
+            case DARK_BLUE: return new int[]{0, 0, 170};
+            case DARK_GREEN: return new int[]{0, 170, 0};
+            case DARK_AQUA: return new int[]{0, 170, 170};
+            case DARK_RED: return new int[]{170, 0, 0};
+            case DARK_PURPLE: return new int[]{170, 0, 170};
+            case GOLD: return new int[]{255, 170, 0};
+            case GRAY: return new int[]{170, 170, 170};
+            case DARK_GRAY: return new int[]{85, 85, 85};
+            case BLUE: return new int[]{85, 85, 255};
+            case GREEN: return new int[]{85, 255, 85};
+            case AQUA: return new int[]{85, 255, 255};
+            case RED: return new int[]{255, 85, 85};
+            case LIGHT_PURPLE: return new int[]{255, 85, 255};
+            case YELLOW: return new int[]{255, 255, 85};
+            case WHITE: return new int[]{255, 255, 255};
+            default: return DEFAULT_COLORS[0];
+        }
+    }
+
+    private char extractLastColorChar(String colorCode) {
+        if (colorCode == null || colorCode.isEmpty()) return 'b';
+
+        for (int i = colorCode.length() - 2; i >= 0; i--) {
+            char marker = colorCode.charAt(i);
+            if ((marker == '&' || marker == ChatColor.COLOR_CHAR) && i + 1 < colorCode.length()) {
+                return colorCode.charAt(i + 1);
+            }
+        }
+        return colorCode.length() == 1 ? colorCode.charAt(0) : 'b';
+    }
+
+    private int[] brighten(int[] rgb) {
+        return new int[]{
+            Math.min(255, rgb[0] + 70),
+            Math.min(255, rgb[1] + 70),
+            Math.min(255, rgb[2] + 70)
+        };
+    }
+
     /**
      * Refresh color cache for a player (call when they start tu luyen).
-     * MUST be called from the MAIN THREAD — resolves MMOCore class immediately.
+     * MUST be called from the MAIN THREAD - resolves realm data immediately.
      */
     public void refreshPlayerColors(Player player) {
-        int[][] colors = resolveMMOCoreColors(player);
+        int[][] colors = resolveRealmColors(player);
         playerColorCache.put(player.getUniqueId(), colors);
-        plugin.getLogger().info("[ClassColor] Cached colors for " + player.getName() 
+        plugin.getLogger().info("[RealmColor] Cached colors for " + player.getName()
                 + ": primary=[" + colors[0][0] + "," + colors[0][1] + "," + colors[0][2] + "]"
                 + " secondary=[" + colors[1][0] + "," + colors[1][1] + "," + colors[1][2] + "]");
     }

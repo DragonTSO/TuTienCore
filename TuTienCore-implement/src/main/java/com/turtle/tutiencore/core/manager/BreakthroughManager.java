@@ -8,6 +8,16 @@ import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 
+import io.lumine.mythic.api.mobs.MythicMob;
+import io.lumine.mythic.api.mobs.entities.SpawnReason;
+import io.lumine.mythic.bukkit.BukkitAdapter;
+import io.lumine.mythic.bukkit.MythicBukkit;
+import io.lumine.mythic.core.mobs.ActiveMob;
+
+import com.ticxo.modelengine.api.ModelEngineAPI;
+import com.ticxo.modelengine.api.model.ActiveModel;
+import com.ticxo.modelengine.api.model.ModeledEntity;
+
 import org.bukkit.*;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.ArmorStand;
@@ -69,6 +79,8 @@ public class BreakthroughManager implements Listener {
         BukkitRunnable task;
         BukkitRunnable auraTask;
         BukkitRunnable stormTask; // Continuous ambient lightning storm
+        BukkitRunnable activeAnimationTask;
+        final List<ActiveMob> activeBreakthroughMobs = new ArrayList<>();
         Location startLocation;
         int currentLevitationLevel;
         volatile boolean completed; // Guard against double-execution
@@ -160,6 +172,9 @@ public class BreakthroughManager implements Listener {
         // Start persistent aura particles
         startAuraTask(player, session);
 
+        // MythicMobs owns the ModelEngine state animation so it does not fall back to idle.
+        spawnActiveBreakthroughMobs(player, session);
+
         // NOTE: Ambient storm starts AFTER countdown (inside startLightningSequence)
         // Begin lightning sequence (countdown 3→2→1 → sét bắt đầu)
         startLightningSequence(player, session);
@@ -221,6 +236,9 @@ public class BreakthroughManager implements Listener {
         // Start aura particles
         startAuraTask(player, session);
 
+        // MythicMobs owns the ModelEngine state animation so it does not fall back to idle.
+        spawnActiveBreakthroughMobs(player, session);
+
         // NOTE: Ambient storm starts AFTER countdown (inside startLightningSequence)
         // Begin lightning sequence (countdown 3→2→1 → sét bắt đầu)
         startLightningSequence(player, session);
@@ -232,6 +250,8 @@ public class BreakthroughManager implements Listener {
 
     // Lightning AOE radius (40x40 = ±20 blocks from center)
     private static final int LIGHTNING_RADIUS = 20;
+    static final String ACTIVE_BREAKTHROUGH_MOBS_KEY = "breakthrough.active-mobs";
+    private static final int ACTIVE_BREAKTHROUGH_ANIMATION_REPLAY_TICKS = 90;
     // Max levitation level (increases over time)
     private static final int MAX_LEVITATION_LEVEL = 6;
     // Damage scaling: at max height, damage = baseDmg * this multiplier
@@ -727,7 +747,7 @@ public class BreakthroughManager implements Listener {
 
         UUID uuid = player.getUniqueId();
         activeSessions.remove(uuid);
-
+        cleanupActiveBreakthroughMobs(session);
         if (session.isMajor) {
             // Major realm breakthrough success
             Realm oldRealm = realmManager.getPlayerCurrentRealm(uuid);
@@ -889,6 +909,7 @@ public class BreakthroughManager implements Listener {
         }
         // Remove all breakthrough effects
         cleanupBreakthroughEffects(player);
+        cleanupActiveBreakthroughMobs(session);
 
         if (session.isMajor) {
             // Apply cooldown + demote
@@ -953,6 +974,10 @@ public class BreakthroughManager implements Listener {
         if (session.stormTask != null) {
             session.stormTask.cancel();
         }
+        if (session.activeAnimationTask != null) {
+            session.activeAnimationTask.cancel();
+        }
+        cleanupActiveBreakthroughMobs(session);
         // Remove all effects for the player
         Player p = Bukkit.getPlayer(session.playerId);
         if (p != null && p.isOnline()) {
@@ -993,37 +1018,44 @@ public class BreakthroughManager implements Listener {
         if (!plugin.getConfig().getBoolean("breakthrough.enabled", true)) return;
         if (Bukkit.getPluginManager().getPlugin("ModelEngine") == null) return;
 
-        String configKey = isMajor ? "breakthrough.major-success-model" : "breakthrough.sub-success-model";
-        String modelId = plugin.getConfig().getString(configKey, "");
-        if (modelId == null || modelId.trim().isEmpty()) return;
+        List<String> modelIds = getSuccessModelIds(plugin.getConfig(), isMajor);
+        if (modelIds.isEmpty()) return;
 
         int duration = plugin.getConfig().getInt("breakthrough.model-duration", 5);
+        List<ArmorStand> stands = new ArrayList<>();
 
         try {
-            // Spawn invisible ArmorStand tại vị trí player
             Location loc = player.getLocation();
-            ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setSmall(true);
-            stand.setBasePlate(false);
-            stand.setInvulnerable(true);
+            List<com.ticxo.modelengine.api.model.ActiveModel> activeModels = new ArrayList<>();
 
-            // Tạo và gắn ModelEngine model lên ArmorStand
-            com.ticxo.modelengine.api.model.ActiveModel activeModel =
-                    com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(modelId);
-            if (activeModel == null) {
-                stand.remove();
-                plugin.getLogger().warning("ModelEngine model not found: " + modelId);
-                return;
+            for (String modelId : modelIds) {
+                // Spawn one invisible ArmorStand per model so ModelEngine can animate them together.
+                ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
+                stand.setVisible(false);
+                stand.setGravity(false);
+                stand.setSmall(true);
+                stand.setBasePlate(false);
+                stand.setInvulnerable(true);
+
+                com.ticxo.modelengine.api.model.ActiveModel activeModel =
+                        com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(modelId);
+                if (activeModel == null) {
+                    stand.remove();
+                    plugin.getLogger().warning("ModelEngine model not found: " + modelId);
+                    continue;
+                }
+
+                com.ticxo.modelengine.api.model.ModeledEntity modeledEntity =
+                        com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
+                modeledEntity.addModel(activeModel, true);
+                stands.add(stand);
+                activeModels.add(activeModel);
             }
 
-            com.ticxo.modelengine.api.model.ModeledEntity modeledEntity =
-                    com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
-            modeledEntity.addModel(activeModel, true);
+            if (stands.isEmpty()) return;
 
-            // Player cưỡi lên ArmorStand
-            stand.addPassenger(player);
+            // Player chỉ cưỡi model đầu tiên; các model còn lại chạy đồng vị trí.
+            stands.getFirst().addPassenger(player);
 
             // ── TÀN HÌNH PLAYER trong lúc animation ──
             // Add invisibility potion effect
@@ -1038,38 +1070,40 @@ public class BreakthroughManager implements Listener {
                 }
             }
 
-            plugin.getLogger().info("Breakthrough model '" + modelId + "' — player " + player.getName() + " mounted (invisible)");
+            plugin.getLogger().info("Breakthrough models " + modelIds + " — player " + player.getName() + " mounted (invisible)");
 
-            // Delay 2 ticks rồi chạy animation "actived"
-            final com.ticxo.modelengine.api.model.ActiveModel finalModel = activeModel;
+            // Delay 2 ticks rồi chạy animation "actived" cho tất cả model.
+            final List<com.ticxo.modelengine.api.model.ActiveModel> finalModels = List.copyOf(activeModels);
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    try {
-                        finalModel.getAnimationHandler().playAnimation("actived", 0.25, 0.25, 1.0, true);
-                        plugin.getLogger().info("Playing 'actived' animation on model '" + modelId + "'");
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to play 'actived' animation: " + e.getMessage());
+                    for (com.ticxo.modelengine.api.model.ActiveModel model : finalModels) {
+                        try {
+                            model.getAnimationHandler().playAnimation("actived", 0.25, 0.25, 1.0, true);
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to play 'actived' animation: " + e.getMessage());
+                        }
                     }
+                    plugin.getLogger().info("Playing 'actived' animation on breakthrough models " + modelIds);
                 }
             }.runTaskLater(plugin, 2L);
 
-            // Sau duration giây: dismount, xóa model, HIỆN LẠI player
+            // Sau duration giây: dismount, xóa toàn bộ model, HIỆN LẠI player
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    try {
-                        // Dismount player
-                        stand.removePassenger(player);
-                        // Destroy model
-                        com.ticxo.modelengine.api.model.ModeledEntity me =
-                                com.ticxo.modelengine.api.ModelEngineAPI.getModeledEntity(stand);
-                        if (me != null) {
-                            me.destroy();
+                    for (ArmorStand stand : stands) {
+                        try {
+                            stand.removePassenger(player);
+                            com.ticxo.modelengine.api.model.ModeledEntity me =
+                                    com.ticxo.modelengine.api.ModelEngineAPI.getModeledEntity(stand);
+                            if (me != null) {
+                                me.destroy();
+                            }
+                        } catch (Exception ignored) {
                         }
-                    } catch (Exception ignored) {}
-                    // Xóa ArmorStand
-                    stand.remove();
+                        stand.remove();
+                    }
 
                     // ── HIỆN LẠI PLAYER ──
                     if (player.isOnline()) {
@@ -1097,7 +1131,18 @@ public class BreakthroughManager implements Listener {
             }.runTaskLater(plugin, duration * 20L);
 
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to spawn breakthrough model: " + modelId + " — " + e.getMessage());
+            plugin.getLogger().warning("Failed to spawn breakthrough models: " + modelIds + " — " + e.getMessage());
+            for (ArmorStand stand : stands) {
+                try {
+                    com.ticxo.modelengine.api.model.ModeledEntity me =
+                            com.ticxo.modelengine.api.ModelEngineAPI.getModeledEntity(stand);
+                    if (me != null) {
+                        me.destroy();
+                    }
+                } catch (Exception ignored) {
+                }
+                stand.remove();
+            }
             // Ensure player is visible if model spawn fails
             player.removePotionEffect(PotionEffectType.INVISIBILITY);
             for (Player online : Bukkit.getOnlinePlayers()) {
@@ -1106,6 +1151,149 @@ public class BreakthroughManager implements Listener {
                 }
             }
         }
+    }
+
+    static List<String> getSuccessModelIds(ConfigurationSection config, boolean isMajor) {
+        String listKey = isMajor ? "breakthrough.major-success-models" : "breakthrough.sub-success-models";
+        List<String> models = new ArrayList<>();
+
+        if (config.isList(listKey)) {
+            for (String modelId : config.getStringList(listKey)) {
+                String trimmed = modelId.trim();
+                if (!trimmed.isEmpty()) {
+                    models.add(trimmed);
+                }
+            }
+            return models;
+        }
+
+        String legacyKey = isMajor ? "breakthrough.major-success-model" : "breakthrough.sub-success-model";
+        String legacyModel = config.getString(legacyKey, "");
+        if (legacyModel != null && !legacyModel.trim().isEmpty()) {
+            models.add(legacyModel.trim());
+        }
+
+        return models;
+    }
+
+    private void spawnActiveBreakthroughMobs(Player player, BreakthroughSession session) {
+        if (!plugin.getConfig().getBoolean("breakthrough.enabled", true)) return;
+        if (Bukkit.getPluginManager().getPlugin("MythicMobs") == null) return;
+
+        List<String> mobIds = getConfiguredModelIds(ACTIVE_BREAKTHROUGH_MOBS_KEY);
+        if (mobIds.isEmpty()) return;
+
+        Location loc = player.getLocation();
+        for (String mobId : mobIds) {
+            try {
+                Optional<MythicMob> mythicMob = MythicBukkit.inst().getMobManager().getMythicMob(mobId);
+                if (mythicMob.isEmpty()) {
+                    plugin.getLogger().warning("Configured breakthrough MythicMob not found: " + mobId);
+                    continue;
+                }
+
+                ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(loc), 1.0, SpawnReason.SUMMON);
+                if (activeMob != null) {
+                    session.activeBreakthroughMobs.add(activeMob);
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Failed to spawn breakthrough MythicMob '" + mobId + "': " + t.getMessage());
+            }
+        }
+
+        if (!session.activeBreakthroughMobs.isEmpty()) {
+            startActiveBreakthroughAnimationTask(player, session);
+        }
+    }
+
+    private void startActiveBreakthroughAnimationTask(Player player, BreakthroughSession session) {
+        if (Bukkit.getPluginManager().getPlugin("ModelEngine") == null) return;
+
+        session.activeAnimationTask = new BukkitRunnable() {
+            int ticks;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !activeSessions.containsKey(session.playerId)) {
+                    cancel();
+                    return;
+                }
+
+                ticks += 2;
+                followPlayerWithActiveMobs(player, session);
+                if (ticks >= ACTIVE_BREAKTHROUGH_ANIMATION_REPLAY_TICKS) {
+                    ticks = 0;
+                    replayActiveBreakthroughAnimation(session);
+                }
+            }
+        };
+        session.activeAnimationTask.runTaskTimer(plugin, 2L, 2L);
+    }
+
+    private void followPlayerWithActiveMobs(Player player, BreakthroughSession session) {
+        Location loc = player.getLocation();
+        for (ActiveMob activeMob : session.activeBreakthroughMobs) {
+            try {
+                if (activeMob == null || activeMob.isDead()) continue;
+
+                org.bukkit.entity.Entity entity = BukkitAdapter.adapt(activeMob.getEntity());
+                if (entity != null && entity.isValid()) {
+                    entity.teleport(loc);
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Failed to move breakthrough MythicMob with player: " + t.getMessage());
+            }
+        }
+    }
+
+    private void replayActiveBreakthroughAnimation(BreakthroughSession session) {
+        for (ActiveMob activeMob : session.activeBreakthroughMobs) {
+            try {
+                if (activeMob == null || activeMob.isDead()) continue;
+
+                org.bukkit.entity.Entity entity = BukkitAdapter.adapt(activeMob.getEntity());
+                ModeledEntity modeledEntity = ModelEngineAPI.getModeledEntity(entity);
+                if (modeledEntity == null || modeledEntity.isDestroyed()) continue;
+
+                for (ActiveModel activeModel : modeledEntity.getModels().values()) {
+                    activeModel.getAnimationHandler().playAnimation("spawn", 0.1, 0.1, 1.0, true);
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Failed to replay breakthrough ModelEngine animation: " + t.getMessage());
+            }
+        }
+    }
+
+    private void cleanupActiveBreakthroughMobs(BreakthroughSession session) {
+        if (session.activeAnimationTask != null) {
+            session.activeAnimationTask.cancel();
+            session.activeAnimationTask = null;
+        }
+
+        for (ActiveMob activeMob : session.activeBreakthroughMobs) {
+            try {
+                if (activeMob != null && !activeMob.isDead()) {
+                    activeMob.remove();
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Failed to remove breakthrough MythicMob: " + t.getMessage());
+            }
+        }
+        session.activeBreakthroughMobs.clear();
+    }
+
+    private List<String> getConfiguredModelIds(String key) {
+        List<String> models = new ArrayList<>();
+        if (!plugin.getConfig().isList(key)) return models;
+
+        for (String modelId : plugin.getConfig().getStringList(key)) {
+            String trimmed = modelId.trim();
+            if (!trimmed.isEmpty()) {
+                models.add(trimmed);
+            }
+        }
+
+        return models;
     }
 
     /**
@@ -1237,6 +1425,10 @@ public class BreakthroughManager implements Listener {
             if (session.stormTask != null) {
                 session.stormTask.cancel();
             }
+            if (session.activeAnimationTask != null) {
+                session.activeAnimationTask.cancel();
+            }
+            cleanupActiveBreakthroughMobs(session);
         }
         activeSessions.clear();
     }

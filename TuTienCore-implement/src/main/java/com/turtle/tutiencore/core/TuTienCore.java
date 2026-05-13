@@ -7,8 +7,11 @@ import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
+import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
+import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
+import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
@@ -34,8 +37,11 @@ public class TuTienCore {
     private RealmManager realmManager;
     private BreakthroughManager breakthroughManager;
     private FlySwordManager flySwordManager;
+    private OfflineTuLuyenManager offlineTuLuyenManager;
     private RealmListGUI realmListGUI;
     private DotPhaCommand dotPhaCommand;
+    private MMOCoreActionBarSuppressor actionBarSuppressor;
+    private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -56,19 +62,28 @@ public class TuTienCore {
         // Map and Zones
         this.zoneManager = new ZoneManager(plugin);
         
-        this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
-        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask);
-        this.lineParticleTask.setTuLuyenManager(this.tuLuyenManager);
-        this.lineParticleTask.startAuraTask();
-        
-        this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
-        this.sphereParticleTask.start();
-        
         // Realm & Breakthrough System
         this.realmManager = new RealmManager(plugin);
         this.breakthroughManager = new BreakthroughManager(plugin, realmManager);
         this.flySwordManager = new FlySwordManager(plugin);
+        this.offlineTuLuyenManager = new OfflineTuLuyenManager(plugin, configManager);
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
+
+        this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
+        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager);
+        this.lineParticleTask.setTuLuyenManager(this.tuLuyenManager);
+        this.lineParticleTask.setRealmManager(this.realmManager);
+        this.lineParticleTask.startAuraTask();
+
+        this.actionBarSuppressor = new MMOCoreActionBarSuppressor(plugin, tuLuyenManager);
+        this.tuLuyenManager.setActionBarSuppressor(this.actionBarSuppressor);
+        this.actionBarSuppressor.register();
+
+        this.mmoItemsRealmRequirementHook = new MMOItemsRealmRequirementHook(plugin, realmManager);
+        this.mmoItemsRealmRequirementHook.register();
+
+        this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
+        this.sphereParticleTask.start();
 
         // Inject managers into API impl so it can delegate calls
         this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
@@ -89,7 +104,7 @@ public class TuTienCore {
         }
 
         // Register /canhgioi command
-        CanhGioiCommand canhGioiCommand = new CanhGioiCommand(realmManager);
+        CanhGioiCommand canhGioiCommand = new CanhGioiCommand(realmManager, realmListGUI);
         if (plugin.getCommand("canhgioi") != null) {
             plugin.getCommand("canhgioi").setExecutor(canhGioiCommand);
             plugin.getCommand("canhgioi").setTabCompleter(canhGioiCommand);
@@ -104,7 +119,7 @@ public class TuTienCore {
 
         // Register Placeholders
         if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            new com.turtle.tutiencore.core.hook.TuTienPlaceholder(realmManager).register();
+            new com.turtle.tutiencore.core.hook.TuTienPlaceholder(plugin, realmManager).register();
             plugin.getLogger().info("Registered PlaceholderAPI expansion");
         }
     }
@@ -127,11 +142,17 @@ public class TuTienCore {
         if (flySwordManager != null) {
             flySwordManager.stopTask();
         }
+        if (offlineTuLuyenManager != null) {
+            offlineTuLuyenManager.save();
+        }
         if (zoneManager != null) {
             zoneManager.saveZones();
         }
         if (tuLuyenManager != null) {
             tuLuyenManager.stopTask();
+        }
+        if (actionBarSuppressor != null) {
+            actionBarSuppressor.unregister();
         }
         if (lineParticleTask != null) {
             lineParticleTask.stopAuraTask();

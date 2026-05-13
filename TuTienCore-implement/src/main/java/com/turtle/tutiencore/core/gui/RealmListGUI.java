@@ -123,7 +123,7 @@ public class RealmListGUI implements Listener {
         List<Integer> realmSlots = config.getIntegerList("realm-slots");
         Map<Integer, Realm> allRealms = realmManager.getAllRealms();
 
-        for (int i = 0; i < realmSlots.size() && i < 19; i++) {
+        for (int i = 0; i < realmSlots.size(); i++) {
             int realmId = i + 1;
             Realm realm = allRealms.get(realmId);
             if (realm == null) continue;
@@ -155,7 +155,7 @@ public class RealmListGUI implements Listener {
         if (template == null) return new ItemStack(Material.PAPER);
 
         // Material
-        Material mat = getMaterialForRealm(realmId, realm);
+        Material mat = getMaterialForRealm(realmId, realm, templateKey);
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
 
@@ -217,6 +217,9 @@ public class RealmListGUI implements Listener {
         text = text.replace("{realm_tier}", realm.getTier().getDisplayName());
         text = text.replace("{realm_tier_color}", realm.getTier().getColor());
         text = text.replace("{realm_tuvi}", RealmManager.formatNumber(realm.getTuViRequired()));
+        text = text.replace("{realm_thuc_luc}", RealmManager.formatNumber(realm.getThucLucRequired()));
+        text = text.replace("{realm_money}", RealmManager.formatMoney(realm.getMoneyRequired()));
+        text = text.replace("{realm_dot_pha_dan}", String.valueOf(realmManager.getDotPhaDanRequired(realmId)));
         text = text.replace("{realm_bolts}", String.valueOf(realm.getLightningBolts()));
         text = text.replace("{realm_damage}", String.format("%.1f", realm.getDamagePerBolt()));
         text = text.replace("{realm_success}", String.format("%.0f%%", realm.getSuccessRate()));
@@ -292,7 +295,14 @@ public class RealmListGUI implements Listener {
         }
     }
 
-    private Material getMaterialForRealm(int realmId, Realm realm) {
+    private Material getMaterialForRealm(int realmId, Realm realm, String templateKey) {
+        String stateMat = config.getString(templateKey + ".material");
+        if (stateMat != null) {
+            try {
+                return Material.valueOf(stateMat.toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+
         // Check per-realm override
         String matName = config.getString("realm-materials." + realmId);
         if (matName != null) {

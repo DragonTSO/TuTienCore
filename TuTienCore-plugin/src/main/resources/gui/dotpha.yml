@@ -83,6 +83,16 @@ main-menu:
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&a&l▶ Click để mở xác nhận!"
 
+    max-realm:
+      slot: 24
+      material: DRAGON_EGG
+      name: "&4&l✦ Cực Đỉnh ✦"
+      lore:
+        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&a&lBạn đã đạt cực đỉnh!"
+        - "&6Hồng Mông &7— &fĐạo tối thượng"
+        - "&8━━━━━━━━━━━━━━━━━━━━━"
+
     tips:
       slot: 31
       material: WRITABLE_BOOK

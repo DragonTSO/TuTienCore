@@ -19,8 +19,13 @@ public class ConfigManager {
     // Tu Luyen settings
     private int tuLuyenInterval;
     private double maxDistance;
-    private int pointsPerInterval;
+    private TuViPointRange pointsPerInterval;
     private String giveCommand;
+    private boolean lightningBonusEnabled;
+    private double lightningBonusChancePercent;
+    private double lightningBonusMultiplier;
+    private int offlineIntervalSeconds;
+    private int offlineClaimX2Cost;
 
     // Particles Settings
     private boolean sphereEnabled;
@@ -71,8 +76,13 @@ public class ConfigManager {
 
         tuLuyenInterval = config.getInt("tu-luyen.interval", 100);
         maxDistance = config.getDouble("tu-luyen.max-distance", 10.0);
-        pointsPerInterval = config.getInt("tu-luyen.points-per-interval", 10);
+        pointsPerInterval = TuViPointRange.parse(config.getString("tu-luyen.points-per-interval", "10"), 10);
         giveCommand = config.getString("tu-luyen.give-command", "eco give %player% %points%");
+        lightningBonusEnabled = config.getBoolean("tu-luyen.lightning-bonus.enabled", true);
+        lightningBonusChancePercent = Math.max(0.0, Math.min(100.0, config.getDouble("tu-luyen.lightning-bonus.chance-percent", 20.0)));
+        lightningBonusMultiplier = Math.max(1.0, config.getDouble("tu-luyen.lightning-bonus.multiplier", 2.0));
+        offlineIntervalSeconds = Math.max(1, config.getInt("offline-tuluyen.interval-seconds", 60));
+        offlineClaimX2Cost = config.getInt("offline-tuluyen.claim-x2-cost", 100);
 
         sphereEnabled = config.getBoolean("particles.sphere.enabled", true);
         sphereInterval = config.getInt("particles.sphere.interval", 5);
@@ -227,6 +237,30 @@ public class ConfigManager {
 
     public String getTuluyenModel() {
         return tuluyenModel;
+    }
+
+    public int rollPointsPerInterval() {
+        return pointsPerInterval.roll();
+    }
+
+    public boolean isLightningBonusEnabled() {
+        return lightningBonusEnabled;
+    }
+
+    public double getLightningBonusChancePercent() {
+        return lightningBonusChancePercent;
+    }
+
+    public double getLightningBonusMultiplier() {
+        return lightningBonusMultiplier;
+    }
+
+    public int getOfflineIntervalSeconds() {
+        return offlineIntervalSeconds;
+    }
+
+    public int getOfflineClaimX2Cost() {
+        return offlineClaimX2Cost;
     }
 
     private String tuluyenModel;

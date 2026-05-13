@@ -110,7 +110,28 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     @Override
     public void addTuVi(UUID uuid, double amount) {
-        setTuVi(uuid, getTuVi(uuid) + amount);
+        double current = getTuVi(uuid);
+        if (realmManager == null || amount <= 0) {
+            setTuVi(uuid, current + amount);
+            return;
+        }
+
+        PlayerRealm playerRealm = realmManager.getPlayerRealm(uuid);
+        Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
+        Realm nextRealm = realmManager.getNextRealm(uuid);
+        setTuVi(uuid, capTuViAfterAdd(current, amount, playerRealm, currentRealm, nextRealm));
+    }
+
+    static double capTuViAfterAdd(double currentTuVi, double amount, PlayerRealm playerRealm, Realm currentRealm, Realm nextRealm) {
+        double result = currentTuVi + amount;
+        if (amount <= 0 || playerRealm == null || currentRealm == null) return result;
+
+        SubRealm nextSubRealm = playerRealm.getSubRealm().next();
+        long cap = nextSubRealm != null
+                ? currentRealm.getTuViForSubRealm(nextSubRealm)
+                : nextRealm != null ? nextRealm.getTuViRequired() : currentRealm.getTuViForSubRealm(SubRealm.VIEN_MAN);
+
+        return cap > 0 ? Math.min(result, cap) : result;
     }
 
     @Override

@@ -334,7 +334,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             maxLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
 
             gui.setItem(getSlot("main-menu.items.major-breakthrough", 24), createConfiguredItem(player,
-                    "main-menu.items.major-breakthrough", Material.DRAGON_EGG, "§4§l✦ Cực Đỉnh ✦", maxLore,
+                    "main-menu.items.max-realm", Material.DRAGON_EGG, "§4§l✦ Cực Đỉnh ✦", maxLore,
                     createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
         }
 
