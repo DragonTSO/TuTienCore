@@ -74,6 +74,7 @@ public class TuTienCore {
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager);
+        this.playerHologramManager.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setRealmManager(this.realmManager);
         this.lineParticleTask.startAuraTask();

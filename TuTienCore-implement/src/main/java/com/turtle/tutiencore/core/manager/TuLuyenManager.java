@@ -140,6 +140,10 @@ public class TuLuyenManager implements Listener {
         return tuLuyenPlayers.containsKey(player.getUniqueId());
     }
 
+    public boolean isTuLuyenHologramVisible(Player player) {
+        return player != null && isTuLuyen(player) && holograms.containsKey(player.getUniqueId());
+    }
+
     public void setActionBarSuppressor(MMOCoreActionBarSuppressor actionBarSuppressor) {
         this.actionBarSuppressor = actionBarSuppressor;
     }

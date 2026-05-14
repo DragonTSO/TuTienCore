@@ -7,6 +7,8 @@ player-hologram:
   enabled: true
   # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay passenger above the player.
   hide-vanilla-name: true
+  # Hide this player nametag while the /tuluyen FancyHolograms hologram is active.
+  hide-while-tuluyen-hologram: true
   # Show the hologram to its owner too. false = only other players see it.
   show-self: false
   # Final height above player feet. Tune this if hats/models overlap.

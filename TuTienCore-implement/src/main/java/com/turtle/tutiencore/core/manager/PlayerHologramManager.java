@@ -67,6 +67,7 @@ public class PlayerHologramManager implements Listener {
 
     private BukkitTask task;
     private boolean packetListenerRegistered;
+    private TuLuyenManager tuLuyenManager;
 
     public PlayerHologramManager(JavaPlugin plugin, ConfigManager configManager, RealmManager realmManager) {
         this.plugin = plugin;
@@ -77,6 +78,10 @@ public class PlayerHologramManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
         registerPacketListener();
         reload();
+    }
+
+    public void setTuLuyenManager(TuLuyenManager tuLuyenManager) {
+        this.tuLuyenManager = tuLuyenManager;
     }
 
     public void reload() {
@@ -112,7 +117,7 @@ public class PlayerHologramManager implements Listener {
         Set<UUID> onlineOwners = new HashSet<>();
         for (Player owner : Bukkit.getOnlinePlayers()) {
             onlineOwners.add(owner.getUniqueId());
-            if (owner.hasMetadata("NPC")) {
+            if (owner.hasMetadata("NPC") || shouldHideForTuLuyen(owner)) {
                 removeHologram(owner.getUniqueId());
                 continue;
             }
@@ -136,6 +141,13 @@ public class PlayerHologramManager implements Listener {
         }
 
         syncFallbackNameTeams();
+    }
+
+    private boolean shouldHideForTuLuyen(Player player) {
+        if (!plugin.getConfig().getBoolean("player-hologram.hide-while-tuluyen-hologram", true)) {
+            return false;
+        }
+        return tuLuyenManager != null && tuLuyenManager.isTuLuyenHologramVisible(player);
     }
 
     private boolean shouldSee(Player viewer, Player owner) {
