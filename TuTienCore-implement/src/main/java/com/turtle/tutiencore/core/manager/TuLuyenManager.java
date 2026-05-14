@@ -532,12 +532,14 @@ public class TuLuyenManager implements Listener {
                     .invoke(data, plugin.getConfig().getBoolean("tu-luyen.hologram.text-shadow", true));
             data.getClass().getMethod("setSeeThrough", boolean.class)
                     .invoke(data, plugin.getConfig().getBoolean("tu-luyen.hologram.see-through", false));
+            prepareFancyOpenAnimation(data);
 
             Object hologram = manager.getClass().getMethod("create", Class.forName("de.oliver.fancyholograms.api.data.HologramData"))
                     .invoke(manager, data);
             manager.getClass().getMethod("addHologram", Class.forName("de.oliver.fancyholograms.api.hologram.Hologram"))
                     .invoke(manager, hologram);
             holograms.put(player.getUniqueId(), hologram);
+            playFancyOpenAnimation(player.getUniqueId(), hologram);
         } catch (Throwable throwable) {
             plugin.getLogger().warning("Failed to create FancyHolograms /tuluyen hologram: " + throwable.getMessage());
         }
@@ -556,6 +558,97 @@ public class TuLuyenManager implements Listener {
             plugin.getLogger().warning("Failed to update FancyHolograms /tuluyen hologram: " + throwable.getMessage());
             clearVisuals(player.getUniqueId());
         }
+    }
+
+    private void prepareFancyOpenAnimation(Object data) {
+        if (!isFancyOpenAnimationEnabled()) {
+            return;
+        }
+
+        setFancyInterpolationDuration(data, 0);
+        setFancyScale(data, getFancyFinalScale() * getFancyOpenAnimationStartScale());
+    }
+
+    private void playFancyOpenAnimation(UUID playerId, Object hologram) {
+        if (!isFancyOpenAnimationEnabled()) {
+            return;
+        }
+
+        setFancyTextOpacity(hologram, getFancyOpenAnimationStartOpacity());
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (holograms.get(playerId) != hologram) {
+                return;
+            }
+
+            try {
+                Object data = hologram.getClass().getMethod("getData").invoke(hologram);
+                setFancyInterpolationDuration(data, getFancyOpenAnimationDuration());
+                setFancyScale(data, getFancyFinalScale());
+                hologram.getClass().getMethod("forceUpdate").invoke(hologram);
+                setFancyTextOpacity(hologram, 255);
+            } catch (Throwable ignored) {
+                // FancyHolograms API differs by version; skip animation instead of breaking /tuluyen.
+            }
+        }, getFancyOpenAnimationDelay());
+    }
+
+    private void setFancyInterpolationDuration(Object data, int duration) {
+        try {
+            data.getClass().getMethod("setInterpolationDuration", int.class)
+                    .invoke(data, Math.max(0, Math.min(59, duration)));
+        } catch (Throwable ignored) {
+            // Older or custom FancyHolograms builds may not expose display interpolation.
+        }
+    }
+
+    private void setFancyScale(Object data, float scale) {
+        try {
+            Class<?> vectorClass = Class.forName("org.joml.Vector3f");
+            Object vector = vectorClass.getConstructor(float.class, float.class, float.class)
+                    .newInstance(scale, scale, scale);
+            Method method = data.getClass().getMethod("setScale", vectorClass);
+            method.invoke(data, vector);
+        } catch (Throwable ignored) {
+            // Scale animation is optional and depends on FancyHolograms internals.
+        }
+    }
+
+    private void setFancyTextOpacity(Object hologram, int opacity) {
+        try {
+            Object display = hologram.getClass().getMethod("getDisplayEntity").invoke(hologram);
+            if (display == null) {
+                return;
+            }
+            Method method = display.getClass().getMethod("setTextOpacity", byte.class);
+            method.invoke(display, (byte) Math.max(0, Math.min(255, opacity)));
+        } catch (Throwable ignored) {
+            // Text opacity is a Bukkit TextDisplay feature; ignore if the wrapped entity is unavailable.
+        }
+    }
+
+    private boolean isFancyOpenAnimationEnabled() {
+        return plugin.getConfig().getBoolean("tu-luyen.hologram.spawn-animation.enabled", true);
+    }
+
+    private float getFancyFinalScale() {
+        return (float) Math.max(0.01, plugin.getConfig().getDouble("tu-luyen.hologram.scale", 1.0));
+    }
+
+    private float getFancyOpenAnimationStartScale() {
+        double scale = plugin.getConfig().getDouble("tu-luyen.hologram.spawn-animation.start-scale", 0.82);
+        return (float) Math.max(0.01, Math.min(2.0, scale));
+    }
+
+    private int getFancyOpenAnimationStartOpacity() {
+        return Math.max(0, Math.min(255, plugin.getConfig().getInt("tu-luyen.hologram.spawn-animation.start-opacity", 40)));
+    }
+
+    private int getFancyOpenAnimationDuration() {
+        return Math.max(0, Math.min(59, plugin.getConfig().getInt("tu-luyen.hologram.spawn-animation.interpolation-duration", 1)));
+    }
+
+    private long getFancyOpenAnimationDelay() {
+        return Math.max(1L, plugin.getConfig().getLong("tu-luyen.hologram.spawn-animation.start-delay-ticks", 1L));
     }
 
     private void removeFancyHologram(Object hologram) {

@@ -19,6 +19,12 @@ player-hologram:
   teleport-duration: 2
   view-range: 32.0
   scale: 1.0
+  spawn-animation:
+    enabled: true
+    start-scale: 0.82
+    start-opacity: 40
+    interpolation-duration: 1
+    start-delay-ticks: 1
   line-width: 200
   text-shadow: true
   see-through: false
@@ -69,6 +75,13 @@ tu-luyen:
     enabled: true
     # Requires FancyHolograms. Hologram is created when /tuluyen starts and removed when it stops.
     y-offset: 2.4
+    scale: 1.0
+    spawn-animation:
+      enabled: true
+      start-scale: 0.82
+      start-opacity: 40
+      interpolation-duration: 1
+      start-delay-ticks: 1
     visibility-distance: 32
     update-interval: 20
     text-shadow: true

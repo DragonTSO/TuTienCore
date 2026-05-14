@@ -246,8 +246,11 @@ public class PlayerHologramManager implements Listener {
     }
 
     private List<EntityData<?>> createMetadata(String text) {
+        return createMetadata(text, getConfiguredScale(), (byte) -1, 0);
+    }
+
+    private List<EntityData<?>> createMetadata(String text, float scale, byte textOpacity, int interpolationDuration) {
         List<EntityData<?>> metadata = new ArrayList<>();
-        float scale = (float) plugin.getConfig().getDouble("player-hologram.scale", 1.0);
         int teleportDuration = Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.teleport-duration", 2)));
         int lineWidth = Math.max(1, plugin.getConfig().getInt("player-hologram.line-width", 200));
         float viewRange = (float) Math.max(1.0, plugin.getConfig().getDouble("player-hologram.view-range", 32.0));
@@ -255,7 +258,7 @@ public class PlayerHologramManager implements Listener {
 
         metadata.add(new EntityData<>(5, EntityDataTypes.BOOLEAN, true));
         metadata.add(new EntityData<>(8, EntityDataTypes.INT, 0));
-        metadata.add(new EntityData<>(9, EntityDataTypes.INT, 0));
+        metadata.add(new EntityData<>(9, EntityDataTypes.INT, Math.max(0, Math.min(59, interpolationDuration))));
         metadata.add(new EntityData<>(10, EntityDataTypes.INT, teleportDuration));
         metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, new Vector3f(0.0f, yTranslation, 0.0f)));
         metadata.add(new EntityData<>(12, EntityDataTypes.VECTOR3F, new Vector3f(scale, scale, scale)));
@@ -268,9 +271,43 @@ public class PlayerHologramManager implements Listener {
         metadata.add(new EntityData<>(23, EntityDataTypes.ADV_COMPONENT, LegacyComponentSerializer.legacySection().deserialize(text)));
         metadata.add(new EntityData<>(24, EntityDataTypes.INT, lineWidth));
         metadata.add(new EntityData<>(25, EntityDataTypes.INT, getBackgroundColor()));
-        metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, (byte) -1));
+        metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, textOpacity));
         metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, getStyleFlags()));
         return metadata;
+    }
+
+    private List<EntityData<?>> createOpenAnimationStartMetadata(String text) {
+        float scale = getConfiguredScale() * getOpenAnimationStartScale();
+        return createMetadata(text, scale, getOpenAnimationStartOpacity(), 0);
+    }
+
+    private List<EntityData<?>> createOpenAnimationTargetMetadata(String text) {
+        return createMetadata(text, getConfiguredScale(), (byte) -1, getOpenAnimationDuration());
+    }
+
+    private float getConfiguredScale() {
+        return (float) Math.max(0.01, plugin.getConfig().getDouble("player-hologram.scale", 1.0));
+    }
+
+    private boolean isOpenAnimationEnabled() {
+        return plugin.getConfig().getBoolean("player-hologram.spawn-animation.enabled", true);
+    }
+
+    private float getOpenAnimationStartScale() {
+        double scale = plugin.getConfig().getDouble("player-hologram.spawn-animation.start-scale", 0.82);
+        return (float) Math.max(0.01, Math.min(2.0, scale));
+    }
+
+    private byte getOpenAnimationStartOpacity() {
+        return (byte) clampColor(plugin.getConfig().getInt("player-hologram.spawn-animation.start-opacity", 40));
+    }
+
+    private int getOpenAnimationDuration() {
+        return Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.spawn-animation.interpolation-duration", 1)));
+    }
+
+    private long getOpenAnimationDelay() {
+        return Math.max(1L, plugin.getConfig().getLong("player-hologram.spawn-animation.start-delay-ticks", 1L));
     }
 
     private float getPassengerTranslationYOffset() {
@@ -583,13 +620,41 @@ public class PlayerHologramManager implements Listener {
                         0,
                         Optional.of(Vector3d.zero())
                 ));
-                user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
+                if (isOpenAnimationEnabled()) {
+                    user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createOpenAnimationStartMetadata(text)));
+                    scheduleOpenAnimation(viewerId, owner.getUniqueId());
+                } else {
+                    user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
+                }
             } else if (!text.equals(previousText)) {
                 user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createMetadata(text)));
             }
 
             attachToOwner(user, owner);
             lastTextByViewer.put(viewerId, text);
+        }
+
+        private void scheduleOpenAnimation(UUID viewerId, UUID ownerId) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!viewers.contains(viewerId)) {
+                    return;
+                }
+
+                Player viewer = Bukkit.getPlayer(viewerId);
+                Player owner = Bukkit.getPlayer(ownerId);
+                if (viewer == null || owner == null || !shouldSee(viewer, owner)) {
+                    return;
+                }
+
+                User user = getUser(viewer);
+                String text = lastTextByViewer.get(viewerId);
+                if (user == null || user.getChannel() == null || text == null) {
+                    return;
+                }
+
+                user.sendPacket(new WrapperPlayServerEntityMetadata(entityId, createOpenAnimationTargetMetadata(text)));
+                attachToOwner(user, owner);
+            }, getOpenAnimationDelay());
         }
 
         private void attachToOwner(User user, Player owner) {
