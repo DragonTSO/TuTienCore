@@ -48,18 +48,22 @@ public class TuTienCorePlugin extends JavaPlugin {
         YamlConfiguration config = YamlConfiguration.loadConfiguration(customStatsFile);
         boolean changed = false;
 
-        changed |= setIfMissing(config, "TUTIEN_REALM_REQUIREMENT.name", "TuTien Realm Requirement");
-        changed |= setIfMissing(config, "TUTIEN_REALM_REQUIREMENT.type", "text");
-        changed |= setIfMissing(config, "TUTIEN_REALM_REQUIREMENT.lore", List.of(
+        changed |= bootstrapCustomStat(config, "TUTIEN_REALM_REQUIREMENT", "TuTien Realm Requirement", "text", List.of(
                 "Minimum TuTien realm required to use the item.",
                 "Examples: 4 or 4:trung-ky."
         ));
 
-        changed |= setIfMissing(config, "MAX_HEALTH_PERCENT.name", "Max Health Percent");
-        changed |= setIfMissingOrText(config, "MAX_HEALTH_PERCENT.type", "double");
-        changed |= setIfMissing(config, "MAX_HEALTH_PERCENT.lore", List.of(
+        changed |= bootstrapCustomStat(config, "MAX_HEALTH_PERCENT", "Max Health Percent", "double", List.of(
                 "Increases MythicLib MAX_HEALTH by percent.",
                 "Example: 10 means +10% max health."
+        ));
+        changed |= bootstrapCustomStat(config, "HEALTH_REGENERATION", "Health Regeneration", "double", List.of(
+                "Amount of health regenerated every second.",
+                "Compatibility stat for MMOItems set bonuses without MMOCore."
+        ));
+        changed |= bootstrapCustomStat(config, "MAX_HEALTH_REGENERATION", "Max Health Regeneration", "double", List.of(
+                "Percentage of max health regenerated every second.",
+                "Compatibility stat for MMOItems set bonuses without MMOCore."
         ));
 
         if (!changed) {
@@ -86,6 +90,14 @@ public class TuTienCorePlugin extends JavaPlugin {
         }
         config.set(path, value);
         return true;
+    }
+
+    private boolean bootstrapCustomStat(YamlConfiguration config, String id, String name, String type, List<String> lore) {
+        boolean changed = false;
+        changed |= setIfMissing(config, id + ".name", name);
+        changed |= setIfMissingOrText(config, id + ".type", type);
+        changed |= setIfMissing(config, id + ".lore", lore);
+        return changed;
     }
 
     private boolean setIfMissingOrText(YamlConfiguration config, String path, String value) {

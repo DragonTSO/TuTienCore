@@ -9,6 +9,7 @@ import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
+import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
 import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
@@ -45,6 +46,7 @@ public class TuTienCore {
     private RealmListGUI realmListGUI;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
+    private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
     private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
     private MMOItemsMaxHealthPercentHook mmoItemsMaxHealthPercentHook;
     private CommandAliasManager commandAliasManager;
@@ -87,6 +89,8 @@ public class TuTienCore {
         this.tuLuyenManager.setActionBarSuppressor(this.actionBarSuppressor);
         this.actionBarSuppressor.register();
 
+        this.mmoItemsMMOCoreStatsHook = new MMOItemsMMOCoreStatsHook(plugin);
+        this.mmoItemsMMOCoreStatsHook.register();
         this.mmoItemsRealmRequirementHook = new MMOItemsRealmRequirementHook(plugin, realmManager);
         this.mmoItemsRealmRequirementHook.register();
         this.mmoItemsMaxHealthPercentHook = new MMOItemsMaxHealthPercentHook(plugin);
