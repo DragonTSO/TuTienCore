@@ -114,7 +114,10 @@ public final class MMOItemsRealmRequirementHook implements Listener {
     }
 
     private void registerStat() {
-        MMOItems.plugin.getStats().unregisterIf(itemStat -> MMOItemsRealmRequirementStat.STAT_ID.equals(itemStat.getId()));
+        if (MMOItems.plugin.getStats().get(MMOItemsRealmRequirementStat.STAT_ID) != null) {
+            return;
+        }
+
         MMOItems.plugin.getStats().register(stat);
         plugin.getLogger().info("Registered MMOItems stat " + MMOItemsRealmRequirementStat.STAT_ID);
     }

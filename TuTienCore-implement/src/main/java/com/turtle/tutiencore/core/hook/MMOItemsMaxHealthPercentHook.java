@@ -151,7 +151,10 @@ public final class MMOItemsMaxHealthPercentHook implements Listener {
     }
 
     private void registerStat() {
-        MMOItems.plugin.getStats().unregisterIf(itemStat -> MMOItemsMaxHealthPercentStat.STAT_ID.equals(itemStat.getId()));
+        if (MMOItems.plugin.getStats().get(MMOItemsMaxHealthPercentStat.STAT_ID) != null) {
+            return;
+        }
+
         MMOItems.plugin.getStats().register(stat);
         plugin.getLogger().info("Registered MMOItems stat " + MMOItemsMaxHealthPercentStat.STAT_ID);
     }

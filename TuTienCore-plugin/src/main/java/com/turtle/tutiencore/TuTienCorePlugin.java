@@ -56,7 +56,7 @@ public class TuTienCorePlugin extends JavaPlugin {
         ));
 
         changed |= setIfMissing(config, "MAX_HEALTH_PERCENT.name", "Max Health Percent");
-        changed |= setIfMissing(config, "MAX_HEALTH_PERCENT.type", "text");
+        changed |= setIfMissingOrText(config, "MAX_HEALTH_PERCENT.type", "double");
         changed |= setIfMissing(config, "MAX_HEALTH_PERCENT.lore", List.of(
                 "Increases MythicLib MAX_HEALTH by percent.",
                 "Example: 10 means +10% max health."
@@ -86,5 +86,13 @@ public class TuTienCorePlugin extends JavaPlugin {
         }
         config.set(path, value);
         return true;
+    }
+
+    private boolean setIfMissingOrText(YamlConfiguration config, String path, String value) {
+        if (!config.contains(path) || "text".equalsIgnoreCase(config.getString(path, ""))) {
+            config.set(path, value);
+            return true;
+        }
+        return false;
     }
 }

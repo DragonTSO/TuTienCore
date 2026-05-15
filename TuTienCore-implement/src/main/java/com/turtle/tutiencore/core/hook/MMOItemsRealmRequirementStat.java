@@ -96,20 +96,24 @@ final class MMOItemsRealmRequirementStat extends StringStat implements ItemRestr
     }
 
     private String formatRequirement(MMOItemsRealmRequirement requirement) {
+        String configValue = requirement.asConfigValue();
         if (realmManager == null) {
-            return requirement.asConfigValue();
+            return configValue;
         }
 
         Realm realm = realmManager.getRealm(requirement.realmId());
         if (realm == null) {
-            return ChatColor.RED + requirement.asConfigValue();
+            return ChatColor.RED + configValue;
         }
 
+        String display;
         if (requirement.subRealm().isEmpty()) {
-            return realm.getDisplayNameTranslated();
+            display = realm.getDisplayNameTranslated();
+        } else {
+            SubRealm subRealm = requirement.subRealm().orElseThrow();
+            display = realm.getSubRealmDisplayNameTranslated(subRealm);
         }
 
-        SubRealm subRealm = requirement.subRealm().orElseThrow();
-        return realm.getSubRealmDisplayNameTranslated(subRealm);
+        return ChatColor.GRAY + configValue + ChatColor.DARK_GRAY + " - " + display;
     }
 }
