@@ -28,6 +28,7 @@ public final class MMOItemsRealmRequirementHook implements Listener {
 
     private final JavaPlugin plugin;
     private final MMOItemsRealmRequirementStat stat;
+    private boolean initialized;
 
     public MMOItemsRealmRequirementHook(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -35,12 +36,10 @@ public final class MMOItemsRealmRequirementHook implements Listener {
     }
 
     public void register() {
-        if (Bukkit.getPluginManager().getPlugin("MMOItems") == null) {
-            return;
-        }
-
-        registerStat();
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+        initialize();
+        Bukkit.getScheduler().runTask(plugin, this::initialize);
+        Bukkit.getScheduler().runTaskLater(plugin, this::initialize, 20L);
+        Bukkit.getScheduler().runTaskLater(plugin, this::initialize, 100L);
     }
 
     @EventHandler
@@ -97,6 +96,21 @@ public final class MMOItemsRealmRequirementHook implements Listener {
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> removeUnusableEquipment(player));
+    }
+
+    private void initialize() {
+        if (initialized || !Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
+            return;
+        }
+
+        try {
+            registerStat();
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            initialized = true;
+        } catch (RuntimeException | LinkageError exception) {
+            plugin.getLogger().warning("Could not register MMOItems stat "
+                    + MMOItemsRealmRequirementStat.STAT_ID + ": " + exception.getMessage());
+        }
     }
 
     private void registerStat() {

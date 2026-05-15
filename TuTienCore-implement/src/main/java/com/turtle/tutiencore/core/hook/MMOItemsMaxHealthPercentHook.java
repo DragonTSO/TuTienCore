@@ -37,6 +37,7 @@ public final class MMOItemsMaxHealthPercentHook implements Listener {
 
     private final JavaPlugin plugin;
     private final MMOItemsMaxHealthPercentStat stat;
+    private boolean initialized;
 
     public MMOItemsMaxHealthPercentHook(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -44,13 +45,10 @@ public final class MMOItemsMaxHealthPercentHook implements Listener {
     }
 
     public void register() {
-        if (Bukkit.getPluginManager().getPlugin("MMOItems") == null) {
-            return;
-        }
-
-        registerStat();
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTask(plugin, this::updateAllOnlinePlayers);
+        initialize();
+        Bukkit.getScheduler().runTask(plugin, this::initialize);
+        Bukkit.getScheduler().runTaskLater(plugin, this::initialize, 20L);
+        Bukkit.getScheduler().runTaskLater(plugin, this::initialize, 100L);
     }
 
     public void removeAllOnlineModifiers() {
@@ -134,6 +132,22 @@ public final class MMOItemsMaxHealthPercentHook implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onItemBreak(PlayerItemBreakEvent event) {
         updateLater(event.getPlayer());
+    }
+
+    private void initialize() {
+        if (initialized || !Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
+            return;
+        }
+
+        try {
+            registerStat();
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            Bukkit.getScheduler().runTask(plugin, this::updateAllOnlinePlayers);
+            initialized = true;
+        } catch (RuntimeException | LinkageError exception) {
+            plugin.getLogger().warning("Could not register MMOItems stat "
+                    + MMOItemsMaxHealthPercentStat.STAT_ID + ": " + exception.getMessage());
+        }
     }
 
     private void registerStat() {
