@@ -2,20 +2,14 @@ package com.turtle.tutiencore.core.hook;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
 
-import net.Indyuce.mmoitems.api.item.build.LoreBuilder;
-import net.Indyuce.mmoitems.stat.data.StringData;
-import net.Indyuce.mmoitems.stat.type.StringStat;
+import net.Indyuce.mmoitems.stat.type.DoubleStat;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 
-import java.math.BigDecimal;
-
-final class MMOItemsMaxHealthPercentStat extends StringStat {
+final class MMOItemsMaxHealthPercentStat extends DoubleStat {
 
     static final String STAT_ID = "MAX_HEALTH_PERCENT";
-    private static final String DEFAULT_STAT_FORMAT =
-            ChatColor.GRAY + "Max Health: " + ChatColor.GREEN + "+{value}%";
 
     MMOItemsMaxHealthPercentStat() {
         super(
@@ -28,32 +22,15 @@ final class MMOItemsMaxHealthPercentStat extends StringStat {
                 },
                 new String[]{"!block", "all"}
         );
-        this.generalStatFormat = DEFAULT_STAT_FORMAT;
-    }
-
-    @Override
-    public void whenApplied(net.Indyuce.mmoitems.api.item.build.ItemStackBuilder item, StringData data) {
-        double value = parsePercent(data.toString());
-        String normalized = formatPercent(value);
-
-        item.addItemTag(getAppliedNBT(new StringData(normalized)));
-        applyLore(item.getLore(), normalized);
     }
 
     double readPercent(NBTItem item) {
-        return parsePercent(item.getString(getNBTPath()));
-    }
-
-    private void applyLore(LoreBuilder lore, String value) {
-        String formatted = getGeneralStatFormat().replace("{value}", value);
-        String marker = "#" + getPath() + "#";
-
-        if (lore.getLore().contains(marker)) {
-            lore.insert(getPath(), formatted);
-            return;
+        if (item == null || !item.hasTag(getNBTPath())) {
+            return 0;
         }
 
-        lore.getLore().add(formatted);
+        double numericValue = Math.max(0, item.getDouble(getNBTPath()));
+        return numericValue > 0 ? numericValue : parsePercent(item.getString(getNBTPath()));
     }
 
     private static double parsePercent(String raw) {
@@ -80,7 +57,4 @@ final class MMOItemsMaxHealthPercentStat extends StringStat {
         }
     }
 
-    private static String formatPercent(double value) {
-        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
-    }
 }

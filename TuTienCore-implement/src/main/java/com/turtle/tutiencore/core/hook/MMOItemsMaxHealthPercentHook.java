@@ -188,7 +188,7 @@ public final class MMOItemsMaxHealthPercentHook implements Listener {
 
     private double getEquipmentPercent(Player player) {
         Double mmoItemsPercent = getMMOItemsEquippedPercent(player);
-        if (mmoItemsPercent != null) {
+        if (mmoItemsPercent != null && mmoItemsPercent > 0) {
             return mmoItemsPercent;
         }
 
