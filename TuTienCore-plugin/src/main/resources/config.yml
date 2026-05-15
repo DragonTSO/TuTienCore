@@ -35,8 +35,9 @@ player-hologram:
     g: 0
     b: 0
   # Supports TuTien placeholders below and PlaceholderAPI placeholders.
-  # Built-in: {player}, {display_name}, {tuvi}, {tuvi_int}, {tuvi_formatted},
-  # {tuvi_compact}, {realm}, {realm_full}, {sub_realm}, {realm_tier}, {world}
+  # Built-in: {player}, {display_name}, {health}, {health_int}, {max_health}, {max_health_int},
+  # {tuvi}, {tuvi_int}, {tuvi_formatted}, {tuvi_compact}, {next_tuvi}, {next_tuvi_int},
+  # {next_tuvi_formatted}, {next_tuvi_compact}, {realm}, {realm_full}, {sub_realm}, {realm_tier}, {world}
   lines:
     - "&8[&6*&8] &f{player}"
     - "&7{realm_full}"

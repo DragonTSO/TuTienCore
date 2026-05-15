@@ -18,7 +18,9 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSe
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
+import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyComponentSerializer;
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -43,6 +45,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -363,14 +366,26 @@ public class PlayerHologramManager implements Listener {
 
         UUID uuid = player.getUniqueId();
         double tuVi = TuTien.getApi().getTuVi(uuid);
+        PlayerRealm playerRealm = realmManager.getPlayerRealm(uuid);
         Realm realm = realmManager.getPlayerCurrentRealm(uuid);
+        long nextTuVi = getNextTuViRequired(uuid, playerRealm, realm);
+        double health = Math.max(0.0, player.getHealth());
+        double maxHealth = Math.max(0.0, player.getMaxHealth());
 
         line = line.replace("{player}", player.getName());
         line = line.replace("{display_name}", player.getDisplayName());
+        line = line.replace("{health}", formatDecimal(health));
+        line = line.replace("{health_int}", String.valueOf(Math.round(health)));
+        line = line.replace("{max_health}", formatDecimal(maxHealth));
+        line = line.replace("{max_health_int}", String.valueOf(Math.round(maxHealth)));
         line = line.replace("{tuvi}", String.valueOf(tuVi));
         line = line.replace("{tuvi_int}", String.valueOf((long) tuVi));
         line = line.replace("{tuvi_formatted}", String.format("%,.0f", tuVi));
         line = line.replace("{tuvi_compact}", formatCompact(tuVi));
+        line = line.replace("{next_tuvi}", String.valueOf(nextTuVi));
+        line = line.replace("{next_tuvi_int}", String.valueOf(nextTuVi));
+        line = line.replace("{next_tuvi_formatted}", String.format("%,d", nextTuVi));
+        line = line.replace("{next_tuvi_compact}", formatCompact(nextTuVi));
         line = line.replace("{realm}", realmManager.getPlayerRealmName(uuid));
         line = line.replace("{realm_full}", realmManager.getPlayerDisplayName(uuid));
         line = line.replace("{sub_realm}", realmManager.getPlayerSubRealmName(uuid));
@@ -385,6 +400,28 @@ public class PlayerHologramManager implements Listener {
         lines.add("&7{realm_full}");
         lines.add("&fTu Vi: &a{tuvi_compact}");
         return lines;
+    }
+
+    private long getNextTuViRequired(UUID uuid, PlayerRealm playerRealm, Realm currentRealm) {
+        if (playerRealm == null || currentRealm == null) {
+            return 0L;
+        }
+
+        SubRealm currentSubRealm = playerRealm.getSubRealm();
+        if (currentSubRealm != SubRealm.VIEN_MAN) {
+            SubRealm nextSubRealm = currentSubRealm.next();
+            return nextSubRealm != null ? currentRealm.getTuViForSubRealm(nextSubRealm) : 0L;
+        }
+
+        Realm nextRealm = realmManager.getNextRealm(uuid);
+        return nextRealm != null ? nextRealm.getTuViRequired() : 0L;
+    }
+
+    private String formatDecimal(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.0001) {
+            return String.valueOf((long) Math.rint(value));
+        }
+        return String.format(Locale.US, "%.1f", value);
     }
 
     private String formatCompact(double number) {
