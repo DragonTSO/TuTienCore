@@ -1,1 +1,21 @@
-<?xml version="1.0"?><project><modelVersion>4.0.0</modelVersion><groupId>io.lumine</groupId><artifactId>MythicLib-dist</artifactId><version>1.6</version></project>
+<?xml version="1.0"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.lumine</groupId>
+    <artifactId>MythicLib-dist</artifactId>
+    <version>1.6</version>
+    <dependencies>
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.21.1-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+    <repositories>
+        <repository>
+            <id>spigotmc-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+    </repositories>
+</project>

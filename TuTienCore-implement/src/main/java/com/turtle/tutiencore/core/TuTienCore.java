@@ -8,6 +8,7 @@ import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
+import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
@@ -44,6 +45,7 @@ public class TuTienCore {
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
+    private MMOItemsMaxHealthPercentHook mmoItemsMaxHealthPercentHook;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -85,6 +87,8 @@ public class TuTienCore {
 
         this.mmoItemsRealmRequirementHook = new MMOItemsRealmRequirementHook(plugin, realmManager);
         this.mmoItemsRealmRequirementHook.register();
+        this.mmoItemsMaxHealthPercentHook = new MMOItemsMaxHealthPercentHook(plugin);
+        this.mmoItemsMaxHealthPercentHook.register();
 
         this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
         this.sphereParticleTask.start();
@@ -160,6 +164,9 @@ public class TuTienCore {
         }
         if (actionBarSuppressor != null) {
             actionBarSuppressor.unregister();
+        }
+        if (mmoItemsMaxHealthPercentHook != null) {
+            mmoItemsMaxHealthPercentHook.removeAllOnlineModifiers();
         }
         if (lineParticleTask != null) {
             lineParticleTask.stopAuraTask();
