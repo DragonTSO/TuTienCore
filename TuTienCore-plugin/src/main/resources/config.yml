@@ -3,6 +3,20 @@
 
 debug: false
 
+# Configurable command aliases.
+# Set aliases: [] to disable aliases for a command.
+commands:
+  ttc:
+    aliases: []
+  tuluyen:
+    aliases: [tl]
+  dotpha:
+    aliases: [dp]
+  canhgioi:
+    aliases: [realm]
+  tuvi:
+    aliases: []
+
 player-hologram:
   enabled: true
   # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay passenger above the player.

@@ -5,7 +5,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -291,6 +293,24 @@ public class ConfigManager {
 
     public int getOfflineClaimX2Cost() {
         return offlineClaimX2Cost;
+    }
+
+    public Map<String, List<String>> getCommandAliases() {
+        Map<String, List<String>> aliases = new LinkedHashMap<>();
+        aliases.put("ttc", getCommandAliases("ttc", List.of()));
+        aliases.put("tuluyen", getCommandAliases("tuluyen", List.of("tl")));
+        aliases.put("dotpha", getCommandAliases("dotpha", List.of("dp")));
+        aliases.put("canhgioi", getCommandAliases("canhgioi", List.of("realm")));
+        aliases.put("tuvi", getCommandAliases("tuvi", List.of()));
+        return aliases;
+    }
+
+    private List<String> getCommandAliases(String command, List<String> defaults) {
+        String path = "commands." + command + ".aliases";
+        if (!plugin.getConfig().contains(path)) {
+            return new ArrayList<>(defaults);
+        }
+        return new ArrayList<>(plugin.getConfig().getStringList(path));
     }
 
     private String tuluyenModel;

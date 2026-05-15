@@ -2,6 +2,7 @@ package com.turtle.tutiencore.core;
 
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.command.CanhGioiCommand;
+import com.turtle.tutiencore.core.command.CommandAliasManager;
 import com.turtle.tutiencore.core.command.DotPhaCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
@@ -46,6 +47,7 @@ public class TuTienCore {
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
     private MMOItemsMaxHealthPercentHook mmoItemsMaxHealthPercentHook;
+    private CommandAliasManager commandAliasManager;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -103,7 +105,8 @@ public class TuTienCore {
             plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }
 
-        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand, flySwordManager, realmManager, playerHologramManager);
+        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
+                flySwordManager, realmManager, playerHologramManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -124,12 +127,20 @@ public class TuTienCore {
             plugin.getCommand("tuvi").setExecutor(tuViCommand);
             plugin.getCommand("tuvi").setTabCompleter(tuViCommand);
         }
+        reloadCommandAliases();
 
         // Register Placeholders
         if (plugin.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new com.turtle.tutiencore.core.hook.TuTienPlaceholder(plugin, realmManager).register();
             plugin.getLogger().info("Registered PlaceholderAPI expansion");
         }
+    }
+
+    public void reloadCommandAliases() {
+        if (this.commandAliasManager == null) {
+            this.commandAliasManager = new CommandAliasManager(plugin);
+        }
+        this.commandAliasManager.registerAliases(configManager.getCommandAliases());
     }
 
     public void onDisable() {
@@ -167,6 +178,10 @@ public class TuTienCore {
         }
         if (mmoItemsMaxHealthPercentHook != null) {
             mmoItemsMaxHealthPercentHook.removeAllOnlineModifiers();
+        }
+        if (commandAliasManager != null) {
+            commandAliasManager.unregisterAliases();
+            commandAliasManager = null;
         }
         if (lineParticleTask != null) {
             lineParticleTask.stopAuraTask();

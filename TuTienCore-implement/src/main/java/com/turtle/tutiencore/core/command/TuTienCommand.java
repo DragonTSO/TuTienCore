@@ -27,8 +27,11 @@ public class TuTienCommand implements CommandExecutor {
     private final FlySwordManager flySwordManager;
     private final RealmManager realmManager;
     private final PlayerHologramManager playerHologramManager;
+    private final Runnable commandAliasReloader;
 
-    public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config, DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager, PlayerHologramManager playerHologramManager) {
+    public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
+            DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
+            PlayerHologramManager playerHologramManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -36,6 +39,7 @@ public class TuTienCommand implements CommandExecutor {
         this.flySwordManager = flySwordManager;
         this.realmManager = realmManager;
         this.playerHologramManager = playerHologramManager;
+        this.commandAliasReloader = commandAliasReloader;
     }
 
     @Override
@@ -78,6 +82,9 @@ public class TuTienCommand implements CommandExecutor {
             dotPhaCommand.loadConfig();
             flySwordManager.loadConfig();
             playerHologramManager.reload();
+            if (commandAliasReloader != null) {
+                commandAliasReloader.run();
+            }
             sender.sendMessage("§a[TuTienCore] Đã nạp lại cấu hình!");
             return true;
         }
