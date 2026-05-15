@@ -114,12 +114,9 @@ public final class MMOItemsRealmRequirementHook implements Listener {
     }
 
     private void registerStat() {
-        if (MMOItems.plugin.getStats().get(MMOItemsRealmRequirementStat.STAT_ID) != null) {
-            return;
+        if (MMOItemsStatRegistry.registerOrReplace(stat)) {
+            plugin.getLogger().info("Registered MMOItems stat " + MMOItemsRealmRequirementStat.STAT_ID);
         }
-
-        MMOItems.plugin.getStats().register(stat);
-        plugin.getLogger().info("Registered MMOItems stat " + MMOItemsRealmRequirementStat.STAT_ID);
     }
 
     private boolean canUse(Player player, ItemStack item, boolean message) {
