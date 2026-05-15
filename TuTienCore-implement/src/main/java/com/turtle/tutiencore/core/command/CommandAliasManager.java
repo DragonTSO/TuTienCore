@@ -57,7 +57,15 @@ public final class CommandAliasManager {
         if (commandMap != null && knownCommands != null) {
             for (Command aliasCommand : registeredAliases.values()) {
                 aliasCommand.unregister(commandMap);
-                knownCommands.entrySet().removeIf(entry -> entry.getValue() == aliasCommand);
+                List<String> keysToRemove = new ArrayList<>();
+                for (Map.Entry<String, Command> entry : knownCommands.entrySet()) {
+                    if (entry.getValue() == aliasCommand) {
+                        keysToRemove.add(entry.getKey());
+                    }
+                }
+                for (String key : keysToRemove) {
+                    knownCommands.remove(key, aliasCommand);
+                }
             }
         }
         registeredAliases.clear();
