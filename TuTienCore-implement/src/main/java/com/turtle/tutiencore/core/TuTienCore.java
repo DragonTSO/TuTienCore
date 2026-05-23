@@ -4,14 +4,17 @@ import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.command.CanhGioiCommand;
 import com.turtle.tutiencore.core.command.CommandAliasManager;
 import com.turtle.tutiencore.core.command.DotPhaCommand;
+import com.turtle.tutiencore.core.command.NhapThanCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
 import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
 import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
+import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
@@ -43,7 +46,9 @@ public class TuTienCore {
     private FlySwordManager flySwordManager;
     private OfflineTuLuyenManager offlineTuLuyenManager;
     private PlayerHologramManager playerHologramManager;
+    private ActionBarManager actionBarManager;
     private RealmListGUI realmListGUI;
+    private InfusionManager infusionManager;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
@@ -76,10 +81,13 @@ public class TuTienCore {
         this.flySwordManager = new FlySwordManager(plugin);
         this.offlineTuLuyenManager = new OfflineTuLuyenManager(plugin, configManager);
         this.playerHologramManager = new PlayerHologramManager(plugin, configManager, realmManager);
+        this.actionBarManager = new ActionBarManager(plugin);
+        this.actionBarManager.start();
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
+        this.infusionManager = new InfusionManager(plugin, playerDataManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
-        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager);
+        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);
         this.playerHologramManager.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setRealmManager(this.realmManager);
@@ -110,7 +118,8 @@ public class TuTienCore {
         }
 
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
-                flySwordManager, realmManager, playerHologramManager, this::reloadCommandAliases);
+                flySwordManager, realmManager, playerHologramManager, actionBarManager,
+                infusionManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -130,6 +139,12 @@ public class TuTienCore {
         if (plugin.getCommand("tuvi") != null) {
             plugin.getCommand("tuvi").setExecutor(tuViCommand);
             plugin.getCommand("tuvi").setTabCompleter(tuViCommand);
+        }
+
+        NhapThanCommand nhapThanCommand = new NhapThanCommand(infusionManager);
+        if (plugin.getCommand("nhapthan") != null) {
+            plugin.getCommand("nhapthan").setExecutor(nhapThanCommand);
+            plugin.getCommand("nhapthan").setTabCompleter(nhapThanCommand);
         }
         reloadCommandAliases();
 
@@ -156,6 +171,9 @@ public class TuTienCore {
         if (playerDataManager != null) {
             playerDataManager.saveAll();
         }
+        if (infusionManager != null) {
+            infusionManager.saveConfigFile();
+        }
         if (realmManager != null) {
             realmManager.saveAllPlayerRealms();
         }
@@ -170,6 +188,9 @@ public class TuTienCore {
         }
         if (playerHologramManager != null) {
             playerHologramManager.stop();
+        }
+        if (actionBarManager != null) {
+            actionBarManager.stop();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

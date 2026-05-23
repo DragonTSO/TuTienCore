@@ -2,6 +2,8 @@ package com.turtle.tutiencore.core.command;
 
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.infusion.InfusionManager;
+import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
@@ -27,11 +29,14 @@ public class TuTienCommand implements CommandExecutor {
     private final FlySwordManager flySwordManager;
     private final RealmManager realmManager;
     private final PlayerHologramManager playerHologramManager;
+    private final ActionBarManager actionBarManager;
+    private final InfusionManager infusionManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
-            PlayerHologramManager playerHologramManager, Runnable commandAliasReloader) {
+            PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
+            InfusionManager infusionManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -39,6 +44,8 @@ public class TuTienCommand implements CommandExecutor {
         this.flySwordManager = flySwordManager;
         this.realmManager = realmManager;
         this.playerHologramManager = playerHologramManager;
+        this.actionBarManager = actionBarManager;
+        this.infusionManager = infusionManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -82,6 +89,8 @@ public class TuTienCommand implements CommandExecutor {
             dotPhaCommand.loadConfig();
             flySwordManager.loadConfig();
             playerHologramManager.reload();
+            actionBarManager.reload();
+            infusionManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }

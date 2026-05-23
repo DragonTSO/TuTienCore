@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -82,15 +83,14 @@ public class TuLuyenParticleTask {
         }
 
         try {
-            net.Indyuce.mmocore.api.player.PlayerData data = 
-                    net.Indyuce.mmocore.api.player.PlayerData.get(player);
+            Object data = resolveMMOCorePlayerData(player);
             if (data != null) {
-                net.Indyuce.mmocore.api.player.PlayerClass profess = data.getProfess();
+                Object profess = readProfess(data);
                 if (profess != null) {
                     Map<String, int[][]> classColors = configManager.getClassColors();
                     
-                    String rawId = profess.getId();
-                    String className = profess.getName();
+                    String rawId = readProfessValue(profess, "getId");
+                    String className = readProfessValue(profess, "getName");
                     
                     // Possible keys to try in order
                     String[] keysToTry = {
@@ -136,6 +136,37 @@ public class TuLuyenParticleTask {
         }
 
         return DEFAULT_COLORS;
+    }
+
+    private Object resolveMMOCorePlayerData(Player player) {
+        try {
+            Class<?> playerDataClass = Class.forName("net.Indyuce.mmocore.api.player.PlayerData");
+            Method method = playerDataClass.getMethod("get", Player.class);
+            return method.invoke(null, player);
+        } catch (ClassNotFoundException ignored) {
+            return null;
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private Object readProfess(Object data) {
+        try {
+            Method method = data.getClass().getMethod("getProfess");
+            return method.invoke(data);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private String readProfessValue(Object profess, String methodName) {
+        try {
+            Method method = profess.getClass().getMethod(methodName);
+            Object value = method.invoke(profess);
+            return value != null ? String.valueOf(value) : "";
+        } catch (ReflectiveOperationException ignored) {
+            return "";
+        }
     }
 
     private int[] toRgb(String colorCode) {

@@ -4,6 +4,7 @@ import com.turtle.tutiencore.api.TuTienAPI;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import com.turtle.tutiencore.core.infusion.OwnedInfusion;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -21,10 +22,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlayerDataManager implements Listener, TuTienAPI {
+    private static final int MAX_INFUSION_INVENTORY = 270;
+
     private final JavaPlugin plugin;
     private File file;
     private FileConfiguration config;
     private final Map<UUID, Double> tuviCache = new HashMap<>();
+    private final Map<UUID, List<OwnedInfusion>> infusionInventoryCache = new HashMap<>();
+    private final Map<UUID, String> equippedInfusionIdCache = new HashMap<>();
 
     // These are injected after construction
     private RealmManager realmManager;
@@ -71,27 +76,205 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
             config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
         }
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            e.printStackTrace();
+        Set<UUID> uuids = new HashSet<>();
+        uuids.addAll(infusionInventoryCache.keySet());
+        uuids.addAll(equippedInfusionIdCache.keySet());
+        for (UUID uuid : uuids) {
+            writeInfusionState(uuid);
         }
+        saveToDisk();
     }
 
     public void savePlayer(UUID uuid) {
         if (tuviCache.containsKey(uuid)) {
             config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
-            try {
-                config.save(file);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
+        if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+            writeInfusionState(uuid);
+        }
+        saveToDisk();
+    }
+
+    public boolean savePlayerSafely(UUID uuid) {
+        if (tuviCache.containsKey(uuid)) {
+            config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+        }
+        if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+            writeInfusionState(uuid);
+        }
+        return saveToDisk();
     }
 
     public void loadPlayer(UUID uuid) {
         double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
         tuviCache.put(uuid, tuvi);
+
+        InfusionState state = readInfusionState(uuid);
+        infusionInventoryCache.put(uuid, new ArrayList<>(state.inventory()));
+        if (state.equippedId() == null || state.equippedId().isBlank()) {
+            equippedInfusionIdCache.remove(uuid);
+        } else {
+            equippedInfusionIdCache.put(uuid, state.equippedId());
+        }
+    }
+
+    public List<OwnedInfusion> getInfusionInventory(UUID uuid) {
+        return List.copyOf(infusionInventoryCache.getOrDefault(uuid, Collections.emptyList()));
+    }
+
+    public Optional<OwnedInfusion> getEquippedInfusion(UUID uuid) {
+        String equippedId = equippedInfusionIdCache.get(uuid);
+        if (equippedId == null || equippedId.isBlank()) {
+            return Optional.empty();
+        }
+        return getInfusionInventory(uuid).stream()
+                .filter(owned -> equippedId.equals(owned.id()))
+                .findFirst();
+    }
+
+    public Optional<OwnedInfusion> findInfusion(UUID uuid, String infusionId) {
+        if (infusionId == null || infusionId.isBlank()) {
+            return Optional.empty();
+        }
+        return getInfusionInventory(uuid).stream()
+                .filter(owned -> infusionId.equals(owned.id()))
+                .findFirst();
+    }
+
+    public boolean canAddInfusion(UUID uuid) {
+        return getInfusionInventory(uuid).size() < MAX_INFUSION_INVENTORY;
+    }
+
+    public boolean addInfusion(UUID uuid, OwnedInfusion infusion) {
+        if (infusion == null || !canAddInfusion(uuid)) {
+            return false;
+        }
+
+        List<OwnedInfusion> inventory = new ArrayList<>(infusionInventoryCache.getOrDefault(uuid, Collections.emptyList()));
+        inventory.add(infusion);
+        infusionInventoryCache.put(uuid, inventory);
+        return savePlayerSafely(uuid);
+    }
+
+    public boolean setEquippedInfusionId(UUID uuid, String infusionId) {
+        if (infusionId != null && !infusionId.isBlank()) {
+            boolean exists = getInfusionInventory(uuid).stream().anyMatch(owned -> infusionId.equals(owned.id()));
+            if (!exists) {
+                return false;
+            }
+            equippedInfusionIdCache.put(uuid, infusionId);
+        } else {
+            equippedInfusionIdCache.remove(uuid);
+        }
+        return savePlayerSafely(uuid);
+    }
+
+    public String getEquippedInfusionId(UUID uuid) {
+        return equippedInfusionIdCache.get(uuid);
+    }
+
+    private InfusionState readInfusionState(UUID uuid) {
+        String path = uuid.toString() + ".infusion";
+
+        List<OwnedInfusion> inventory = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+
+        List<Map<?, ?>> raw = config.getMapList(path + ".inventory");
+        for (Map<?, ?> row : raw) {
+            String id = asString(row.get("id"));
+            String typeId = asString(row.get("type"));
+            String rarityId = asString(row.get("rarity"));
+            long createdAt = asLong(row.get("created-at"), System.currentTimeMillis());
+
+            if (typeId.isBlank() || rarityId.isBlank()) {
+                continue;
+            }
+
+            if (id.isBlank()) {
+                id = UUID.randomUUID().toString();
+            }
+            while (!seenIds.add(id)) {
+                id = UUID.randomUUID().toString();
+            }
+
+            inventory.add(new OwnedInfusion(id, typeId, rarityId, createdAt));
+        }
+
+        // Legacy migration: claimed/type/rarity/created-at
+        if (inventory.isEmpty() && config.getBoolean(path + ".claimed", false)) {
+            String typeId = config.getString(path + ".type", "");
+            String rarityId = config.getString(path + ".rarity", "");
+            if (!typeId.isBlank() && !rarityId.isBlank()) {
+                inventory.add(OwnedInfusion.create(typeId, rarityId, config.getLong(path + ".created-at", System.currentTimeMillis())));
+            }
+        }
+
+        String equippedId = config.getString(path + ".equipped-id", "");
+        boolean equippedExists = false;
+        if (!equippedId.isBlank()) {
+            for (OwnedInfusion owned : inventory) {
+                if (equippedId.equals(owned.id())) {
+                    equippedExists = true;
+                    break;
+                }
+            }
+        }
+        if (equippedId.isBlank() || !equippedExists) {
+            equippedId = null;
+        }
+
+        return new InfusionState(inventory, equippedId);
+    }
+
+    private void writeInfusionState(UUID uuid) {
+        String path = uuid.toString() + ".infusion";
+
+        List<OwnedInfusion> inventory = infusionInventoryCache.getOrDefault(uuid, Collections.emptyList());
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (OwnedInfusion infusion : inventory) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", infusion.id());
+            row.put("type", infusion.typeId());
+            row.put("rarity", infusion.rarityId());
+            row.put("created-at", infusion.createdAt());
+            rows.add(row);
+        }
+        config.set(path + ".inventory", rows);
+
+        String equippedId = equippedInfusionIdCache.get(uuid);
+        if (equippedId == null || equippedId.isBlank()) {
+            config.set(path + ".equipped-id", null);
+        } else {
+            config.set(path + ".equipped-id", equippedId);
+        }
+    }
+
+    private boolean saveToDisk() {
+        try {
+            config.save(file);
+            return true;
+        } catch (IOException e) {
+            plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static String asString(Object input) {
+        return input == null ? "" : String.valueOf(input).trim();
+    }
+
+    private static long asLong(Object input, long fallback) {
+        if (input instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(asString(input));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private record InfusionState(List<OwnedInfusion> inventory, String equippedId) {
     }
 
     // ==========================================
@@ -314,6 +497,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     public void onQuit(PlayerQuitEvent event) {
         savePlayer(event.getPlayer().getUniqueId());
         tuviCache.remove(event.getPlayer().getUniqueId());
+        infusionInventoryCache.remove(event.getPlayer().getUniqueId());
+        equippedInfusionIdCache.remove(event.getPlayer().getUniqueId());
     }
 
     // --- TOP SYSTEM ---

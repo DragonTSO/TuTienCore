@@ -3,6 +3,23 @@
 
 debug: false
 
+# Settings for the default action bar
+action-bar:
+
+  # Whether or not to use the default action bar.
+  # (This doesn't change any other action bars provided by MMOCore.)
+  enabled: true
+
+  # The amount of ticks the bar will be
+  # faded out when displaying other action bars.
+  time-out: 60
+
+  # The amount of ticks before updating the info
+  ticks-to-update: 5
+
+  # How to display the data.
+  format: '&f༺ <#f03e5c>❤ {health}/{max_health} &f| <#82cfe8>〄 Linh Lực %TuTienClass_mana_left%/%TuTienClass_max_mana% &f༻'
+
 # Configurable command aliases.
 # Set aliases: [] to disable aliases for a command.
 commands:
@@ -82,7 +99,7 @@ tu-luyen:
       volume: 1.0
       pitch: 1.15
   bossbar:
-    enabled: true
+    enabled: false
     color: BLUE
     style: SEGMENTED_10
     title: "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7= &6{total}"

@@ -1,0 +1,136 @@
+# Cấu hình hệ thống Nhập Thần.
+# File này được copy ra /plugins/TuTienCore/nhapthan/infusion.yml khi plugin chạy lần đầu.
+
+gui:
+  title: "&5&lNhập Thần"
+  border-material: "PURPLE_STAINED_GLASS_PANE"
+  item-equipped:
+    material: "NETHER_STAR"
+    name: "&dNhập Thần Đang Trang Bị"
+    lore:
+      - "&7Click vào Nhập Thần trong kho để trang bị."
+  item-storage:
+    material: "BOOK"
+    name: "&fNhập Thần"
+    lore:
+      - "&7Click để trang bị."
+  item-prev-page:
+    material: "ARROW"
+    name: "&eTrang trước"
+    lore:
+      - "&7Click để quay lại."
+  item-next-page:
+    material: "ARROW"
+    name: "&eTrang sau"
+    lore:
+      - "&7Click để tiếp tục."
+  item-close:
+    material: "BARRIER"
+    name: "&cĐóng"
+    lore:
+      - "&7Đóng menu."
+  item-info:
+    material: "BOOK"
+    name: "&dThông tin Nhập Thần"
+    lore:
+      - "&7Quản lý Nhập Thần của bạn."
+
+messages:
+  no-permission: "&cBạn không có quyền sử dụng lệnh này!"
+  player-only: "&cLệnh này chỉ dùng được cho người chơi!"
+  give-usage: "&eSử dụng: /nhapthan give <player> <type> <rarity>"
+  give-player-not-found: "&cKhông tìm thấy người chơi (online, uuid, hoặc tên đã cache)."
+  give-invalid-type: "&cLoại Nhập Thần không hợp lệ: &e{type}"
+  give-invalid-rarity: "&cĐộ hiếm không hợp lệ: &e{rarity}"
+  give-success: "&aĐã cấp Nhập Thần &e{type} &7({rarity_color}{rarity_display}&7) &acho &e{player}&a."
+  give-failed: "&cCấp Nhập Thần thất bại do lỗi lưu dữ liệu."
+  inventory-full: "&cKho Nhập Thần đã đầy (tối đa 270)."
+  item-no-longer-available: "&cVật phẩm đã thay đổi. Hãy mở lại menu."
+  equip-failed: "&cTrang bị thất bại. Dữ liệu đã được hoàn nguyên."
+  unequip-failed: "&cTháo Nhập Thần thất bại."
+  inventory-recovered-empty: "&eDữ liệu kho không hợp lệ và đã được khôi phục rỗng."
+  feature-disabled: "&cHệ thống Nhập Thần đang tắt do lỗi cấu hình."
+
+rarities:
+  COMMON:
+    display-name: "Phàm Hỏa"
+    color: "&7"
+    multiplier: 1.0
+  RARE:
+    display-name: "Linh Hỏa"
+    color: "&a"
+    multiplier: 1.2
+  EPIC:
+    display-name: "Địa Hỏa"
+    color: "&5"
+    multiplier: 1.5
+  LEGENDARY:
+    display-name: "Thiên Hỏa"
+    color: "&6"
+    multiplier: 1.9
+  MYTHIC:
+    display-name: "Tiên Hỏa"
+    color: "&d"
+    multiplier: 2.5
+
+types:
+  NAM_MINH_LY_HOA:
+    display-name: "Nam Minh Ly Hỏa"
+    material: "BLAZE_POWDER"
+    stats:
+      ATTACK_DAMAGE: 6
+      TU_VI_BONUS: 4
+  THAI_DUONG_CHAN_HOA:
+    display-name: "Thái Dương Chân Hỏa"
+    material: "FIRE_CHARGE"
+    stats:
+      ATTACK_DAMAGE: 8
+      PVE_DAMAGE: 5
+  TU_VI_THIEN_HOA:
+    display-name: "Tu Vi Thiên Hỏa"
+    material: "GLOWSTONE_DUST"
+    stats:
+      MAX_HEALTH: 10
+      TU_VI_BONUS: 10
+  CUU_THIEN_HUYEN_HOA:
+    display-name: "Cửu Thiên Huyền Hỏa"
+    material: "END_CRYSTAL"
+    stats:
+      ATTACK_DAMAGE: 7
+      TU_VI_BONUS: 8
+  U_MINH_QUY_HOA:
+    display-name: "U Minh Quỷ Hỏa"
+    material: "WITHER_ROSE"
+    stats:
+      MAX_HEALTH: 12
+      PVE_DAMAGE: 4
+  THAI_SO_THANH_HOA:
+    display-name: "Thái Sơ Thánh Hỏa"
+    material: "TOTEM_OF_UNDYING"
+    stats:
+      MAX_HEALTH: 15
+      TU_VI_BONUS: 6
+  U_LA_BANG_VIEM:
+    display-name: "U La Băng Viêm"
+    material: "PACKED_ICE"
+    stats:
+      MAX_HEALTH: 9
+      ATTACK_DAMAGE: 6
+  CUU_TU_LUAN_HOI_VIEM:
+    display-name: "Cửu Tự Luân Hồi Viêm"
+    material: "NETHER_STAR"
+    stats:
+      PVE_DAMAGE: 9
+      TU_VI_BONUS: 7
+  BICH_HAI_THANH_THIEN_VIEM:
+    display-name: "Bích Hải Thanh Thiên Viêm"
+    material: "HEART_OF_THE_SEA"
+    stats:
+      MAX_HEALTH: 11
+      TU_VI_BONUS: 9
+  HONG_LIEN_THUC_COT_VIEM:
+    display-name: "Hồng Liên Thực Cốt Viêm"
+    material: "MAGMA_CREAM"
+    stats:
+      ATTACK_DAMAGE: 10
+      PVE_DAMAGE: 6

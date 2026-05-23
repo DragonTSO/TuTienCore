@@ -27,6 +27,10 @@ commands:
     description: Quan ly Tu Vi nguoi choi
     usage: /tuvi set/add/take/reset/resetall <player> [amount]
     permission: tutiencore.admin
+  nhapthan:
+    description: Mo menu hoac cap Nhap Than
+    usage: /nhapthan [give <player> <type> <rarity>]
+    permission: tutiencore.use
 
 permissions:
   tutiencore.use:
@@ -34,6 +38,9 @@ permissions:
     default: true
   tutiencore.admin:
     description: Admin permission for TuTienCore
+    default: op
+  tutiencore.nhapthan.give:
+    description: Allows granting Nhap Than to players
     default: op
   tutiencore.tuluyen.vip:
     description: Allows offline Tu Vi accumulation and claim GUI

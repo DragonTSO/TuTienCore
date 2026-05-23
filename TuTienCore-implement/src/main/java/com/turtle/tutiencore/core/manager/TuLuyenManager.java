@@ -1,6 +1,7 @@
 package com.turtle.tutiencore.core.manager;
 
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
 import com.turtle.tutiencore.core.task.TuLuyenParticleTask;
 import com.turtle.tutiencore.api.TuTien;
@@ -11,6 +12,7 @@ import com.turtle.tutiencore.api.realm.SubRealm;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -41,10 +43,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class TuLuyenManager implements Listener {
 
+    private static final long TICKS_PER_SECOND = 20L;
+    private static final long TULUYEN_QUEST_TRIGGER_TICKS = 30L * 60L * TICKS_PER_SECOND;
+    private static final String TULUYEN_QUEST_TRIGGER_NAME = "daily_tuluyen_30m";
+
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final TuLuyenParticleTask lineTask;
     private final RealmManager realmManager;
+    private final InfusionManager infusionManager;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
 
     private final Map<UUID, ArmorStand> tuLuyenPlayers = new HashMap<>();
@@ -54,11 +61,12 @@ public class TuLuyenManager implements Listener {
     private final Map<UUID, Long> capWarningTimes = new HashMap<>();
     private BukkitRunnable task;
 
-    public TuLuyenManager(JavaPlugin plugin, ConfigManager config, ZoneManager zoneManager, TuLuyenParticleTask lineTask, RealmManager realmManager) {
+    public TuLuyenManager(JavaPlugin plugin, ConfigManager config, ZoneManager zoneManager, TuLuyenParticleTask lineTask, RealmManager realmManager, InfusionManager infusionManager) {
         this.plugin = plugin;
         this.configManager = config;
         this.lineTask = lineTask;
         this.realmManager = realmManager;
+        this.infusionManager = infusionManager;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startTask();
     }
@@ -74,6 +82,10 @@ public class TuLuyenManager implements Listener {
                     long tick = sessionTicks.merge(player.getUniqueId(), 1L, Long::sum);
                     TuLuyenReward previewReward = calculateReward(player, false);
                     updateVisuals(player, previewReward, tick);
+
+                    if (shouldTriggerTuLuyenQuestMilestone(tick, TULUYEN_QUEST_TRIGGER_TICKS)) {
+                        triggerTuLuyenQuestObjective(player);
+                    }
 
                     if (tick % Math.max(1, configManager.getTuLuyenInterval()) != 0) {
                         continue;
@@ -103,6 +115,9 @@ public class TuLuyenManager implements Listener {
                                 .replace("%points%", String.valueOf((int) reward.totalPoints));
                         if (reward.permissionBonusPercent > 0) {
                             msg += " §8┃ §a+" + formatPercent(reward.permissionBonusPercent) + "% bonus";
+                        }
+                        if (reward.infusionBonusPercent > 0) {
+                            msg += " §8┃ §d+" + formatPercent(reward.infusionBonusPercent) + "% Nhập Thần";
                         }
                         if (reward.lightningTriggered) {
                             msg += " §8┃ §bThiên Lôi x" + formatNumber(configManager.getLightningBonusMultiplier());
@@ -330,14 +345,22 @@ public class TuLuyenManager implements Listener {
         double basePoints = configManager.rollPointsPerInterval();
         double permissionBonus = getTuViBonus(player);
         double environmentBonus = getEnvironmentBonus(player);
-        double totalPoints = basePoints * (1.0 + (permissionBonus + environmentBonus) / 100.0);
+        double infusionBonus = getInfusionTuViBonus(player);
+        double totalPoints = basePoints * (1.0 + (permissionBonus + environmentBonus + infusionBonus) / 100.0);
         LightningBonusResult lightning = rollLightning
                 ? applyLightningBonus(totalPoints, configManager.isLightningBonusEnabled(),
                 configManager.getLightningBonusChancePercent(), configManager.getLightningBonusMultiplier(),
                 ThreadLocalRandom.current().nextDouble(100.0))
                 : new LightningBonusResult(totalPoints, false);
         double cappedPoints = getCappedTuViReward(player, lightning.points());
-        return new TuLuyenReward(basePoints, permissionBonus, environmentBonus, cappedPoints, lightning.triggered());
+        return new TuLuyenReward(basePoints, permissionBonus, environmentBonus, infusionBonus, cappedPoints, lightning.triggered());
+    }
+
+    private double getInfusionTuViBonus(Player player) {
+        if (infusionManager == null || player == null) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, infusionManager.getEquippedTuViBonusPercent(player));
     }
 
     static LightningBonusResult applyLightningBonus(double points, boolean enabled, double chancePercent, double multiplier, double rollPercent) {
@@ -350,6 +373,21 @@ public class TuLuyenManager implements Listener {
 
     static TuViGainEvent createTuLuyenGainEvent(Player player, double amount) {
         return new TuViGainEvent(player, amount, "tuluyen");
+    }
+
+    static boolean shouldTriggerTuLuyenQuestMilestone(long tick, long milestoneTicks) {
+        if (tick <= 0L || milestoneTicks <= 0L) {
+            return false;
+        }
+        return tick % milestoneTicks == 0L;
+    }
+
+    private void triggerTuLuyenQuestObjective(Player player) {
+        String command = "qa triggerObjective " + TULUYEN_QUEST_TRIGGER_NAME + " " + player.getName();
+        boolean dispatched = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+        if (!dispatched) {
+            plugin.getLogger().warning("Failed to dispatch NotQuests trigger command: " + command);
+        }
     }
 
     private double getCappedTuViReward(Player player, double requestedReward) {
@@ -493,7 +531,7 @@ public class TuLuyenManager implements Listener {
         BossBar bossBar = bossBars.get(uuid);
         if (bossBar != null) {
             bossBar.setTitle(applyRewardPlaceholders(player, plugin.getConfig().getString("tu-luyen.bossbar.title",
-                    "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7= &6{total}"), reward));
+                    "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Nhập Thần {infusion}% &7= &6{total}"), reward));
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
         }
 
@@ -532,6 +570,7 @@ public class TuLuyenManager implements Listener {
                     .invoke(data, plugin.getConfig().getBoolean("tu-luyen.hologram.text-shadow", true));
             data.getClass().getMethod("setSeeThrough", boolean.class)
                     .invoke(data, plugin.getConfig().getBoolean("tu-luyen.hologram.see-through", false));
+            applyTextDisplayStyle(data);
             prepareFancyOpenAnimation(data);
 
             Object hologram = manager.getClass().getMethod("create", Class.forName("de.oliver.fancyholograms.api.data.HologramData"))
@@ -539,6 +578,7 @@ public class TuLuyenManager implements Listener {
             manager.getClass().getMethod("addHologram", Class.forName("de.oliver.fancyholograms.api.hologram.Hologram"))
                     .invoke(manager, hologram);
             holograms.put(player.getUniqueId(), hologram);
+            applyFancyTextDisplayStyle(hologram);
             playFancyOpenAnimation(player.getUniqueId(), hologram);
         } catch (Throwable throwable) {
             plugin.getLogger().warning("Failed to create FancyHolograms /tuluyen hologram: " + throwable.getMessage());
@@ -553,7 +593,9 @@ public class TuLuyenManager implements Listener {
             Object data = hologram.getClass().getMethod("getData").invoke(hologram);
             data.getClass().getMethod("setLocation", Location.class).invoke(data, getHologramLocation(player));
             data.getClass().getMethod("setText", List.class).invoke(data, getHologramText(player, reward));
+            applyTextDisplayStyle(data);
             hologram.getClass().getMethod("forceUpdate").invoke(hologram);
+            applyFancyTextDisplayStyle(hologram);
         } catch (Throwable throwable) {
             plugin.getLogger().warning("Failed to update FancyHolograms /tuluyen hologram: " + throwable.getMessage());
             clearVisuals(player.getUniqueId());
@@ -585,6 +627,7 @@ public class TuLuyenManager implements Listener {
                 setFancyInterpolationDuration(data, getFancyOpenAnimationDuration());
                 setFancyScale(data, getFancyFinalScale());
                 hologram.getClass().getMethod("forceUpdate").invoke(hologram);
+                applyFancyTextDisplayStyle(hologram);
                 setFancyTextOpacity(hologram, 255);
             } catch (Throwable ignored) {
                 // FancyHolograms API differs by version; skip animation instead of breaking /tuluyen.
@@ -623,6 +666,36 @@ public class TuLuyenManager implements Listener {
             method.invoke(display, (byte) Math.max(0, Math.min(255, opacity)));
         } catch (Throwable ignored) {
             // Text opacity is a Bukkit TextDisplay feature; ignore if the wrapped entity is unavailable.
+        }
+    }
+
+    private void applyFancyTextDisplayStyle(Object hologram) {
+        try {
+            Object display = hologram.getClass().getMethod("getDisplayEntity").invoke(hologram);
+            if (display != null) {
+                applyTextDisplayStyle(display);
+            }
+        } catch (Throwable ignored) {
+            // FancyHolograms/Bukkit builds expose TextDisplay internals differently.
+        }
+    }
+
+    static void applyTextDisplayStyle(Object display) {
+        Color transparent = Color.fromARGB(0, 0, 0, 0);
+        setOptionalTextDisplayStyle(display, "setShadowed", boolean.class, true);
+        setOptionalTextDisplayStyle(display, "setShadow", boolean.class, true);
+        setOptionalTextDisplayStyle(display, "setTextShadow", boolean.class, true);
+        setOptionalTextDisplayStyle(display, "setDefaultBackground", boolean.class, false);
+        setOptionalTextDisplayStyle(display, "setUseDefaultBackground", boolean.class, false);
+        setOptionalTextDisplayStyle(display, "setBackgroundColor", Color.class, transparent);
+        setOptionalTextDisplayStyle(display, "setBackground", Color.class, transparent);
+        setOptionalTextDisplayStyle(display, "setBackground", int.class, transparent.asARGB());
+    }
+
+    private static void setOptionalTextDisplayStyle(Object display, String methodName, Class<?> parameterType, Object value) {
+        try {
+            display.getClass().getMethod(methodName, parameterType).invoke(display, value);
+        } catch (Throwable ignored) {
         }
     }
 
@@ -756,6 +829,7 @@ public class TuLuyenManager implements Listener {
                 .replace("{base}", formatNumber(reward.basePoints))
                 .replace("{bonus}", formatPercent(reward.permissionBonusPercent))
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
+                .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
                 .replace("{total}", formatNumber(reward.totalPoints));
         if (player != null && Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, result);
@@ -769,6 +843,7 @@ public class TuLuyenManager implements Listener {
         lines.add("&fCơ bản: &b{base} Tu Vi");
         lines.add("&fBonus: &a{bonus}%");
         lines.add("&fMôi Trường Tu Luyện: &d{environment}%");
+        lines.add("&fNhập Thần: &5{infusion}%");
         lines.add("&fTổng Tu Vi Nhận Được: &6{total}");
         return lines;
     }
@@ -826,13 +901,15 @@ public class TuLuyenManager implements Listener {
         private final double basePoints;
         private final double permissionBonusPercent;
         private final double environmentBonusPercent;
+        private final double infusionBonusPercent;
         private final double totalPoints;
         private final boolean lightningTriggered;
 
-        private TuLuyenReward(double basePoints, double permissionBonusPercent, double environmentBonusPercent, double totalPoints, boolean lightningTriggered) {
+        private TuLuyenReward(double basePoints, double permissionBonusPercent, double environmentBonusPercent, double infusionBonusPercent, double totalPoints, boolean lightningTriggered) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
             this.environmentBonusPercent = environmentBonusPercent;
+            this.infusionBonusPercent = infusionBonusPercent;
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
         }

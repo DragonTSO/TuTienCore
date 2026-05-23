@@ -33,6 +33,7 @@ public class ConfigManager {
     private float tuLuyenIntervalResetSoundPitch;
     private int offlineIntervalSeconds;
     private int offlineClaimX2Cost;
+    private String offlinePermission;
 
     // Particles Settings
     private boolean sphereEnabled;
@@ -95,6 +96,7 @@ public class ConfigManager {
         tuLuyenIntervalResetSoundPitch = (float) config.getDouble("tu-luyen.sounds.interval-reset.pitch", 1.15);
         offlineIntervalSeconds = Math.max(1, config.getInt("offline-tuluyen.interval-seconds", 60));
         offlineClaimX2Cost = config.getInt("offline-tuluyen.claim-x2-cost", 100);
+        offlinePermission = config.getString("offline-tuluyen.permission", "tutiencore.tuluyen.vip");
 
         sphereEnabled = config.getBoolean("particles.sphere.enabled", true);
         sphereInterval = config.getInt("particles.sphere.interval", 5);
@@ -293,6 +295,10 @@ public class ConfigManager {
 
     public int getOfflineClaimX2Cost() {
         return offlineClaimX2Cost;
+    }
+
+    public String getOfflinePermission() {
+        return offlinePermission;
     }
 
     public Map<String, List<String>> getCommandAliases() {

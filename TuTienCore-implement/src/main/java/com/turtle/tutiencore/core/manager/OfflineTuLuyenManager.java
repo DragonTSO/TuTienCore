@@ -32,8 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 
 public class OfflineTuLuyenManager implements Listener {
-
-    private static final String PERMISSION = "tutiencore.tuluyen.vip";
     private static final int GUI_SIZE = 27;
     private static final int CLAIM_SLOT = 11;
     private static final int CLAIM_X2_SLOT = 15;
@@ -45,6 +43,11 @@ public class OfflineTuLuyenManager implements Listener {
 
     private File file;
     private FileConfiguration data;
+
+    private String offlinePermission() {
+        String permission = configManager.getOfflinePermission();
+        return (permission == null || permission.isBlank()) ? "tutiencore.tuluyen.vip" : permission;
+    }
 
     public OfflineTuLuyenManager(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -66,7 +69,7 @@ public class OfflineTuLuyenManager implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
-        if (player.hasPermission(PERMISSION)) {
+        if (player.hasPermission(offlinePermission())) {
             data.set(path(uuid, "last-offline-start"), System.currentTimeMillis());
         } else {
             data.set(path(uuid, "last-offline-start"), null);
@@ -82,7 +85,7 @@ public class OfflineTuLuyenManager implements Listener {
         long startedAt = data.getLong(path(uuid, "last-offline-start"), 0L);
         data.set(path(uuid, "last-offline-start"), null);
 
-        if (startedAt > 0L && player.hasPermission(PERMISSION)) {
+        if (startedAt > 0L && player.hasPermission(offlinePermission())) {
             long offlineSeconds = Math.max(0L, (System.currentTimeMillis() - startedAt) / 1000L);
             long intervals = offlineSeconds / configManager.getOfflineIntervalSeconds();
             double earned = 0;
