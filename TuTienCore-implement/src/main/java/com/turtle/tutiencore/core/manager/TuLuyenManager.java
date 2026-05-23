@@ -28,6 +28,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -97,7 +98,7 @@ public class TuLuyenManager implements Listener {
                         continue;
                     }
 
-                    TuViGainEvent event = createTuLuyenGainEvent(player, reward.totalPoints);
+                    TuViGainEvent event = createTuLuyenGainEvent(player, reward.totalPoints, reward.externalBonusIncluded);
                     Bukkit.getPluginManager().callEvent(event);
                     if (event.isCancelled() || event.getAmount() <= 0) {
                         continue;
@@ -113,8 +114,8 @@ public class TuLuyenManager implements Listener {
                     if (!configManager.getMsgReceived().isEmpty()) {
                         String msg = "§6✦ " + configManager.getMsgReceived()
                                 .replace("%points%", String.valueOf((int) reward.totalPoints));
-                        if (reward.permissionBonusPercent > 0) {
-                            msg += " §8┃ §a+" + formatPercent(reward.permissionBonusPercent) + "% bonus";
+                        if (reward.bonusPercent > 0) {
+                            msg += " §8┃ §a+" + formatPercent(reward.bonusPercent) + "% bonus";
                         }
                         if (reward.infusionBonusPercent > 0) {
                             msg += " §8┃ §d+" + formatPercent(reward.infusionBonusPercent) + "% Nhập Thần";
@@ -344,16 +345,19 @@ public class TuLuyenManager implements Listener {
     private TuLuyenReward calculateReward(Player player, boolean rollLightning) {
         double basePoints = configManager.rollPointsPerInterval();
         double permissionBonus = getTuViBonus(player);
+        double islandBonus = getTurtleIslandCultivationBonusPercent(player);
+        double bonus = permissionBonus + islandBonus;
         double environmentBonus = getEnvironmentBonus(player);
         double infusionBonus = getInfusionTuViBonus(player);
-        double totalPoints = basePoints * (1.0 + (permissionBonus + environmentBonus + infusionBonus) / 100.0);
+        double totalPoints = basePoints * (1.0 + (bonus + environmentBonus + infusionBonus) / 100.0);
         LightningBonusResult lightning = rollLightning
                 ? applyLightningBonus(totalPoints, configManager.isLightningBonusEnabled(),
                 configManager.getLightningBonusChancePercent(), configManager.getLightningBonusMultiplier(),
                 ThreadLocalRandom.current().nextDouble(100.0))
                 : new LightningBonusResult(totalPoints, false);
         double cappedPoints = getCappedTuViReward(player, lightning.points());
-        return new TuLuyenReward(basePoints, permissionBonus, environmentBonus, infusionBonus, cappedPoints, lightning.triggered());
+        return new TuLuyenReward(basePoints, permissionBonus, islandBonus, bonus, environmentBonus,
+                infusionBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0);
     }
 
     private double getInfusionTuViBonus(Player player) {
@@ -361,6 +365,26 @@ public class TuLuyenManager implements Listener {
             return 0.0D;
         }
         return Math.max(0.0D, infusionManager.getEquippedTuViBonusPercent(player));
+    }
+
+    private double getTurtleIslandCultivationBonusPercent(Player player) {
+        Plugin turtleIsland = Bukkit.getPluginManager().getPlugin("TurtleIsland");
+        if (turtleIsland == null || !turtleIsland.isEnabled()) {
+            return 0.0;
+        }
+
+        try {
+            Object bonus = turtleIsland.getClass()
+                    .getMethod("getCultivationTuViBonusPercent", Player.class)
+                    .invoke(turtleIsland, player);
+            if (bonus instanceof Number number) {
+                return Math.max(0.0, number.doubleValue());
+            }
+        } catch (Throwable ignored) {
+            return 0.0;
+        }
+
+        return 0.0;
     }
 
     static LightningBonusResult applyLightningBonus(double points, boolean enabled, double chancePercent, double multiplier, double rollPercent) {
@@ -373,6 +397,12 @@ public class TuLuyenManager implements Listener {
 
     static TuViGainEvent createTuLuyenGainEvent(Player player, double amount) {
         return new TuViGainEvent(player, amount, "tuluyen");
+    }
+
+    private static TuViGainEvent createTuLuyenGainEvent(Player player, double amount, boolean externalBonusIncluded) {
+        TuViGainEvent event = createTuLuyenGainEvent(player, amount);
+        event.setExternalBonusIncluded(externalBonusIncluded);
+        return event;
     }
 
     static boolean shouldTriggerTuLuyenQuestMilestone(long tick, long milestoneTicks) {
@@ -827,7 +857,11 @@ public class TuLuyenManager implements Listener {
     private String applyRewardPlaceholders(Player player, String text, TuLuyenReward reward, boolean translateColors) {
         String result = text
                 .replace("{base}", formatNumber(reward.basePoints))
-                .replace("{bonus}", formatPercent(reward.permissionBonusPercent))
+                .replace("{bonus}", formatPercent(reward.bonusPercent))
+                .replace("{permission_bonus}", formatPercent(reward.permissionBonusPercent))
+                .replace("{island_bonus}", formatPercent(reward.islandBonusPercent))
+                .replace("{tien_phu_bonus}", formatPercent(reward.islandBonusPercent))
+                .replace("{tienphu_bonus}", formatPercent(reward.islandBonusPercent))
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
                 .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
                 .replace("{total}", formatNumber(reward.totalPoints));
@@ -900,18 +934,27 @@ public class TuLuyenManager implements Listener {
     private static class TuLuyenReward {
         private final double basePoints;
         private final double permissionBonusPercent;
+        private final double islandBonusPercent;
+        private final double bonusPercent;
         private final double environmentBonusPercent;
         private final double infusionBonusPercent;
         private final double totalPoints;
         private final boolean lightningTriggered;
+        private final boolean externalBonusIncluded;
 
-        private TuLuyenReward(double basePoints, double permissionBonusPercent, double environmentBonusPercent, double infusionBonusPercent, double totalPoints, boolean lightningTriggered) {
+        private TuLuyenReward(double basePoints, double permissionBonusPercent, double islandBonusPercent,
+                              double bonusPercent, double environmentBonusPercent, double infusionBonusPercent,
+                              double totalPoints,
+                              boolean lightningTriggered, boolean externalBonusIncluded) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
+            this.islandBonusPercent = islandBonusPercent;
+            this.bonusPercent = bonusPercent;
             this.environmentBonusPercent = environmentBonusPercent;
             this.infusionBonusPercent = infusionBonusPercent;
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
+            this.externalBonusIncluded = externalBonusIncluded;
         }
     }
 

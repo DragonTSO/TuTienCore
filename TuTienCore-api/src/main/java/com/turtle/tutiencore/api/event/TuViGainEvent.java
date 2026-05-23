@@ -17,6 +17,7 @@ public class TuViGainEvent extends PlayerEvent implements Cancellable {
 
     private double amount;
     private final String source;
+    private boolean externalBonusIncluded = false;
 
     /**
      * @param player The player gaining Tu Vi
@@ -44,6 +45,19 @@ public class TuViGainEvent extends PlayerEvent implements Cancellable {
      * Common values: "dungeon", "mine", "farm", "tuluyen", "command", "quest"
      */
     public String getSource() { return source; }
+
+    /**
+     * True when the amount already includes bonus supplied by another plugin.
+     * Event listeners can use this to avoid applying the same external bonus twice.
+     */
+    public boolean isExternalBonusIncluded() { return externalBonusIncluded; }
+
+    /**
+     * Mark this gain as already including an external bonus.
+     */
+    public void setExternalBonusIncluded(boolean externalBonusIncluded) {
+        this.externalBonusIncluded = externalBonusIncluded;
+    }
 
     @Override
     public boolean isCancelled() { return cancelled; }
