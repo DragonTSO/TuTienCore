@@ -232,10 +232,19 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         List<OwnedInfusion> inventory = infusionInventoryCache.getOrDefault(uuid, Collections.emptyList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (OwnedInfusion infusion : inventory) {
+            if (infusion == null) {
+                continue;
+            }
+            String id = asString(infusion.id());
+            String typeId = asString(infusion.typeId());
+            String rarityId = asString(infusion.rarityId());
+            if (id.isBlank() || typeId.isBlank() || rarityId.isBlank()) {
+                continue;
+            }
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", infusion.id());
-            row.put("type", infusion.typeId());
-            row.put("rarity", infusion.rarityId());
+            row.put("id", id);
+            row.put("type", typeId);
+            row.put("rarity", rarityId);
             row.put("created-at", infusion.createdAt());
             rows.add(row);
         }
@@ -251,11 +260,58 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     private boolean saveToDisk() {
         try {
+            sanitizeInfusionConfigBeforeSave();
             config.save(file);
             return true;
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
             return false;
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private void sanitizeInfusionConfigBeforeSave() {
+        for (String key : config.getKeys(false)) {
+            String inventoryPath = key + ".infusion.inventory";
+            if (!config.isList(inventoryPath)) {
+                continue;
+            }
+
+            List<?> rawRows = config.getList(inventoryPath, Collections.emptyList());
+            List<Map<String, Object>> sanitizedRows = new ArrayList<>();
+            boolean changed = false;
+
+            for (Object rawRow : rawRows) {
+                if (!(rawRow instanceof Map<?, ?> row)) {
+                    changed = true;
+                    continue;
+                }
+
+                String id = asString(row.get("id"));
+                String typeId = asString(row.get("type"));
+                String rarityId = asString(row.get("rarity"));
+                if (id.isBlank() || typeId.isBlank() || rarityId.isBlank()) {
+                    changed = true;
+                    continue;
+                }
+
+                Map<String, Object> sanitizedRow = new LinkedHashMap<>();
+                sanitizedRow.put("id", id);
+                sanitizedRow.put("type", typeId);
+                sanitizedRow.put("rarity", rarityId);
+                sanitizedRow.put("created-at", asLong(row.get("created-at"), System.currentTimeMillis()));
+                sanitizedRows.add(sanitizedRow);
+
+                if (!Objects.equals(row, sanitizedRow)) {
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                config.set(inventoryPath, sanitizedRows);
+            }
         }
     }
 
