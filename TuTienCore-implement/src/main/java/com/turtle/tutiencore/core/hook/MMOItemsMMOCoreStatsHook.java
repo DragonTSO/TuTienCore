@@ -28,6 +28,15 @@ public final class MMOItemsMMOCoreStatsHook implements Listener {
                     Material.BREAD,
                     "Max Health Regeneration",
                     new String[]{"Percentage of max health regenerated every second."}
+            ),
+            new DoubleStat(
+                    "LINH_DUOC_DROP_RATE",
+                    Material.GLOW_BERRIES,
+                    "Linh Duoc Drop Rate",
+                    new String[]{
+                            "Relative bonus chance for MATERIAL.LINH_DUOC drops from farm blocks.",
+                            "Example: 25 means +25% of the base chance from drops.yml."
+                    }
             )
     );
     private boolean initialized;
