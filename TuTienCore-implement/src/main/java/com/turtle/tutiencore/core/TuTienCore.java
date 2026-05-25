@@ -14,6 +14,7 @@ import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
 import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
 import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
+import com.turtle.tutiencore.core.hook.LinhDuocDropRateHook;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
@@ -56,6 +57,7 @@ public class TuTienCore {
     private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
     private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
     private MMOItemsMaxHealthPercentHook mmoItemsMaxHealthPercentHook;
+    private LinhDuocDropRateHook linhDuocDropRateHook;
     private CommandAliasManager commandAliasManager;
     
     private SphereParticleTask sphereParticleTask;
@@ -106,6 +108,8 @@ public class TuTienCore {
         this.mmoItemsRealmRequirementHook.register();
         this.mmoItemsMaxHealthPercentHook = new MMOItemsMaxHealthPercentHook(plugin);
         this.mmoItemsMaxHealthPercentHook.register();
+        this.linhDuocDropRateHook = new LinhDuocDropRateHook(plugin);
+        this.linhDuocDropRateHook.register();
 
         this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
         this.sphereParticleTask.start();

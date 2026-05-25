@@ -65,6 +65,10 @@ public class TuTienCorePlugin extends JavaPlugin {
                 "Percentage of max health regenerated every second.",
                 "Compatibility stat for MMOItems set bonuses without MMOCore."
         ));
+        changed |= bootstrapCustomStat(config, "LINH_DUOC_DROP_RATE", "Linh Duoc Drop Rate", "double", List.of(
+                "Relative bonus chance for MATERIAL.LINH_DUOC drops from farm blocks.",
+                "Example: 25 means +25% of the base chance from drops.yml."
+        ));
 
         if (!changed) {
             return;
