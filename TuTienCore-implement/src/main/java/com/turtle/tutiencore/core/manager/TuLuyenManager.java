@@ -94,6 +94,10 @@ public class TuLuyenManager implements Listener {
 
                     TuLuyenReward reward = calculateReward(player, true);
                     if (reward.totalPoints <= 0) {
+                        if (isAtTuViCap(player) && canContinueCultivatingAtCap(player)) {
+                            Bukkit.getPluginManager().callEvent(createTuLuyenGainEvent(player, 0.0, reward.externalBonusIncluded));
+                            continue;
+                        }
                         warnTuViCapReached(player);
                         continue;
                     }
@@ -104,8 +108,13 @@ public class TuLuyenManager implements Listener {
                         continue;
                     }
 
-                    // Give Points via API, capped at the next breakthrough requirement.
-                    TuTien.getApi().addTuVi(player.getUniqueId(), event.getAmount());
+                    double finalAmount = getCappedTuViReward(player, event.getAmount());
+                    if (finalAmount <= 0.0) {
+                        continue;
+                    }
+
+                    // Give Points via API, capped at the next breakthrough requirement even after external event edits.
+                    TuTien.getApi().addTuVi(player.getUniqueId(), finalAmount);
                     if (reward.lightningTriggered) {
                         player.getWorld().strikeLightningEffect(player.getLocation());
                     }
@@ -113,7 +122,7 @@ public class TuLuyenManager implements Listener {
                     
                     if (!configManager.getMsgReceived().isEmpty()) {
                         String msg = "§6✦ " + configManager.getMsgReceived()
-                                .replace("%points%", String.valueOf((int) reward.totalPoints));
+                                .replace("%points%", String.valueOf((int) finalAmount));
                         if (reward.bonusPercent > 0) {
                             msg += " §8┃ §a+" + formatPercent(reward.bonusPercent) + "% bonus";
                         }
@@ -174,8 +183,10 @@ public class TuLuyenManager implements Listener {
 
     public void startTuLuyen(Player player) {
         if (isAtTuViCap(player)) {
-            warnTuViCapReached(player);
-            return;
+            if (!canContinueCultivatingAtCap(player)) {
+                warnTuViCapReached(player);
+                return;
+            }
         }
 
         ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(player.getLocation().add(0, 0.1, 0), EntityType.ARMOR_STAND);
@@ -435,6 +446,52 @@ public class TuLuyenManager implements Listener {
         if (nextRequirement <= 0) return false;
 
         return TuTien.getApi().getTuVi(player.getUniqueId()) >= nextRequirement;
+    }
+
+    private boolean canContinueCultivatingAtCap(Player player) {
+        return isInsidePlayerSuperiorSkyblockIsland(player);
+    }
+
+    private boolean isInsidePlayerSuperiorSkyblockIsland(Player player) {
+        if (player == null || player.getLocation() == null) {
+            return false;
+        }
+
+        Plugin skyblock = Bukkit.getPluginManager().getPlugin("SuperiorSkyblock2");
+        if (skyblock == null || !skyblock.isEnabled()) {
+            return false;
+        }
+
+        try {
+            Class<?> apiClass = Class.forName("com.bgsoftware.superiorskyblock.api.SuperiorSkyblockAPI");
+            Class<?> islandClass = Class.forName("com.bgsoftware.superiorskyblock.api.island.Island");
+            Class<?> superiorPlayerClass = Class.forName("com.bgsoftware.superiorskyblock.api.wrappers.SuperiorPlayer");
+
+            Object island = apiClass.getMethod("getIslandAt", Location.class).invoke(null, player.getLocation());
+            if (island == null) {
+                return false;
+            }
+
+            Object superiorPlayer = apiClass.getMethod("getPlayer", Player.class).invoke(null, player);
+            if (superiorPlayer == null) {
+                return false;
+            }
+
+            Object isMember = islandClass.getMethod("isMember", superiorPlayerClass).invoke(island, superiorPlayer);
+            if (Boolean.TRUE.equals(isMember)) {
+                return true;
+            }
+
+            Object owner = islandClass.getMethod("getOwner").invoke(island);
+            if (owner == null) {
+                return false;
+            }
+
+            Object ownerUuid = superiorPlayerClass.getMethod("getUniqueId").invoke(owner);
+            return player.getUniqueId().equals(ownerUuid);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private long getNextTuViRequirement(UUID uuid) {
