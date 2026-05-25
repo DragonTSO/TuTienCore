@@ -37,6 +37,10 @@ public class ConfigManager {
     private double offlineDefaultMultiplier;
     private double offlinePermissionMultiplier;
     private int offlineMaxHours;
+    private boolean offlineOpenAfterResourcePack;
+    private int offlineOpenMinSeconds;
+    private long offlineOpenDelayTicks;
+    private long offlineOpenFallbackDelayTicks;
 
     // Particles Settings
     private boolean sphereEnabled;
@@ -103,6 +107,10 @@ public class ConfigManager {
         offlineDefaultMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.default-multiplier", 0.5));
         offlinePermissionMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.permission-multiplier", 1.0));
         offlineMaxHours = Math.max(0, config.getInt("offline-tuluyen.max-offline-hours", 8));
+        offlineOpenAfterResourcePack = config.getBoolean("offline-tuluyen.open-gui.after-resourcepack", true);
+        offlineOpenMinSeconds = Math.max(0, config.getInt("offline-tuluyen.open-gui.min-offline-seconds", 60));
+        offlineOpenDelayTicks = Math.max(0L, config.getLong("offline-tuluyen.open-gui.delay-ticks", 20L));
+        offlineOpenFallbackDelayTicks = Math.max(0L, config.getLong("offline-tuluyen.open-gui.fallback-delay-ticks", 300L));
 
         sphereEnabled = config.getBoolean("particles.sphere.enabled", true);
         sphereInterval = config.getInt("particles.sphere.interval", 5);
@@ -317,6 +325,22 @@ public class ConfigManager {
 
     public int getOfflineMaxHours() {
         return offlineMaxHours;
+    }
+
+    public boolean isOfflineOpenAfterResourcePack() {
+        return offlineOpenAfterResourcePack;
+    }
+
+    public int getOfflineOpenMinSeconds() {
+        return offlineOpenMinSeconds;
+    }
+
+    public long getOfflineOpenDelayTicks() {
+        return offlineOpenDelayTicks;
+    }
+
+    public long getOfflineOpenFallbackDelayTicks() {
+        return offlineOpenFallbackDelayTicks;
     }
 
     public Map<String, List<String>> getCommandAliases() {

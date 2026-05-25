@@ -16,6 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -40,6 +41,7 @@ public class OfflineTuLuyenManager implements Listener {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final Set<UUID> openGuis = new HashSet<>();
+    private final Set<UUID> pendingResourcePackOpen = new HashSet<>();
 
     private File file;
     private FileConfiguration data;
@@ -61,7 +63,9 @@ public class OfflineTuLuyenManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        data.set(path(event.getPlayer().getUniqueId(), "last-offline-start"), System.currentTimeMillis());
+        UUID uuid = event.getPlayer().getUniqueId();
+        pendingResourcePackOpen.remove(uuid);
+        data.set(path(uuid, "last-offline-start"), System.currentTimeMillis());
         save();
     }
 
@@ -96,11 +100,21 @@ public class OfflineTuLuyenManager implements Listener {
         save();
 
         if (getPendingTuVi(uuid) > 0) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (player.isOnline() && getPendingTuVi(uuid) > 0) {
-                    open(player);
-                }
-            }, 20L);
+            queueOfflineGuiOpen(player);
+        }
+    }
+
+    @EventHandler
+    public void onResourcePackStatus(PlayerResourcePackStatusEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!pendingResourcePackOpen.contains(uuid)) {
+            return;
+        }
+
+        String status = event.getStatus().name();
+        if (status.equals("SUCCESSFULLY_LOADED") || status.equals("DOWNLOADED")) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> openPendingGui(event.getPlayer()),
+                    configManager.getOfflineOpenDelayTicks());
         }
     }
 
@@ -132,6 +146,39 @@ public class OfflineTuLuyenManager implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         openGuis.remove(event.getPlayer().getUniqueId());
+    }
+
+    private void queueOfflineGuiOpen(Player player) {
+        UUID uuid = player.getUniqueId();
+        long lastOfflineSeconds = data.getLong(path(uuid, "last-real-offline-seconds"), 0L);
+        if (lastOfflineSeconds < configManager.getOfflineOpenMinSeconds()) {
+            return;
+        }
+
+        if (!configManager.isOfflineOpenAfterResourcePack()) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> openPendingGui(player),
+                    configManager.getOfflineOpenDelayTicks());
+            return;
+        }
+
+        pendingResourcePackOpen.add(uuid);
+        long fallbackTicks = configManager.getOfflineOpenFallbackDelayTicks();
+        if (fallbackTicks > 0L) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> openPendingGui(player), fallbackTicks);
+        }
+    }
+
+    private void openPendingGui(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        if (!pendingResourcePackOpen.remove(uuid) && configManager.isOfflineOpenAfterResourcePack()) {
+            return;
+        }
+        if (getPendingTuVi(uuid) > 0) {
+            open(player);
+        }
     }
 
     private void setup() {

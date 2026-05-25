@@ -148,6 +148,15 @@ offline-tuluyen:
   permission-multiplier: 1.0
   # Giới hạn thời gian offline được cộng Tu Vi. 0 = không giới hạn.
   max-offline-hours: 8
+  open-gui:
+    # true = đợi resource pack load xong mới mở GUI nhận Tu Vi offline.
+    after-resourcepack: true
+    # Chỉ mở GUI nếu lần offline vừa rồi lâu hơn số giây này.
+    min-offline-seconds: 60
+    # Nếu không đợi resource pack, mở GUI sau delay này.
+    delay-ticks: 20
+    # Nếu server/client không gửi trạng thái resource pack, tự mở sau delay này để khỏi kẹt.
+    fallback-delay-ticks: 300
   # Chi phi PlayerPoints khi claim x2.
   claim-x2-cost: 100
 
