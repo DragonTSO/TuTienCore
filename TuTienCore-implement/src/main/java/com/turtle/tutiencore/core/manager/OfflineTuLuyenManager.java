@@ -44,11 +44,6 @@ public class OfflineTuLuyenManager implements Listener {
     private File file;
     private FileConfiguration data;
 
-    private String offlinePermission() {
-        String permission = configManager.getOfflinePermission();
-        return (permission == null || permission.isBlank()) ? "tutiencore.tuluyen.vip" : permission;
-    }
-
     public OfflineTuLuyenManager(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
@@ -66,14 +61,7 @@ public class OfflineTuLuyenManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-
-        if (player.hasPermission(offlinePermission())) {
-            data.set(path(uuid, "last-offline-start"), System.currentTimeMillis());
-        } else {
-            data.set(path(uuid, "last-offline-start"), null);
-        }
+        data.set(path(event.getPlayer().getUniqueId(), "last-offline-start"), System.currentTimeMillis());
         save();
     }
 
@@ -85,16 +73,24 @@ public class OfflineTuLuyenManager implements Listener {
         long startedAt = data.getLong(path(uuid, "last-offline-start"), 0L);
         data.set(path(uuid, "last-offline-start"), null);
 
-        if (startedAt > 0L && player.hasPermission(offlinePermission())) {
-            long offlineSeconds = Math.max(0L, (System.currentTimeMillis() - startedAt) / 1000L);
+        if (startedAt > 0L) {
+            long realOfflineSeconds = Math.max(0L, (System.currentTimeMillis() - startedAt) / 1000L);
+            long offlineSeconds = Math.min(realOfflineSeconds, getMaxOfflineSeconds());
             long intervals = offlineSeconds / configManager.getOfflineIntervalSeconds();
-            double earned = 0;
+            double multiplier = getOfflineMultiplier(player);
+            double earned = 0.0;
+
             for (long i = 0; i < intervals; i++) {
                 earned += configManager.rollPointsPerInterval();
             }
+            earned *= multiplier;
+
             if (earned > 0) {
                 double pending = data.getDouble(path(uuid, "pending-tuvi"), 0.0);
                 data.set(path(uuid, "pending-tuvi"), pending + earned);
+                data.set(path(uuid, "last-earned-seconds"), offlineSeconds);
+                data.set(path(uuid, "last-real-offline-seconds"), realOfflineSeconds);
+                data.set(path(uuid, "last-earned-multiplier"), multiplier);
             }
         }
         save();
@@ -154,22 +150,31 @@ public class OfflineTuLuyenManager implements Listener {
     }
 
     private void open(Player player) {
-        double pending = getPendingTuVi(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        double pending = getPendingTuVi(uuid);
         if (pending <= 0) {
             return;
         }
 
+        long earnedSeconds = data.getLong(path(uuid, "last-earned-seconds"), 0L);
+        long realSeconds = data.getLong(path(uuid, "last-real-offline-seconds"), earnedSeconds);
+        double multiplier = data.getDouble(path(uuid, "last-earned-multiplier"), getOfflineMultiplier(player));
+
         Inventory gui = Bukkit.createInventory(null, GUI_SIZE, color("&0✦ Tu Luyện Offline ✦"));
         fill(gui);
         gui.setItem(CLAIM_SLOT, item(Material.EXPERIENCE_BOTTLE, "&a&lNhận Tu Vi", List.of(
-                "&8ᴛʜôɴɢ ᴛɪɴ",
+                "&8thông tin",
                 "&7Tu Vi đã tích lũy: &e" + format(pending),
+                "&7Thời gian tính: &b" + formatDuration(earnedSeconds) + getCappedSuffix(realSeconds, earnedSeconds),
+                "&7Hiệu suất offline: &a" + formatMultiplier(multiplier),
                 "&7Hình thức: &aNhận miễn phí",
                 "",
                 "&aChuột trái để nhận ngay.")));
         gui.setItem(CLAIM_X2_SLOT, item(Material.EMERALD, "&b&lNhận x2 Tu Vi", List.of(
-                "&8ɴâɴɢ ᴄấᴘ ᴘʜầɴ ᴛʜưởɴɢ",
+                "&8nâng cấp phần thưởng",
                 "&7Tu Vi gốc: &e" + format(pending),
+                "&7Thời gian tính: &b" + formatDuration(earnedSeconds) + getCappedSuffix(realSeconds, earnedSeconds),
+                "&7Hiệu suất offline: &a" + formatMultiplier(multiplier),
                 "&7Sau nhân đôi: &b" + format(pending * 2),
                 "&7Chi phí: &e" + configManager.getOfflineClaimX2Cost() + " PlayerPoints",
                 "",
@@ -193,16 +198,17 @@ public class OfflineTuLuyenManager implements Listener {
         }
 
         int cost = configManager.getOfflineClaimX2Cost();
-        if (x2) {
-            if (!takePlayerPoints(player, cost)) {
-                player.sendMessage(color("&cKhông đủ &e" + cost + " PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."));
-                return;
-            }
+        if (x2 && !takePlayerPoints(player, cost)) {
+            player.sendMessage(color("&cKhông đủ &e" + cost + " PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."));
+            return;
         }
 
         double reward = x2 ? pending * 2 : pending;
         TuTien.getApi().addTuVi(uuid, reward);
         data.set(path(uuid, "pending-tuvi"), null);
+        data.set(path(uuid, "last-earned-seconds"), null);
+        data.set(path(uuid, "last-real-offline-seconds"), null);
+        data.set(path(uuid, "last-earned-multiplier"), null);
         save();
 
         player.sendMessage(color("&aĐã nhận &e" + format(reward) + " Tu Vi &atừ tu luyện offline" + (x2 ? " &b(x2)&a." : ".")));
@@ -239,6 +245,26 @@ public class OfflineTuLuyenManager implements Listener {
         return data.getDouble(path(uuid, "pending-tuvi"), 0.0);
     }
 
+    private double getOfflineMultiplier(Player player) {
+        return player.hasPermission(offlinePermission())
+                ? configManager.getOfflinePermissionMultiplier()
+                : configManager.getOfflineDefaultMultiplier();
+    }
+
+    private String offlinePermission() {
+        String permission = configManager.getOfflinePermission();
+        return (permission == null || permission.isBlank()) ? "tutiencore.tuluyen.vip" : permission;
+    }
+
+    private long getMaxOfflineSeconds() {
+        int maxHours = configManager.getOfflineMaxHours();
+        return maxHours <= 0 ? Long.MAX_VALUE : maxHours * 3600L;
+    }
+
+    private String getCappedSuffix(long realSeconds, long earnedSeconds) {
+        return realSeconds > earnedSeconds ? " &8(đã đạt giới hạn)" : "";
+    }
+
     private String path(UUID uuid, String child) {
         return uuid + "." + child;
     }
@@ -253,6 +279,9 @@ public class OfflineTuLuyenManager implements Listener {
     private ItemStack item(Material material, String name, List<String> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return item;
+        }
         meta.setDisplayName(color(name));
         List<String> coloredLore = new ArrayList<>();
         for (String line : lore) {
@@ -265,10 +294,31 @@ public class OfflineTuLuyenManager implements Listener {
     }
 
     private String color(String text) {
-        return ChatColor.translateAlternateColorCodes('&', text);
+        return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
     }
 
     private String format(double amount) {
         return RealmManager.formatNumber((long) amount);
+    }
+
+    private String formatMultiplier(double multiplier) {
+        int percent = (int) Math.round(multiplier * 100.0);
+        return percent + "%";
+    }
+
+    private String formatDuration(long seconds) {
+        if (seconds <= 0) {
+            return "0 giây";
+        }
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        long secs = seconds % 60L;
+        if (hours > 0) {
+            return String.format("%d giờ %02d phút", hours, minutes);
+        }
+        if (minutes > 0) {
+            return String.format("%d phút %02d giây", minutes, secs);
+        }
+        return secs + " giây";
     }
 }

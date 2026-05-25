@@ -45,3 +45,24 @@ permissions:
   tutiencore.tuluyen.vip:
     description: Allows offline Tu Vi accumulation and claim GUI
     default: false
+  tutiencore.afk.bypass:
+    description: Bypass TuTienCore AFK kick
+    default: op
+  tutiencore.vip.0:
+    description: TuTienCore VIP rank 0
+    default: false
+  tutiencore.vip.1:
+    description: TuTienCore VIP rank 1
+    default: false
+  tutiencore.vip.2:
+    description: TuTienCore VIP rank 2
+    default: false
+  tutiencore.vip.3:
+    description: TuTienCore VIP rank 3
+    default: false
+  tutiencore.vip.4:
+    description: TuTienCore VIP rank 4
+    default: false
+  tutiencore.vip.5:
+    description: TuTienCore VIP rank 5
+    default: false

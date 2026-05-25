@@ -4,6 +4,7 @@ import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
+import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
@@ -31,12 +32,13 @@ public class TuTienCommand implements CommandExecutor {
     private final PlayerHologramManager playerHologramManager;
     private final ActionBarManager actionBarManager;
     private final InfusionManager infusionManager;
+    private final AfkKickManager afkKickManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
             PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
-            InfusionManager infusionManager, Runnable commandAliasReloader) {
+            InfusionManager infusionManager, AfkKickManager afkKickManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -46,6 +48,7 @@ public class TuTienCommand implements CommandExecutor {
         this.playerHologramManager = playerHologramManager;
         this.actionBarManager = actionBarManager;
         this.infusionManager = infusionManager;
+        this.afkKickManager = afkKickManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -91,6 +94,7 @@ public class TuTienCommand implements CommandExecutor {
             playerHologramManager.reload();
             actionBarManager.reload();
             infusionManager.reload();
+            afkKickManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }

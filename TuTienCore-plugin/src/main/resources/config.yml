@@ -137,12 +137,68 @@ tu-luyen:
     regions: {}
 
 offline-tuluyen:
-  # Player co permission nay se duoc tich Tu Vi khi offline.
+  # Player có permission này nhận 100% Tu Vi offline.
+  # Player thường vẫn được tích Tu Vi offline, nhưng chỉ nhận theo default-multiplier.
   permission: "tutiencore.tuluyen.vip"
   # Offline reward dung points-per-interval ben tren, nhung moi 60 giay offline moi tinh 1 lan.
   interval-seconds: 60
+  # 0.5 = player thường nhận 50% Tu Vi offline.
+  default-multiplier: 0.5
+  # 1.0 = player có permission bên trên nhận 100% Tu Vi offline.
+  permission-multiplier: 1.0
+  # Giới hạn thời gian offline được cộng Tu Vi. 0 = không giới hạn.
+  max-offline-hours: 8
   # Chi phi PlayerPoints khi claim x2.
   claim-x2-cost: 100
+
+# Kick người chơi AFK theo rank VIP.
+# Plugin lấy rank cao nhất mà player có permission theo dạng:
+#   tutiencore.vip.0, tutiencore.vip.1, tutiencore.vip.2...
+# VIP 0 là rank mặc định cho mọi người chơi nếu không có permission VIP cao hơn.
+afk-kick:
+  enabled: true
+  permission-prefix: "tutiencore.vip."
+  bypass-permission: "tutiencore.afk.bypass"
+  default-rank: 0
+  check-interval: 1s
+  # Đứng yên/không đánh/không click trong thời gian này mới bắt đầu bị tính AFK.
+  afk-start-after: 10s
+  kick-message: "&cBạn đã AFK quá lâu. Hãy quay lại khi sẵn sàng tiếp tục tu luyện."
+  title:
+    enabled: true
+    title: "&6&lĐang AFK"
+    subtitle: "&eCòn &c%time% &enữa sẽ bị rời khỏi máy chủ."
+    fade-in: 5
+    stay: 45
+    fade-out: 10
+    repeat-interval: 10s
+  warning:
+    enabled: true
+    before-kick: 30s
+    message: "&eBạn đang AFK quá lâu. Còn &c%time% &enữa sẽ bị rời khỏi máy chủ."
+  activity:
+    # true = chỉ xoay camera không tính là hoạt động, phải di chuyển/chat/click/chạy lệnh.
+    ignore-look-only: true
+    movement-threshold: 0.08
+  ranks:
+    0:
+      permission: ""
+      kick-after: 10m
+    1:
+      permission: "tutiencore.vip.1"
+      kick-after: 30m
+    2:
+      permission: "tutiencore.vip.2"
+      kick-after: 1h
+    3:
+      permission: "tutiencore.vip.3"
+      kick-after: 2h
+    4:
+      permission: "tutiencore.vip.4"
+      kick-after: never
+    5:
+      permission: "tutiencore.vip.5"
+      kick-after: never
 
 # ==========================================
 # PERMISSIONS

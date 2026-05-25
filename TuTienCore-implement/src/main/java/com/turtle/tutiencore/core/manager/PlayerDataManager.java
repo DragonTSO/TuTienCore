@@ -7,8 +7,11 @@ import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.infusion.OwnedInfusion;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.serialization.ConfigurationSerializable;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -27,6 +30,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private final JavaPlugin plugin;
     private File file;
     private FileConfiguration config;
+    private final Object configLock = new Object();
     private final Map<UUID, Double> tuviCache = new HashMap<>();
     private final Map<UUID, List<OwnedInfusion>> infusionInventoryCache = new HashMap<>();
     private final Map<UUID, String> equippedInfusionIdCache = new HashMap<>();
@@ -73,48 +77,56 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     public void saveAll() {
-        for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
-            config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
+        synchronized (configLock) {
+            for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
+                config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
+            }
+            Set<UUID> uuids = new HashSet<>();
+            uuids.addAll(infusionInventoryCache.keySet());
+            uuids.addAll(equippedInfusionIdCache.keySet());
+            for (UUID uuid : uuids) {
+                writeInfusionState(uuid);
+            }
+            saveToDisk();
         }
-        Set<UUID> uuids = new HashSet<>();
-        uuids.addAll(infusionInventoryCache.keySet());
-        uuids.addAll(equippedInfusionIdCache.keySet());
-        for (UUID uuid : uuids) {
-            writeInfusionState(uuid);
-        }
-        saveToDisk();
     }
 
     public void savePlayer(UUID uuid) {
-        if (tuviCache.containsKey(uuid)) {
-            config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+        synchronized (configLock) {
+            if (tuviCache.containsKey(uuid)) {
+                config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+            }
+            if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+                writeInfusionState(uuid);
+            }
+            saveToDisk();
         }
-        if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
-            writeInfusionState(uuid);
-        }
-        saveToDisk();
     }
 
     public boolean savePlayerSafely(UUID uuid) {
-        if (tuviCache.containsKey(uuid)) {
-            config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+        synchronized (configLock) {
+            if (tuviCache.containsKey(uuid)) {
+                config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+            }
+            if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+                writeInfusionState(uuid);
+            }
+            return saveToDisk();
         }
-        if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
-            writeInfusionState(uuid);
-        }
-        return saveToDisk();
     }
 
     public void loadPlayer(UUID uuid) {
-        double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
-        tuviCache.put(uuid, tuvi);
+        synchronized (configLock) {
+            double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
+            tuviCache.put(uuid, tuvi);
 
-        InfusionState state = readInfusionState(uuid);
-        infusionInventoryCache.put(uuid, new ArrayList<>(state.inventory()));
-        if (state.equippedId() == null || state.equippedId().isBlank()) {
-            equippedInfusionIdCache.remove(uuid);
-        } else {
-            equippedInfusionIdCache.put(uuid, state.equippedId());
+            InfusionState state = readInfusionState(uuid);
+            infusionInventoryCache.put(uuid, new ArrayList<>(state.inventory()));
+            if (state.equippedId() == null || state.equippedId().isBlank()) {
+                equippedInfusionIdCache.remove(uuid);
+            } else {
+                equippedInfusionIdCache.put(uuid, state.equippedId());
+            }
         }
     }
 
@@ -259,17 +271,118 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     private boolean saveToDisk() {
-        try {
-            sanitizeInfusionConfigBeforeSave();
-            config.save(file);
-            return true;
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
-            return false;
-        } catch (RuntimeException e) {
-            plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
-            return false;
+        synchronized (configLock) {
+            try {
+                sanitizeConfigBeforeSave();
+                config.save(file);
+                return true;
+            } catch (IOException e) {
+                plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
+                return false;
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
+                return false;
+            }
         }
+    }
+
+    private void sanitizeConfigBeforeSave() {
+        sanitizeInfusionConfigBeforeSave();
+
+        List<String> paths = new ArrayList<>(config.getKeys(true));
+        for (String path : paths) {
+            Object value = config.get(path);
+            if (value == null || value instanceof ConfigurationSection) {
+                continue;
+            }
+
+            Object sanitized = sanitizeYamlValue(value);
+            if (sanitized == null) {
+                config.set(path, null);
+                continue;
+            }
+            if (!Objects.equals(value, sanitized)) {
+                config.set(path, sanitized);
+            }
+        }
+    }
+
+    private Object sanitizeYamlValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String || value instanceof Boolean || value instanceof Character) {
+            return value;
+        }
+        if (value instanceof Number number) {
+            if (number instanceof Double d && !Double.isFinite(d)) {
+                return 0.0D;
+            }
+            if (number instanceof Float f && !Float.isFinite(f)) {
+                return 0.0F;
+            }
+            return value;
+        }
+        if (value instanceof UUID uuid) {
+            return uuid.toString();
+        }
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name();
+        }
+        if (value instanceof ConfigurationSerializable serializable) {
+            Map<String, Object> sanitized = new LinkedHashMap<>();
+            sanitized.put("==", ConfigurationSerialization.getAlias(serializable.getClass()));
+            for (Map.Entry<String, Object> entry : serializable.serialize().entrySet()) {
+                if (entry.getKey() == null) {
+                    continue;
+                }
+                Object child = sanitizeYamlValue(entry.getValue());
+                if (child != null) {
+                    sanitized.put(entry.getKey(), child);
+                }
+            }
+            return sanitized;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> sanitized = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                Object rawKey = entry.getKey();
+                if (rawKey == null) {
+                    continue;
+                }
+                String key = String.valueOf(rawKey).trim();
+                if (key.isBlank()) {
+                    continue;
+                }
+                Object child = sanitizeYamlValue(entry.getValue());
+                if (child != null) {
+                    sanitized.put(key, child);
+                }
+            }
+            return sanitized;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            List<Object> sanitized = new ArrayList<>();
+            for (Object item : iterable) {
+                Object child = sanitizeYamlValue(item);
+                if (child != null) {
+                    sanitized.add(child);
+                }
+            }
+            return sanitized;
+        }
+        if (value.getClass().isArray()) {
+            List<Object> sanitized = new ArrayList<>();
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                Object child = sanitizeYamlValue(java.lang.reflect.Array.get(value, i));
+                if (child != null) {
+                    sanitized.add(child);
+                }
+            }
+            return sanitized;
+        }
+        return String.valueOf(value);
     }
 
     private void sanitizeInfusionConfigBeforeSave() {
@@ -545,7 +658,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         // Automatically save names to config for the top system
-        config.set(event.getPlayer().getUniqueId().toString() + ".name", event.getPlayer().getName());
+        synchronized (configLock) {
+            config.set(event.getPlayer().getUniqueId().toString() + ".name", event.getPlayer().getName());
+        }
         loadPlayer(event.getPlayer().getUniqueId());
     }
 
@@ -564,11 +679,13 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     public void updateTop() {
         saveAll(); // Ensure memory is flushed to config first
         Map<String, Double> allTuVi = new HashMap<>();
-        
-        for (String key : config.getKeys(false)) {
-            double tuvi = config.getDouble(key + ".tuvi", 0.0);
-            String name = config.getString(key + ".name", "Unknown");
-            allTuVi.put(name, tuvi);
+
+        synchronized (configLock) {
+            for (String key : config.getKeys(false)) {
+                double tuvi = config.getDouble(key + ".tuvi", 0.0);
+                String name = config.getString(key + ".name", "Unknown");
+                allTuVi.put(name, tuvi);
+            }
         }
 
         topCache = allTuVi.entrySet().stream()
@@ -580,7 +697,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     public List<Map.Entry<String, Double>> getTopTuVi() {
         // Update top cache every 5 minutes max
         if (System.currentTimeMillis() - lastTopUpdate > 300000) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, this::updateTop);
+            if (Bukkit.isPrimaryThread()) {
+                updateTop();
+            } else {
+                Bukkit.getScheduler().runTask(plugin, this::updateTop);
+            }
         }
         if (topCache.isEmpty() && lastTopUpdate == 0) {
             updateTop(); // Initial synchronous update if empty

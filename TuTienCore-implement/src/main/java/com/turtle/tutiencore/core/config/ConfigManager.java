@@ -34,6 +34,9 @@ public class ConfigManager {
     private int offlineIntervalSeconds;
     private int offlineClaimX2Cost;
     private String offlinePermission;
+    private double offlineDefaultMultiplier;
+    private double offlinePermissionMultiplier;
+    private int offlineMaxHours;
 
     // Particles Settings
     private boolean sphereEnabled;
@@ -97,6 +100,9 @@ public class ConfigManager {
         offlineIntervalSeconds = Math.max(1, config.getInt("offline-tuluyen.interval-seconds", 60));
         offlineClaimX2Cost = config.getInt("offline-tuluyen.claim-x2-cost", 100);
         offlinePermission = config.getString("offline-tuluyen.permission", "tutiencore.tuluyen.vip");
+        offlineDefaultMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.default-multiplier", 0.5));
+        offlinePermissionMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.permission-multiplier", 1.0));
+        offlineMaxHours = Math.max(0, config.getInt("offline-tuluyen.max-offline-hours", 8));
 
         sphereEnabled = config.getBoolean("particles.sphere.enabled", true);
         sphereInterval = config.getInt("particles.sphere.interval", 5);
@@ -299,6 +305,18 @@ public class ConfigManager {
 
     public String getOfflinePermission() {
         return offlinePermission;
+    }
+
+    public double getOfflineDefaultMultiplier() {
+        return offlineDefaultMultiplier;
+    }
+
+    public double getOfflinePermissionMultiplier() {
+        return offlinePermissionMultiplier;
+    }
+
+    public int getOfflineMaxHours() {
+        return offlineMaxHours;
     }
 
     public Map<String, List<String>> getCommandAliases() {
