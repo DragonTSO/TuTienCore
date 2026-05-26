@@ -135,6 +135,7 @@ public class DeathTipManager implements Listener {
     private List<String> messageLines;
     private List<String> tips;
     private boolean cinematicTextEnabled;
+    private CinematicTextBedrockMode cinematicTextBedrockMode;
     private String cinematicTextTitle;
     private String cinematicTextSubtitle;
     private boolean cinematicTextWaitForPitch;
@@ -218,6 +219,7 @@ public class DeathTipManager implements Listener {
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
 
         cinematicTextEnabled = config.getBoolean(CONFIG_PATH + ".cinematic-text.enabled", true);
+        cinematicTextBedrockMode = parseCinematicTextBedrockMode(config.getString(CONFIG_PATH + ".cinematic-text.bedrock-mode", "TITLE"));
         cinematicTextTitle = config.getString(CONFIG_PATH + ".cinematic-text.title", "&c&lTrang bị chưa đủ mạnh");
         cinematicTextSubtitle = config.getString(CONFIG_PATH + ".cinematic-text.subtitle", "&7%tip%");
         cinematicTextWaitForPitch = config.getBoolean(CONFIG_PATH + ".cinematic-text.wait-for-pitch", true);
@@ -839,6 +841,20 @@ public class DeathTipManager implements Listener {
             return;
         }
 
+        if (isBedrockPlayer(player)) {
+            switch (cinematicTextBedrockMode) {
+                case OFF -> {
+                    debug(player, "Skipping cinematic text for Bedrock player.");
+                    return;
+                }
+                case TITLE -> {
+                    showBedrockCinematicTitle(player, pendingTip);
+                    return;
+                }
+                case CLIENTSIDE -> debug(player, "Using ProtocolLib clientside cinematic text for Bedrock player.");
+            }
+        }
+
         ClientsideCinematicText textDisplay = spawnClientsideCinematicText(
                 player,
                 initialLocation,
@@ -927,6 +943,18 @@ public class DeathTipManager implements Listener {
     private String cinematicTextSubtitleLine(Player player, PendingDeathTip pendingTip) {
         String formattedTip = replacePlaceholders(pendingTip.tip(), player, pendingTip);
         return color(replacePlaceholders(cinematicTextSubtitle, player, pendingTip).replace("%tip%", formattedTip));
+    }
+
+    private void showBedrockCinematicTitle(Player player, PendingDeathTip pendingTip) {
+        int stay = Math.max(1, safeTicksToInt(cinematicTextSubtitleIntroTicks + cinematicTextFadeDelayTicks + cinematicTextDurationTicks));
+        player.sendTitle(
+                cinematicTextTitleLine(player, pendingTip),
+                cinematicTextSubtitleLine(player, pendingTip),
+                titleFadeIn,
+                stay,
+                titleFadeOut
+        );
+        debug(player, "Using title fallback for Bedrock cinematic text.");
     }
 
     private Location computeCinematicTextLocation(Player player, Location cameraLocation, double yOffset) {
@@ -1379,6 +1407,17 @@ public class DeathTipManager implements Listener {
         }
     }
 
+    private CinematicTextBedrockMode parseCinematicTextBedrockMode(String modeName) {
+        if (modeName == null || modeName.isBlank()) {
+            return CinematicTextBedrockMode.TITLE;
+        }
+        try {
+            return CinematicTextBedrockMode.valueOf(modeName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return CinematicTextBedrockMode.TITLE;
+        }
+    }
+
     private Display.Billboard parseBillboard(String billboardName) {
         if (billboardName == null || billboardName.isBlank()) {
             return Display.Billboard.FIXED;
@@ -1407,6 +1446,43 @@ public class DeathTipManager implements Listener {
 
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private int safeTicksToInt(long ticks) {
+        if (ticks > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) Math.max(0L, ticks);
+    }
+
+    private boolean isBedrockPlayer(Player player) {
+        return isGeyserBedrockPlayer(player) || isFloodgatePlayer(player);
+    }
+
+    private boolean isGeyserBedrockPlayer(Player player) {
+        try {
+            Class<?> apiClass = Class.forName("org.geysermc.geyser.api.GeyserApi");
+            Object api = apiClass.getMethod("api").invoke(null);
+            Object result = apiClass.getMethod("isBedrockPlayer", UUID.class).invoke(api, player.getUniqueId());
+            return result instanceof Boolean bedrock && bedrock;
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    private boolean isFloodgatePlayer(Player player) {
+        try {
+            Class<?> apiClass = Class.forName("org.geysermc.floodgate.api.FloodgateApi");
+            Object api = apiClass.getMethod("getInstance").invoke(null);
+            Object result = apiClass.getMethod("isFloodgatePlayer", UUID.class).invoke(api, player.getUniqueId());
+            return result instanceof Boolean bedrock && bedrock;
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
+            return false;
+        }
     }
 
     private ClientsideCinematicText spawnClientsideCinematicText(Player player, Location titleLocation, Location subtitleLocation) {
@@ -1637,6 +1713,12 @@ public class DeathTipManager implements Listener {
     private enum CinematicMode {
         DISPLAY,
         PLAYER
+    }
+
+    private enum CinematicTextBedrockMode {
+        TITLE,
+        CLIENTSIDE,
+        OFF
     }
 
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
