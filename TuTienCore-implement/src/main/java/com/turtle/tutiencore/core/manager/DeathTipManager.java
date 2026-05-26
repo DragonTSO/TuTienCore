@@ -94,6 +94,7 @@ public class DeathTipManager implements Listener {
     private float cinematicStartPitch;
     private double cinematicPitchStepPerTick;
     private double cinematicPitchStepSeconds;
+    private double cinematicHeadJerkPitch;
     private boolean cinematicPitchUseRealtime;
     private long cinematicStepTicks;
     private int cinematicTeleportDuration;
@@ -181,6 +182,7 @@ public class DeathTipManager implements Listener {
         cinematicStartPitch = (float) config.getDouble(CONFIG_PATH + ".cinematic.start-pitch", 100.0);
         cinematicPitchStepPerTick = Math.max(0.0, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-per-tick", 0.1));
         cinematicPitchStepSeconds = Math.max(0.001D, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-seconds", 0.01D));
+        cinematicHeadJerkPitch = Math.max(0.0D, config.getDouble(CONFIG_PATH + ".cinematic.head-jerk-pitch", 2.0D));
         cinematicPitchUseRealtime = config.getBoolean(CONFIG_PATH + ".cinematic.pitch-use-realtime", true);
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
@@ -571,26 +573,58 @@ public class DeathTipManager implements Listener {
             return deathPitch;
         }
 
-        double pitch = cinematicStartPitch - (cinematicPitchStepPerTick * Math.max(0.0D, pitchSteps));
-        if (cinematicStartPitch >= deathPitch) {
-            return (float) Math.max(deathPitch, pitch);
+        double baseSteps = computeBasePitchSteps(deathPitch);
+        if (baseSteps <= 0.0D) {
+            return deathPitch;
         }
-        return deathPitch;
+
+        double steps = Math.max(0.0D, pitchSteps);
+        if (steps <= baseSteps) {
+            return (float) Math.max(deathPitch, cinematicStartPitch - (cinematicPitchStepPerTick * steps));
+        }
+
+        double jerkSteps = computeHeadJerkSteps();
+        if (jerkSteps <= 0.0D) {
+            return deathPitch;
+        }
+
+        double settleSteps = steps - baseSteps;
+        double jerkPitch = Math.min(cinematicHeadJerkPitch, cinematicPitchStepPerTick * settleSteps);
+        if (settleSteps <= jerkSteps) {
+            return (float) (deathPitch - jerkPitch);
+        }
+
+        double returnPitch = Math.min(cinematicHeadJerkPitch, cinematicPitchStepPerTick * (settleSteps - jerkSteps));
+        return (float) Math.min(deathPitch, (deathPitch - cinematicHeadJerkPitch) + returnPitch);
     }
 
     private long computePitchMotionTicks(float deathPitch) {
         if (cinematicPitchStepPerTick <= 0.0D) {
             return 0L;
         }
-        double distance = cinematicStartPitch - deathPitch;
-        if (distance <= 0.0D) {
+        double steps = computeBasePitchSteps(deathPitch);
+        if (steps <= 0.0D) {
             return 0L;
         }
-        double steps = distance / cinematicPitchStepPerTick;
+        steps += computeHeadJerkSteps() * 2.0D;
         if (cinematicPitchUseRealtime) {
             return (long) Math.ceil(steps * cinematicPitchStepSeconds * 20.0D);
         }
         return (long) Math.ceil(steps);
+    }
+
+    private double computeBasePitchSteps(float deathPitch) {
+        if (cinematicPitchStepPerTick <= 0.0D || cinematicStartPitch < deathPitch) {
+            return 0.0D;
+        }
+        return (cinematicStartPitch - deathPitch) / cinematicPitchStepPerTick;
+    }
+
+    private double computeHeadJerkSteps() {
+        if (cinematicPitchStepPerTick <= 0.0D || cinematicHeadJerkPitch <= 0.0D) {
+            return 0.0D;
+        }
+        return cinematicHeadJerkPitch / cinematicPitchStepPerTick;
     }
 
     private void faceLocation(Location cameraLocation, Location focusLocation) {

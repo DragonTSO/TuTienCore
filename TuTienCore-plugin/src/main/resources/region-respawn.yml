@@ -73,6 +73,9 @@ death-tips:
     pitch-step-per-tick: 0.1
     # 0.01 = cứ 0.01 giây thật sẽ trừ pitch-step-per-tick.
     pitch-step-seconds: 0.01
+    # Khi vừa tới hướng head/player, camera giật lên thêm từng này pitch rồi quay lại head.
+    # 0 = tắt hiệu ứng giật.
+    head-jerk-pitch: 2.0
     # true = tính pitch theo thời gian thật, TPS thấp vẫn giữ đúng tốc độ config.
     pitch-use-realtime: true
     step-ticks: 1
