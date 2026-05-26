@@ -167,6 +167,16 @@ public class DeathTipManager implements Listener {
     private boolean cinematicTextShadow;
     private boolean cinematicTextSeeThrough;
     private int cinematicTextBackgroundAlpha;
+    private boolean cinematicTextScreenBackgroundEnabled;
+    private String cinematicTextScreenBackgroundText;
+    private double cinematicTextScreenBackgroundDistanceOffset;
+    private double cinematicTextScreenBackgroundYOffset;
+    private float cinematicTextScreenBackgroundScale;
+    private int cinematicTextScreenBackgroundAlpha;
+    private int cinematicTextScreenBackgroundTextOpacity;
+    private int cinematicTextScreenBackgroundLineWidth;
+    private boolean cinematicTextScreenBackgroundShadow;
+    private boolean cinematicTextScreenBackgroundSeeThrough;
 
     public DeathTipManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -251,6 +261,21 @@ public class DeathTipManager implements Listener {
         cinematicTextShadow = config.getBoolean(CONFIG_PATH + ".cinematic-text.shadow", true);
         cinematicTextSeeThrough = config.getBoolean(CONFIG_PATH + ".cinematic-text.see-through", true);
         cinematicTextBackgroundAlpha = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.background-alpha", 0), 0, 255);
+        cinematicTextScreenBackgroundEnabled = config.getBoolean(CONFIG_PATH + ".cinematic-text.screen-background.enabled", true);
+        cinematicTextScreenBackgroundText = config.getString(CONFIG_PATH + ".cinematic-text.screen-background.text", null);
+        if (cinematicTextScreenBackgroundText == null || cinematicTextScreenBackgroundText.isBlank()) {
+            int columns = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.screen-background.columns", 80), 1, 240);
+            int rows = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.screen-background.rows", 18), 1, 80);
+            cinematicTextScreenBackgroundText = buildScreenBackgroundText(columns, rows);
+        }
+        cinematicTextScreenBackgroundDistanceOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.screen-background.distance-offset", 0.08D);
+        cinematicTextScreenBackgroundYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.screen-background.y-offset", 0.0D);
+        cinematicTextScreenBackgroundScale = (float) Math.max(0.05D, config.getDouble(CONFIG_PATH + ".cinematic-text.screen-background.scale", 1.0D));
+        cinematicTextScreenBackgroundAlpha = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.screen-background.alpha", 95), 0, 255);
+        cinematicTextScreenBackgroundTextOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.screen-background.text-opacity", 0), 0, 255);
+        cinematicTextScreenBackgroundLineWidth = Math.max(1, config.getInt(CONFIG_PATH + ".cinematic-text.screen-background.line-width", 2000));
+        cinematicTextScreenBackgroundShadow = config.getBoolean(CONFIG_PATH + ".cinematic-text.screen-background.shadow", false);
+        cinematicTextScreenBackgroundSeeThrough = config.getBoolean(CONFIG_PATH + ".cinematic-text.screen-background.see-through", true);
 
         anchorYOffset = config.getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
 
@@ -860,8 +885,10 @@ public class DeathTipManager implements Listener {
             }
         }
 
+        Location backgroundLocation = computeCinematicScreenBackgroundLocation(player, activeTip.cameraLocation());
         ClientsideCinematicText textDisplay = spawnClientsideCinematicText(
                 player,
+                backgroundLocation,
                 initialLocation,
                 computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextYOffset + cinematicTextSubtitleStartYOffset)
         );
@@ -926,17 +953,26 @@ public class DeathTipManager implements Listener {
                 + (cinematicTextRiseDistance * fadeProgress);
         double subtitleYOffset = cinematicTextYOffset + subtitleOffset;
         Location subtitleLocation = computeCinematicTextLocation(player, cameraLocation, subtitleYOffset);
+        Location backgroundLocation = computeCinematicScreenBackgroundLocation(player, cameraLocation);
+        int backgroundAlpha = cinematicTextScreenBackgroundAlpha(fadeProgress);
 
         return textDisplay.update(
                 player,
+                backgroundLocation,
+                cinematicTextScreenBackgroundText,
+                (byte) cinematicTextScreenBackgroundTextOpacity,
+                cinematicTextScreenBackgroundScale(),
+                cinematicTextScreenBackgroundStyle(backgroundAlpha),
                 titleLocation,
                 cinematicTextTitleLine(player, pendingTip),
                 cinematicTextOpacity(fadeProgress),
                 cinematicTextScale(),
+                cinematicTextStyle(),
                 subtitleLocation,
                 cinematicTextSubtitleLine(player, pendingTip),
                 cinematicTextSubtitleOpacity(introProgress, fadeProgress),
-                cinematicTextSubtitleScale()
+                cinematicTextSubtitleScale(),
+                cinematicTextStyle()
         );
     }
 
@@ -963,6 +999,19 @@ public class DeathTipManager implements Listener {
     }
 
     private Location computeCinematicTextLocation(Player player, Location cameraLocation, double yOffset) {
+        return computeCinematicTextLocation(player, cameraLocation, yOffset, cinematicTextDistance);
+    }
+
+    private Location computeCinematicScreenBackgroundLocation(Player player, Location cameraLocation) {
+        return computeCinematicTextLocation(
+                player,
+                cameraLocation,
+                cinematicTextYOffset + cinematicTextScreenBackgroundYOffset,
+                Math.max(0.1D, cinematicTextDistance + cinematicTextScreenBackgroundDistanceOffset)
+        );
+    }
+
+    private Location computeCinematicTextLocation(Player player, Location cameraLocation, double yOffset, double distance) {
         Location camera = currentTextCameraLocation(player, cameraLocation);
         if (camera == null || camera.getWorld() == null) {
             return cameraLocation;
@@ -976,7 +1025,7 @@ public class DeathTipManager implements Listener {
 
         Vector up = screenUp(forward);
         Location textLocation = camera.clone()
-                .add(forward.multiply(cinematicTextDistance))
+                .add(forward.multiply(distance))
                 .add(up.multiply(yOffset));
         textLocation.setYaw(camera.getYaw());
         textLocation.setPitch(camera.getPitch());
@@ -1020,6 +1069,14 @@ public class DeathTipManager implements Listener {
         return new Vector3f(cinematicTextSubtitleScale, cinematicTextSubtitleScale, cinematicTextSubtitleScale);
     }
 
+    private Vector3f cinematicTextScreenBackgroundScale() {
+        return new Vector3f(
+                cinematicTextScreenBackgroundScale,
+                cinematicTextScreenBackgroundScale,
+                cinematicTextScreenBackgroundScale
+        );
+    }
+
     private byte cinematicTextOpacity(double progress) {
         int opacity = clamp((int) Math.round(cinematicTextStartOpacity
                 + ((cinematicTextEndOpacity - cinematicTextStartOpacity) * progress)), 0, 255);
@@ -1035,6 +1092,10 @@ public class DeathTipManager implements Listener {
         int fadeOpacity = clamp((int) Math.round(cinematicTextStartOpacity
                 + ((cinematicTextEndOpacity - cinematicTextStartOpacity) * fadeProgress)), 0, 255);
         return (byte) fadeOpacity;
+    }
+
+    private int cinematicTextScreenBackgroundAlpha(double fadeProgress) {
+        return clamp((int) Math.round(cinematicTextScreenBackgroundAlpha * (1.0D - fadeProgress)), 0, 255);
     }
 
     private void startSpectatorTargetWarmup(UUID uuid) {
@@ -1490,13 +1551,15 @@ public class DeathTipManager implements Listener {
         }
     }
 
-    private ClientsideCinematicText spawnClientsideCinematicText(Player player, Location titleLocation, Location subtitleLocation) {
+    private ClientsideCinematicText spawnClientsideCinematicText(Player player, Location backgroundLocation,
+                                                                 Location titleLocation, Location subtitleLocation) {
         ClientsideCinematicText text = new ClientsideCinematicText(
                 player.getUniqueId(),
+                cinematicTextScreenBackgroundEnabled ? new ClientsideTextDisplay(nextFakeEntityId(), UUID.randomUUID()) : null,
                 new ClientsideTextDisplay(nextFakeEntityId(), UUID.randomUUID()),
                 new ClientsideTextDisplay(nextFakeEntityId(), UUID.randomUUID())
         );
-        if (!text.spawn(player, titleLocation, subtitleLocation)) {
+        if (!text.spawn(player, backgroundLocation, titleLocation, subtitleLocation)) {
             text.destroy();
             return null;
         }
@@ -1539,10 +1602,6 @@ public class DeathTipManager implements Listener {
         return new Vector3d(location.getX(), location.getY(), location.getZ());
     }
 
-    private int cinematicTextBackgroundColor() {
-        return (cinematicTextBackgroundAlpha << 24);
-    }
-
     private byte cinematicTextStyleFlags() {
         byte flags = 0;
         if (cinematicTextShadow) {
@@ -1554,37 +1613,96 @@ public class DeathTipManager implements Listener {
         return flags;
     }
 
+    private CinematicTextDisplayStyle cinematicTextStyle() {
+        return new CinematicTextDisplayStyle(
+                cinematicTextLineWidth,
+                cinematicTextBackgroundAlpha,
+                cinematicTextStyleFlags()
+        );
+    }
+
+    private CinematicTextDisplayStyle cinematicTextScreenBackgroundStyle(int backgroundAlpha) {
+        byte flags = 0;
+        if (cinematicTextScreenBackgroundShadow) {
+            flags |= 0x01;
+        }
+        if (cinematicTextScreenBackgroundSeeThrough) {
+            flags |= 0x02;
+        }
+        return new CinematicTextDisplayStyle(
+                cinematicTextScreenBackgroundLineWidth,
+                backgroundAlpha,
+                flags
+        );
+    }
+
+    private String buildScreenBackgroundText(int columns, int rows) {
+        String line = Character.toString('\u00A0').repeat(columns);
+        StringBuilder builder = new StringBuilder((columns + 1) * rows);
+        for (int row = 0; row < rows; row++) {
+            if (row > 0) {
+                builder.append('\n');
+            }
+            builder.append(line);
+        }
+        return builder.toString();
+    }
+
     private final class ClientsideCinematicText {
         private final UUID viewerUuid;
+        private final ClientsideTextDisplay background;
         private final ClientsideTextDisplay title;
         private final ClientsideTextDisplay subtitle;
         private boolean active;
 
-        private ClientsideCinematicText(UUID viewerUuid, ClientsideTextDisplay title, ClientsideTextDisplay subtitle) {
+        private ClientsideCinematicText(UUID viewerUuid, ClientsideTextDisplay background,
+                                        ClientsideTextDisplay title, ClientsideTextDisplay subtitle) {
             this.viewerUuid = viewerUuid;
+            this.background = background;
             this.title = title;
             this.subtitle = subtitle;
         }
 
-        private boolean spawn(Player viewer, Location titleLocation, Location subtitleLocation) {
-            active = title.spawn(viewer, titleLocation) && subtitle.spawn(viewer, subtitleLocation);
+        private boolean spawn(Player viewer, Location backgroundLocation, Location titleLocation, Location subtitleLocation) {
+            if (background != null) {
+                background.spawn(
+                        viewer,
+                        backgroundLocation,
+                        cinematicTextScreenBackgroundText,
+                        (byte) cinematicTextScreenBackgroundTextOpacity,
+                        cinematicTextScreenBackgroundScale(),
+                        cinematicTextScreenBackgroundStyle(cinematicTextScreenBackgroundAlpha)
+                );
+            }
+            active = title.spawn(viewer, titleLocation, cinematicTextStyle())
+                    && subtitle.spawn(viewer, subtitleLocation, cinematicTextStyle());
             return active;
         }
 
         private boolean update(Player viewer,
+                               Location backgroundLocation,
+                               String backgroundText,
+                               byte backgroundOpacity,
+                               Vector3f backgroundScale,
+                               CinematicTextDisplayStyle backgroundStyle,
                                Location titleLocation,
                                String titleText,
                                byte titleOpacity,
                                Vector3f titleScale,
+                               CinematicTextDisplayStyle titleStyle,
                                Location subtitleLocation,
                                String subtitleText,
                                byte subtitleOpacity,
-                               Vector3f subtitleScale) {
+                               Vector3f subtitleScale,
+                               CinematicTextDisplayStyle subtitleStyle) {
             if (!active || !viewer.getUniqueId().equals(viewerUuid)) {
                 return false;
             }
-            boolean titleUpdated = title.update(viewer, titleLocation, titleText, titleOpacity, titleScale);
-            boolean subtitleUpdated = subtitle.update(viewer, subtitleLocation, subtitleText, subtitleOpacity, subtitleScale);
+            if (background != null) {
+                background.update(viewer, backgroundLocation, backgroundText, backgroundOpacity, backgroundScale, backgroundStyle);
+            }
+            boolean titleUpdated = title.update(viewer, titleLocation, titleText, titleOpacity, titleScale, titleStyle);
+            boolean subtitleUpdated = subtitle.update(viewer, subtitleLocation, subtitleText, subtitleOpacity, subtitleScale, subtitleStyle);
             active = titleUpdated && subtitleUpdated;
             return active;
         }
@@ -1600,7 +1718,11 @@ public class DeathTipManager implements Listener {
                 return;
             }
 
-            sendPacket(viewer, new WrapperPlayServerDestroyEntities(title.entityId(), subtitle.entityId()));
+            if (background == null) {
+                sendPacket(viewer, new WrapperPlayServerDestroyEntities(title.entityId(), subtitle.entityId()));
+            } else {
+                sendPacket(viewer, new WrapperPlayServerDestroyEntities(background.entityId(), title.entityId(), subtitle.entityId()));
+            }
         }
     }
 
@@ -1617,7 +1739,12 @@ public class DeathTipManager implements Listener {
             return entityId;
         }
 
-        private boolean spawn(Player viewer, Location location) {
+        private boolean spawn(Player viewer, Location location, CinematicTextDisplayStyle style) {
+            return spawn(viewer, location, "", (byte) 0, new Vector3f(cinematicTextStartScale), style);
+        }
+
+        private boolean spawn(Player viewer, Location location, String text, byte opacity, Vector3f scale,
+                              CinematicTextDisplayStyle style) {
             if (location == null || location.getWorld() == null) {
                 return false;
             }
@@ -1635,11 +1762,12 @@ public class DeathTipManager implements Listener {
             ))) {
                 return false;
             }
-            return update(viewer, location, "", (byte) 0, new Vector3f(cinematicTextStartScale));
+            return update(viewer, location, text, opacity, scale, style);
         }
 
-        private boolean update(Player viewer, Location location, String text, byte opacity, Vector3f scale) {
-            return teleport(viewer, location) && metadata(viewer, text, opacity, scale);
+        private boolean update(Player viewer, Location location, String text, byte opacity, Vector3f scale,
+                               CinematicTextDisplayStyle style) {
+            return teleport(viewer, location) && metadata(viewer, text, opacity, scale, style);
         }
 
         private boolean teleport(Player viewer, Location location) {
@@ -1656,7 +1784,7 @@ public class DeathTipManager implements Listener {
             ));
         }
 
-        private boolean metadata(Player viewer, String text, byte opacity, Vector3f scale) {
+        private boolean metadata(Player viewer, String text, byte opacity, Vector3f scale, CinematicTextDisplayStyle style) {
             List<EntityData<?>> metadata = new java.util.ArrayList<>();
             metadata.add(new EntityData<>(5, EntityDataTypes.BOOLEAN, true));
             metadata.add(new EntityData<>(8, EntityDataTypes.INT, 0));
@@ -1671,11 +1799,17 @@ public class DeathTipManager implements Listener {
             metadata.add(new EntityData<>(20, EntityDataTypes.FLOAT, 1.0F));
             metadata.add(new EntityData<>(21, EntityDataTypes.FLOAT, 0.5F));
             metadata.add(new EntityData<>(23, EntityDataTypes.ADV_COMPONENT, LegacyComponentSerializer.legacySection().deserialize(text == null ? "" : text)));
-            metadata.add(new EntityData<>(24, EntityDataTypes.INT, cinematicTextLineWidth));
-            metadata.add(new EntityData<>(25, EntityDataTypes.INT, cinematicTextBackgroundColor()));
+            metadata.add(new EntityData<>(24, EntityDataTypes.INT, style.lineWidth()));
+            metadata.add(new EntityData<>(25, EntityDataTypes.INT, style.backgroundColor()));
             metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, opacity));
-            metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, cinematicTextStyleFlags()));
+            metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, style.flags()));
             return sendPacket(viewer, new WrapperPlayServerEntityMetadata(entityId, metadata));
+        }
+    }
+
+    private record CinematicTextDisplayStyle(int lineWidth, int backgroundAlpha, byte flags) {
+        private int backgroundColor() {
+            return backgroundAlpha << 24;
         }
     }
 
