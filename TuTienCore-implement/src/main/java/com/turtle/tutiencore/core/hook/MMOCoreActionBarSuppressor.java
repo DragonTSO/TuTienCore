@@ -8,6 +8,7 @@ import com.comphenix.protocol.events.PacketListener;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -36,11 +37,20 @@ public class MMOCoreActionBarSuppressor {
             @Override
             public void onPacketSending(PacketEvent event) {
                 Player player = event.getPlayer();
-                if (player == null || !tuLuyenManager.isTuLuyen(player)) {
+                if (player == null) {
                     return;
                 }
 
                 if (!isActionBarPacket(event)) {
+                    return;
+                }
+
+                if (shouldSuppressCinematicUi(player)) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                if (!tuLuyenManager.isTuLuyen(player)) {
                     return;
                 }
 
@@ -102,5 +112,9 @@ public class MMOCoreActionBarSuppressor {
     private boolean consumeBypass(UUID uuid) {
         Long expiresAt = actionBarBypassUntil.remove(uuid);
         return expiresAt != null && expiresAt >= System.currentTimeMillis();
+    }
+
+    private boolean shouldSuppressCinematicUi(Player player) {
+        return player.getGameMode() == GameMode.SPECTATOR;
     }
 }

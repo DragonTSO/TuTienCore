@@ -13,6 +13,7 @@ import com.turtle.tutiencore.api.realm.SubRealm;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -79,6 +80,10 @@ public class TuLuyenManager implements Listener {
                 for (Map.Entry<UUID, ArmorStand> entry : tuLuyenPlayers.entrySet()) {
                     Player player = Bukkit.getPlayer(entry.getKey());
                     if (player == null || !player.isOnline()) continue;
+                    if (shouldSuppressCinematicUi(player)) {
+                        hideBossBar(player);
+                        continue;
+                    }
 
                     long tick = sessionTicks.merge(player.getUniqueId(), 1L, Long::sum);
                     TuLuyenReward previewReward = calculateReward(player, false);
@@ -120,7 +125,7 @@ public class TuLuyenManager implements Listener {
                     }
                     playIntervalResetSound(player);
                     
-                    if (!configManager.getMsgReceived().isEmpty()) {
+                    if (!configManager.getMsgReceived().isEmpty() && !shouldSuppressCinematicUi(player)) {
                         String msg = "§6✦ " + configManager.getMsgReceived()
                                 .replace("%points%", String.valueOf((int) finalAmount));
                         if (reward.bonusPercent > 0) {
@@ -599,7 +604,9 @@ public class TuLuyenManager implements Listener {
     private void createVisuals(Player player) {
         if (plugin.getConfig().getBoolean("tu-luyen.bossbar.enabled", true)) {
             BossBar bossBar = Bukkit.createBossBar("", getBossBarColor(), getBossBarStyle());
-            bossBar.addPlayer(player);
+            if (!shouldSuppressCinematicUi(player)) {
+                bossBar.addPlayer(player);
+            }
             bossBar.setVisible(true);
             bossBars.put(player.getUniqueId(), bossBar);
         }
@@ -617,6 +624,11 @@ public class TuLuyenManager implements Listener {
 
         BossBar bossBar = bossBars.get(uuid);
         if (bossBar != null) {
+            if (shouldSuppressCinematicUi(player)) {
+                bossBar.removePlayer(player);
+            } else if (!bossBar.getPlayers().contains(player)) {
+                bossBar.addPlayer(player);
+            }
             bossBar.setTitle(applyRewardPlaceholders(player, plugin.getConfig().getString("tu-luyen.bossbar.title",
                     "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Nhập Thần {infusion}% &7= &6{total}"), reward));
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
@@ -897,6 +909,17 @@ public class TuLuyenManager implements Listener {
 
         Object hologram = holograms.remove(uuid);
         if (hologram != null) removeFancyHologram(hologram);
+    }
+
+    private void hideBossBar(Player player) {
+        BossBar bossBar = bossBars.get(player.getUniqueId());
+        if (bossBar != null) {
+            bossBar.removePlayer(player);
+        }
+    }
+
+    private boolean shouldSuppressCinematicUi(Player player) {
+        return player != null && player.getGameMode() == GameMode.SPECTATOR;
     }
 
     private String applyRewardPlaceholders(String text, TuLuyenReward reward) {

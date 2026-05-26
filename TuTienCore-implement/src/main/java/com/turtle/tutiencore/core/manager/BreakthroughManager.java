@@ -352,11 +352,13 @@ public class BreakthroughManager implements Listener {
                     int boltNumber = session.totalBolts - session.boltsRemaining;
                     double currentDmg = calculateDamage(player, session);
                     // Show action bar progress
-                    player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                    if (!shouldSuppressCinematicUi(player)) {
+                        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
                             net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
                                     "§c⚡ Tia sét " + boltNumber + "/" + session.totalBolts 
                                     + " §7| §c" + String.format("%.1f", currentDmg) + " ❤ DMG"
                                     + " §7| §bLv." + session.currentLevitationLevel));
+                    }
 
                 } else {
                     // All bolts survived → SUCCESS
@@ -369,6 +371,10 @@ public class BreakthroughManager implements Listener {
         };
 
         session.task.runTaskTimer(plugin, 0L, intervalTicks);
+    }
+
+    private boolean shouldSuppressCinematicUi(Player player) {
+        return player != null && player.getGameMode() == GameMode.SPECTATOR;
     }
 
     /**
