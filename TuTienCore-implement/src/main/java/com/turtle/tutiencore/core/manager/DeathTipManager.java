@@ -4,6 +4,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
@@ -11,11 +12,14 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Villager;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -32,7 +36,10 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.io.File;
 import java.util.HashMap;
@@ -84,6 +91,12 @@ public class DeathTipManager implements Listener {
     private int cinematicTeleportDuration;
     private int cinematicInterpolationDuration;
     private List<Long> cinematicTargetRetryTicks;
+    private boolean deathHeadEnabled;
+    private double deathHeadYOffset;
+    private float deathHeadScale;
+    private int deathHeadLight;
+    private String deathHeadBillboard;
+    private String deathHeadTransform;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -142,6 +155,12 @@ public class DeathTipManager implements Listener {
         if (cinematicTargetRetryTicks.isEmpty()) {
             cinematicTargetRetryTicks = List.of(1L, 3L, 6L, 10L);
         }
+        deathHeadEnabled = config.getBoolean(CONFIG_PATH + ".death-head.enabled", true);
+        deathHeadYOffset = config.getDouble(CONFIG_PATH + ".death-head.y-offset", 0.25);
+        deathHeadScale = (float) Math.max(0.1, config.getDouble(CONFIG_PATH + ".death-head.scale", 0.85));
+        deathHeadLight = Math.max(0, Math.min(15, config.getInt(CONFIG_PATH + ".death-head.light", 15)));
+        deathHeadBillboard = config.getString(CONFIG_PATH + ".death-head.billboard", "FIXED");
+        deathHeadTransform = config.getString(CONFIG_PATH + ".death-head.transform", "HEAD");
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -353,6 +372,11 @@ public class DeathTipManager implements Listener {
         } else {
             debug(player, "Using fixed spectator camera at " + formatLocation(cameraLocation) + ".");
         }
+        Entity deathHead = deathHeadEnabled ? spawnDeathHead(player, tip.deathLocation()) : null;
+        if (deathHead != null) {
+            debug(player, "Spawned death head " + deathHead.getUniqueId()
+                    + " at " + formatLocation(deathHead.getLocation()) + ".");
+        }
 
         GameMode restoreMode = tip.previousGameMode();
         try {
@@ -366,6 +390,9 @@ public class DeathTipManager implements Listener {
             plugin.getLogger().warning("Could not start death tip spectator view for " + player.getName() + ": " + exception.getMessage());
             if (anchor != null) {
                 anchor.remove();
+            }
+            if (deathHead != null) {
+                deathHead.remove();
             }
             showTip(player, tip);
             return;
@@ -382,7 +409,8 @@ public class DeathTipManager implements Listener {
                 restoreTask,
                 cameraLocation,
                 focusLocation,
-                tip.deathLocation().getYaw()
+                tip.deathLocation().getYaw(),
+                deathHead
         ));
         if (cinematicEnabled) {
             startCinematicCamera(player.getUniqueId());
@@ -721,6 +749,38 @@ public class DeathTipManager implements Listener {
         });
     }
 
+    private Entity spawnDeathHead(Player player, Location deathLocation) {
+        World world = deathLocation.getWorld();
+        if (world == null) {
+            return null;
+        }
+
+        Location headLocation = deathLocation.clone();
+        headLocation.setY(headLocation.getY() + deathHeadYOffset);
+
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        if (head.getItemMeta() instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(player);
+            head.setItemMeta(skullMeta);
+        }
+
+        return world.spawn(headLocation, ItemDisplay.class, display -> {
+            display.setItemStack(head);
+            display.setPersistent(false);
+            display.setInvulnerable(true);
+            display.setBrightness(new Display.Brightness(deathHeadLight, deathHeadLight));
+            display.setTransformation(new Transformation(
+                    new Vector3f(),
+                    new Quaternionf(),
+                    new Vector3f(deathHeadScale, deathHeadScale, deathHeadScale),
+                    new Quaternionf()
+            ));
+            display.setBillboard(parseBillboard(deathHeadBillboard));
+            display.setItemDisplayTransform(parseItemDisplayTransform(deathHeadTransform));
+            display.addScoreboardTag(VIEW_TAG);
+        });
+    }
+
     private void applyDisplayCameraDurations(Entity entity) {
         if (entity instanceof Display display) {
             display.setTeleportDuration(cinematicTeleportDuration);
@@ -808,6 +868,9 @@ public class DeathTipManager implements Listener {
         if (tip.anchor() != null && !tip.anchor().isDead()) {
             tip.anchor().remove();
         }
+        if (tip.deathHead() != null && !tip.deathHead().isDead()) {
+            tip.deathHead().remove();
+        }
     }
 
     private LivingEntity getMobKiller(Player player) {
@@ -890,6 +953,28 @@ public class DeathTipManager implements Listener {
         }
     }
 
+    private Display.Billboard parseBillboard(String billboardName) {
+        if (billboardName == null || billboardName.isBlank()) {
+            return Display.Billboard.FIXED;
+        }
+        try {
+            return Display.Billboard.valueOf(billboardName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return Display.Billboard.FIXED;
+        }
+    }
+
+    private ItemDisplay.ItemDisplayTransform parseItemDisplayTransform(String transformName) {
+        if (transformName == null || transformName.isBlank()) {
+            return ItemDisplay.ItemDisplayTransform.HEAD;
+        }
+        try {
+            return ItemDisplay.ItemDisplayTransform.valueOf(transformName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return ItemDisplay.ItemDisplayTransform.HEAD;
+        }
+    }
+
     private String color(String text) {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
     }
@@ -922,6 +1007,6 @@ public class DeathTipManager implements Listener {
     }
 
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
-                                  Location cameraLocation, Location focusLocation, float deathYaw) {
+                                  Location cameraLocation, Location focusLocation, float deathYaw, Entity deathHead) {
     }
 }
