@@ -217,8 +217,8 @@ public class DeathTipManager implements Listener {
         cinematicTextDistance = Math.max(0.1, config.getDouble(CONFIG_PATH + ".cinematic-text.distance", 2.4));
         cinematicTextYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.y-offset", -0.05);
         cinematicTextRiseDistance = config.getDouble(CONFIG_PATH + ".cinematic-text.rise-distance", 0.55);
-        cinematicTextSubtitleStartYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-start-y-offset", cinematicTextYOffset - 0.55D);
-        cinematicTextSubtitleEndYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-end-y-offset", cinematicTextYOffset - 0.24D);
+        cinematicTextSubtitleStartYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-start-y-offset", -0.55D);
+        cinematicTextSubtitleEndYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-end-y-offset", -0.24D);
         cinematicTextStartScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.start-scale", 0.9));
         cinematicTextStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.start-opacity", 230), 0, 255);
         cinematicTextSubtitleStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.subtitle-start-opacity", 0), 0, 255);
@@ -823,7 +823,7 @@ public class DeathTipManager implements Listener {
         TextDisplay titleDisplay = spawnCinematicTextDisplay(world, initialLocation);
         TextDisplay subtitleDisplay = spawnCinematicTextDisplay(
                 world,
-                computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextSubtitleStartYOffset)
+                computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextYOffset + cinematicTextSubtitleStartYOffset)
         );
 
         for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
@@ -913,9 +913,10 @@ public class DeathTipManager implements Listener {
                 cinematicTextScale(),
                 new Quaternionf()
         ));
-        double subtitleYOffset = cinematicTextSubtitleStartYOffset
+        double subtitleOffset = cinematicTextSubtitleStartYOffset
                 + ((cinematicTextSubtitleEndYOffset - cinematicTextSubtitleStartYOffset) * introProgress)
                 + (cinematicTextRiseDistance * fadeProgress);
+        double subtitleYOffset = cinematicTextYOffset + subtitleOffset;
         subtitleDisplay.teleport(computeCinematicTextLocation(player, cameraLocation, subtitleYOffset));
     }
 
