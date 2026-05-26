@@ -5,6 +5,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.io.File;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +31,8 @@ public class RegionRespawnManager implements Listener {
     private final JavaPlugin plugin;
     private final ZoneManager zoneManager;
     private final ConcurrentMap<UUID, Location> lastDeathLocations = new ConcurrentHashMap<>();
+    private File configFile;
+    private FileConfiguration config;
 
     private boolean enabled;
     private String checkLocationMode;
@@ -41,13 +46,22 @@ public class RegionRespawnManager implements Listener {
     }
 
     public void reload() {
-        enabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".enabled", false);
-        checkLocationMode = plugin.getConfig().getString(CONFIG_PATH + ".check-location", "death");
+        loadConfigFile();
+        enabled = config.getBoolean("enabled", false);
+        checkLocationMode = config.getString("check-location", "death");
         if (checkLocationMode == null || checkLocationMode.isBlank()) {
             checkLocationMode = "death";
         }
         checkLocationMode = checkLocationMode.trim().toLowerCase(Locale.ROOT);
-        debug = plugin.getConfig().getBoolean(CONFIG_PATH + ".debug", false);
+        debug = config.getBoolean("debug", false);
+    }
+
+    private void loadConfigFile() {
+        configFile = new File(plugin.getDataFolder(), "region-respawn.yml");
+        if (!configFile.exists()) {
+            plugin.saveResource("region-respawn.yml", false);
+        }
+        config = YamlConfiguration.loadConfiguration(configFile);
     }
 
     public void stop() {
@@ -95,7 +109,7 @@ public class RegionRespawnManager implements Listener {
             return null;
         }
 
-        ConfigurationSection regions = plugin.getConfig().getConfigurationSection(CONFIG_PATH + ".regions");
+        ConfigurationSection regions = config.getConfigurationSection("regions");
         if (regions == null) {
             return null;
         }
