@@ -186,7 +186,7 @@ public class DeathTipManager implements Listener {
         cinematicStartPitch = (float) config.getDouble(CONFIG_PATH + ".cinematic.start-pitch", 100.0);
         cinematicPitchStepPerTick = Math.max(0.0, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-per-tick", 0.1));
         cinematicPitchStepSeconds = Math.max(0.001D, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-seconds", 0.01D));
-        cinematicHeadJerkPitch = Math.max(0.0D, config.getDouble(CONFIG_PATH + ".cinematic.head-jerk-pitch", 2.0D));
+        cinematicHeadJerkPitch = Math.max(0.0D, config.getDouble(CONFIG_PATH + ".cinematic.head-jerk-pitch", 0.0D));
         cinematicPitchUseRealtime = config.getBoolean(CONFIG_PATH + ".cinematic.pitch-use-realtime", true);
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
@@ -426,7 +426,7 @@ public class DeathTipManager implements Listener {
 
         Location focusLocation = createFocusLocation(tip.deathLocation());
         Location cameraLocation = cinematicEnabled
-                ? computeCinematicCameraLocation(focusLocation, tip.deathLocation().getYaw(), tip.deathLocation().getPitch(), 0.0D, 0.0D)
+                ? computeCinematicCameraLocation(focusLocation, tip.deathLocation().getYaw(), 0.0D, 0.0D)
                 : tip.deathLocation().clone();
         Entity anchor = createCameraAnchor(cameraLocation);
         if (shouldUseCameraAnchor() && anchor == null) {
@@ -468,7 +468,7 @@ public class DeathTipManager implements Listener {
         }
 
         showTip(player, tip);
-        long pitchMotionTicks = cinematicEnabled ? computePitchMotionTicks(tip.deathLocation().getPitch()) : 0L;
+        long pitchMotionTicks = cinematicEnabled ? computePitchMotionTicks(computeCinematicTargetPitch(focusLocation, tip.deathLocation().getYaw())) : 0L;
         long textStartDelayTicks = cinematicTextEnabled && cinematicTextWaitForPitch ? pitchMotionTicks : 0L;
         long totalViewTicks = Math.max(viewDurationTicks,
                 textStartDelayTicks + (cinematicTextEnabled ? cinematicTextTotalTicks() : 0L));
@@ -556,7 +556,7 @@ public class DeathTipManager implements Listener {
         return focus;
     }
 
-    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, float deathPitch,
+    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw,
                                                     double elapsedSeconds, double pitchSteps) {
         double angleDegrees = deathYaw + cinematicStartAngleDegrees;
         if (cinematicRotateAround) {
@@ -571,9 +571,15 @@ public class DeathTipManager implements Listener {
                 focusLocation.getY() + cinematicHeight,
                 focusLocation.getZ() + z
         );
-        camera.setYaw(deathYaw);
-        camera.setPitch(computeCinematicPitch(deathPitch, pitchSteps));
+        faceLocation(camera, focusLocation);
+        float targetPitch = camera.getPitch();
+        camera.setPitch(computeCinematicPitch(targetPitch, pitchSteps));
         return camera;
+    }
+
+    private float computeCinematicTargetPitch(Location focusLocation, float deathYaw) {
+        Location camera = computeCinematicCameraLocation(focusLocation, deathYaw, 0.0D, Double.MAX_VALUE);
+        return camera.getPitch();
     }
 
     private float computeCinematicPitch(float deathPitch, double pitchSteps) {
@@ -715,7 +721,6 @@ public class DeathTipManager implements Listener {
                 Location nextCameraLocation = computeCinematicCameraLocation(
                         tip.focusLocation(),
                         tip.deathYaw(),
-                        tip.deathPitch(),
                         elapsedSeconds,
                         pitchSteps
                 );
