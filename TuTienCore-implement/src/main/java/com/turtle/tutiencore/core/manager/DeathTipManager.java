@@ -123,6 +123,7 @@ public class DeathTipManager implements Listener {
     private String cinematicTextSubtitle;
     private long cinematicTextDurationTicks;
     private long cinematicTextUpdateIntervalTicks;
+    private boolean cinematicTextFollowPlayerCamera;
     private double cinematicTextDistance;
     private double cinematicTextYOffset;
     private double cinematicTextRiseDistance;
@@ -191,7 +192,8 @@ public class DeathTipManager implements Listener {
         cinematicTextTitle = config.getString(CONFIG_PATH + ".cinematic-text.title", "&c&lTrang bị chưa đủ mạnh");
         cinematicTextSubtitle = config.getString(CONFIG_PATH + ".cinematic-text.subtitle", "&7%tip%");
         cinematicTextDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.duration-ticks", viewDurationTicks));
-        cinematicTextUpdateIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.update-interval-ticks", 2L));
+        cinematicTextUpdateIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.update-interval-ticks", 1L));
+        cinematicTextFollowPlayerCamera = config.getBoolean(CONFIG_PATH + ".cinematic-text.follow-player-camera", true);
         cinematicTextDistance = Math.max(0.1, config.getDouble(CONFIG_PATH + ".cinematic-text.distance", 2.4));
         cinematicTextYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.y-offset", -0.05);
         cinematicTextRiseDistance = config.getDouble(CONFIG_PATH + ".cinematic-text.rise-distance", 0.55);
@@ -199,8 +201,8 @@ public class DeathTipManager implements Listener {
         cinematicTextEndScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.end-scale", 0.55));
         cinematicTextStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.start-opacity", 230), 0, 255);
         cinematicTextEndOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.end-opacity", 0), 0, 255);
-        cinematicTextTeleportDuration = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.teleport-duration", cinematicTeleportDuration), 0, 59);
-        cinematicTextInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic-text.interpolation-duration", cinematicInterpolationDuration));
+        cinematicTextTeleportDuration = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.teleport-duration", 1), 0, 59);
+        cinematicTextInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic-text.interpolation-duration", 1));
         cinematicTextLineWidth = Math.max(1, config.getInt(CONFIG_PATH + ".cinematic-text.line-width", 260));
         cinematicTextViewRange = (float) Math.max(0.1, config.getDouble(CONFIG_PATH + ".cinematic-text.view-range", 8.0));
         cinematicTextShadow = config.getBoolean(CONFIG_PATH + ".cinematic-text.shadow", true);
@@ -650,7 +652,7 @@ public class DeathTipManager implements Listener {
 
         clearCinematicText(uuid);
 
-        Location initialLocation = computeCinematicTextLocation(activeTip.cameraLocation(), 0.0D);
+        Location initialLocation = computeCinematicTextLocation(player, activeTip.cameraLocation(), 0.0D);
         World world = initialLocation.getWorld();
         if (world == null) {
             return;
@@ -714,7 +716,7 @@ public class DeathTipManager implements Listener {
                 cinematicTextScale(progress),
                 new Quaternionf()
         ));
-        display.teleport(computeCinematicTextLocation(cameraLocation, progress));
+        display.teleport(computeCinematicTextLocation(player, cameraLocation, progress));
     }
 
     private String cinematicText(Player player, PendingDeathTip pendingTip) {
@@ -724,8 +726,8 @@ public class DeathTipManager implements Listener {
         return color(title) + "\n" + color(subtitle);
     }
 
-    private Location computeCinematicTextLocation(Location cameraLocation, double progress) {
-        Location camera = cameraLocation == null ? null : cameraLocation.clone();
+    private Location computeCinematicTextLocation(Player player, Location cameraLocation, double progress) {
+        Location camera = currentTextCameraLocation(player, cameraLocation);
         if (camera == null || camera.getWorld() == null) {
             return cameraLocation;
         }
@@ -743,6 +745,16 @@ public class DeathTipManager implements Listener {
         textLocation.setYaw(camera.getYaw());
         textLocation.setPitch(camera.getPitch());
         return textLocation;
+    }
+
+    private Location currentTextCameraLocation(Player player, Location fallbackCameraLocation) {
+        if (cinematicTextFollowPlayerCamera && player != null && player.isOnline()) {
+            Location eyeLocation = player.getEyeLocation();
+            if (eyeLocation != null && eyeLocation.getWorld() != null) {
+                return eyeLocation.clone();
+            }
+        }
+        return fallbackCameraLocation == null ? null : fallbackCameraLocation.clone();
     }
 
     private Vector screenUp(Vector forward) {

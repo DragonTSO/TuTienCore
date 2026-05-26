@@ -84,7 +84,9 @@ death-tips:
     title: "&c&lTrang bi chua du manh"
     subtitle: "&7%tip%"
     duration-ticks: 80
-    update-interval-ticks: 2
+    update-interval-ticks: 1
+    # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
+    follow-player-camera: true
     distance: 2.4
     y-offset: -0.05
     rise-distance: 0.55
@@ -92,8 +94,8 @@ death-tips:
     end-scale: 0.55
     start-opacity: 230
     end-opacity: 0
-    teleport-duration: 2
-    interpolation-duration: 2
+    teleport-duration: 1
+    interpolation-duration: 1
     line-width: 260
     view-range: 8.0
     shadow: true
