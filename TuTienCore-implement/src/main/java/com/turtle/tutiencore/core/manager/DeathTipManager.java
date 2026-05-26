@@ -1,12 +1,18 @@
 package com.turtle.tutiencore.core.manager;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.WrappedChatComponent;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
+import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.util.Quaternion4f;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
+import io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
@@ -54,6 +60,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -64,9 +71,9 @@ public class DeathTipManager implements Listener {
     private static final String CONFIG_PATH = "death-tips";
     private static final String VIEW_TAG = "tutiencore_death_tip_view";
     private static final AtomicInteger FAKE_ENTITY_IDS = new AtomicInteger(2_000_000_000);
+    private static final Quaternion4f PACKET_IDENTITY_ROTATION = new Quaternion4f(0.0F, 0.0F, 0.0F, 1.0F);
 
     private final JavaPlugin plugin;
-    private final ProtocolManager protocolManager;
     private final Map<UUID, PendingDeathTip> pending = new HashMap<>();
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
     private final Map<UUID, BukkitTask> cinematicTasks = new HashMap<>();
@@ -163,7 +170,6 @@ public class DeathTipManager implements Listener {
 
     public DeathTipManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.protocolManager = ProtocolLibrary.getProtocolManager();
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -850,7 +856,7 @@ public class DeathTipManager implements Listener {
                     showBedrockCinematicTitle(player, pendingTip);
                     return;
                 }
-                case CLIENTSIDE -> debug(player, "Using ProtocolLib clientside cinematic text for Bedrock player.");
+                case CLIENTSIDE -> debug(player, "Using PacketEvents clientside cinematic text for Bedrock player.");
             }
         }
 
@@ -1501,14 +1507,18 @@ public class DeathTipManager implements Listener {
         return FAKE_ENTITY_IDS.updateAndGet(current -> current >= Integer.MAX_VALUE - 4 ? 2_000_000_000 : current + 1);
     }
 
-    private boolean sendPacket(Player player, PacketContainer packet) {
+    private boolean sendPacket(Player player, PacketWrapper<?> packet) {
         if (player == null || !player.isOnline()) {
             return false;
         }
         try {
-            protocolManager.sendServerPacket(player, packet);
+            User user = getPacketEventsUser(player);
+            if (user == null || user.getChannel() == null) {
+                return false;
+            }
+            user.sendPacket(packet);
             return true;
-        } catch (Exception exception) {
+        } catch (RuntimeException exception) {
             if (debug) {
                 plugin.getLogger().warning("[DeathTips] Could not send clientside cinematic packet to "
                         + player.getName() + ": " + exception.getMessage());
@@ -1517,16 +1527,16 @@ public class DeathTipManager implements Listener {
         }
     }
 
-    private <T> boolean writeIfPresent(StructureModifier<T> modifier, int index, T value) {
-        if (modifier == null || modifier.size() <= index) {
-            return false;
+    private User getPacketEventsUser(Player player) {
+        try {
+            return PacketEvents.getAPI().getPlayerManager().getUser(player);
+        } catch (RuntimeException exception) {
+            return null;
         }
-        modifier.write(index, value);
-        return true;
     }
 
-    private byte angleToProtocolByte(float angle) {
-        return (byte) Math.floor(angle * 256.0F / 360.0F);
+    private Vector3d toPacketVector(Location location) {
+        return new Vector3d(location.getX(), location.getY(), location.getZ());
     }
 
     private int cinematicTextBackgroundColor() {
@@ -1590,11 +1600,7 @@ public class DeathTipManager implements Listener {
                 return;
             }
 
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_DESTROY);
-            if (!writeIfPresent(packet.getIntLists(), 0, List.of(title.entityId(), subtitle.entityId()))) {
-                writeIfPresent(packet.getIntegerArrays(), 0, new int[]{title.entityId(), subtitle.entityId()});
-            }
-            sendPacket(viewer, packet);
+            sendPacket(viewer, new WrapperPlayServerDestroyEntities(title.entityId(), subtitle.entityId()));
         }
     }
 
@@ -1616,19 +1622,17 @@ public class DeathTipManager implements Listener {
                 return false;
             }
 
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
-            writeIfPresent(packet.getIntegers(), 0, entityId);
-            writeIfPresent(packet.getUUIDs(), 0, entityUuid);
-            writeIfPresent(packet.getEntityTypeModifier(), 0, org.bukkit.entity.EntityType.TEXT_DISPLAY);
-            writeIfPresent(packet.getDoubles(), 0, location.getX());
-            writeIfPresent(packet.getDoubles(), 1, location.getY());
-            writeIfPresent(packet.getDoubles(), 2, location.getZ());
-            writeIfPresent(packet.getBytes(), 0, angleToProtocolByte(location.getPitch()));
-            writeIfPresent(packet.getBytes(), 1, angleToProtocolByte(location.getYaw()));
-            writeIfPresent(packet.getBytes(), 2, angleToProtocolByte(location.getYaw()));
-            writeIfPresent(packet.getIntegers(), 1, 0);
-
-            if (!sendPacket(viewer, packet)) {
+            if (!sendPacket(viewer, new WrapperPlayServerSpawnEntity(
+                    entityId,
+                    Optional.of(entityUuid),
+                    EntityTypes.TEXT_DISPLAY,
+                    toPacketVector(location),
+                    location.getPitch(),
+                    location.getYaw(),
+                    location.getYaw(),
+                    0,
+                    Optional.of(Vector3d.zero())
+            ))) {
                 return false;
             }
             return update(viewer, location, "", (byte) 0, new Vector3f(cinematicTextStartScale));
@@ -1643,56 +1647,35 @@ public class DeathTipManager implements Listener {
                 return false;
             }
 
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
-            writeIfPresent(packet.getIntegers(), 0, entityId);
-            writeIfPresent(packet.getDoubles(), 0, location.getX());
-            writeIfPresent(packet.getDoubles(), 1, location.getY());
-            writeIfPresent(packet.getDoubles(), 2, location.getZ());
-            writeIfPresent(packet.getBytes(), 0, angleToProtocolByte(location.getYaw()));
-            writeIfPresent(packet.getBytes(), 1, angleToProtocolByte(location.getPitch()));
-            writeIfPresent(packet.getBooleans(), 0, false);
-            return sendPacket(viewer, packet);
+            return sendPacket(viewer, new WrapperPlayServerEntityTeleport(
+                    entityId,
+                    toPacketVector(location),
+                    location.getYaw(),
+                    location.getPitch(),
+                    false
+            ));
         }
 
         private boolean metadata(Player viewer, String text, byte opacity, Vector3f scale) {
-            WrappedDataWatcher watcher = new WrappedDataWatcher();
-            watcher.setBoolean(5, true, true);
-            watcher.setInteger(8, 0, true);
-            watcher.setInteger(9, cinematicTextInterpolationDuration, true);
-            watcher.setInteger(10, cinematicTextTeleportDuration, true);
-            setDisplayScale(watcher, scale);
-            watcher.setByte(15, (byte) 3, true);
-            watcher.setFloat(17, cinematicTextViewRange, true);
-            watcher.setFloat(20, 1.0F, true);
-            watcher.setFloat(21, 0.5F, true);
-            watcher.setChatComponent(23, WrappedChatComponent.fromLegacyText(text == null ? "" : text), true);
-            watcher.setInteger(24, cinematicTextLineWidth, true);
-            watcher.setInteger(25, cinematicTextBackgroundColor(), true);
-            watcher.setByte(26, opacity, true);
-            watcher.setByte(27, cinematicTextStyleFlags(), true);
-
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
-            writeIfPresent(packet.getIntegers(), 0, entityId);
-            if (!writeIfPresent(packet.getDataValueCollectionModifier(), 0, watcher.toDataValueCollection())) {
-                writeIfPresent(packet.getWatchableCollectionModifier(), 0, watcher.getWatchableObjects());
-            }
-            return sendPacket(viewer, packet);
-        }
-
-        private void setDisplayScale(WrappedDataWatcher watcher, Vector3f scale) {
-            try {
-                watcher.setObject(
-                        12,
-                        WrappedDataWatcher.Registry.get(Vector3f.class),
-                        new Vector3f(scale.x, scale.y, scale.z),
-                        true
-                );
-            } catch (IllegalArgumentException exception) {
-                if (debug) {
-                    plugin.getLogger().warning("[DeathTips] ProtocolLib cannot serialize TextDisplay scale as JOML Vector3f: "
-                            + exception.getMessage());
-                }
-            }
+            List<EntityData<?>> metadata = new java.util.ArrayList<>();
+            metadata.add(new EntityData<>(5, EntityDataTypes.BOOLEAN, true));
+            metadata.add(new EntityData<>(8, EntityDataTypes.INT, 0));
+            metadata.add(new EntityData<>(9, EntityDataTypes.INT, cinematicTextInterpolationDuration));
+            metadata.add(new EntityData<>(10, EntityDataTypes.INT, cinematicTextTeleportDuration));
+            metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, new com.github.retrooper.packetevents.util.Vector3f(0.0F, 0.0F, 0.0F)));
+            metadata.add(new EntityData<>(12, EntityDataTypes.VECTOR3F, new com.github.retrooper.packetevents.util.Vector3f(scale.x, scale.y, scale.z)));
+            metadata.add(new EntityData<>(13, EntityDataTypes.QUATERNION, PACKET_IDENTITY_ROTATION));
+            metadata.add(new EntityData<>(14, EntityDataTypes.QUATERNION, PACKET_IDENTITY_ROTATION));
+            metadata.add(new EntityData<>(15, EntityDataTypes.BYTE, (byte) 3));
+            metadata.add(new EntityData<>(17, EntityDataTypes.FLOAT, cinematicTextViewRange));
+            metadata.add(new EntityData<>(20, EntityDataTypes.FLOAT, 1.0F));
+            metadata.add(new EntityData<>(21, EntityDataTypes.FLOAT, 0.5F));
+            metadata.add(new EntityData<>(23, EntityDataTypes.ADV_COMPONENT, LegacyComponentSerializer.legacySection().deserialize(text == null ? "" : text)));
+            metadata.add(new EntityData<>(24, EntityDataTypes.INT, cinematicTextLineWidth));
+            metadata.add(new EntityData<>(25, EntityDataTypes.INT, cinematicTextBackgroundColor()));
+            metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, opacity));
+            metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, cinematicTextStyleFlags()));
+            return sendPacket(viewer, new WrapperPlayServerEntityMetadata(entityId, metadata));
         }
     }
 
