@@ -214,6 +214,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 placeholders.put("{total_damage}", formatDecimal(bolts * damage) + " ❤");
                 placeholders.put("{success_rate}", "100%");
                 placeholders.put("{dot_pha_dan}", "Không cần");
+                placeholders.put("{dot_pha_dan_amount}", "0");
                 placeholders.put("{cooldown}", "Không");
                 placeholders.put("{punishment}", "Không tụt cảnh giới");
                 putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, true, ready);
@@ -254,7 +255,9 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
             placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
             placeholders.put("{success_rate}", formatDecimal(nextRealm.getSuccessRate()) + "%");
-            placeholders.put("{dot_pha_dan}", "x" + realmManager.getDotPhaDanRequired(nextRealm.getId()));
+            int dotPhaDanAmount = realmManager.getDotPhaDanRequired(nextRealm.getId());
+            placeholders.put("{dot_pha_dan}", realmManager.getDotPhaDanItem() + " x" + dotPhaDanAmount);
+            placeholders.put("{dot_pha_dan_amount}", String.valueOf(dotPhaDanAmount));
             placeholders.put("{cooldown}", cooldownOk ? "Không" : formatTime(pr.getRemainingCooldownSeconds()));
             placeholders.put("{punishment}", "Thất bại có thể tụt cảnh giới");
             putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, cooldownOk, ready);
@@ -593,6 +596,10 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         placeholders.put("{next_sub_realm}", pr.getSubRealm().next() != null ? pr.getSubRealm().next().getDisplayName() : "Không có");
         placeholders.put("{tuvi}", RealmManager.formatNumber((long) tuVi));
         placeholders.put("{cooldown}", String.valueOf(pr.getRemainingCooldownSeconds()));
+        placeholders.put("{dot_pha_dan_item}", realmManager.getDotPhaDanItem());
+        placeholders.put("{dot_pha_dan_type}", realmManager.getDotPhaDanType());
+        placeholders.put("{dot_pha_dan_id}", realmManager.getDotPhaDanId());
+        placeholders.put("{dot_pha_dan_amount}", "0");
         if (pr.getSubRealm() != SubRealm.VIEN_MAN && pr.getSubRealm().next() != null) {
             SubRealm nextSub = pr.getSubRealm().next();
             long nextTuVi = currentRealm.getTuViForSubRealm(nextSub);

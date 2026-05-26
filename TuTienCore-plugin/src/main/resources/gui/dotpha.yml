@@ -8,7 +8,8 @@
 # {realm}, {realm_name}, {realm_display}, {realm_tier}, {sub_realm}
 # {next_realm}, {next_sub_realm}, {next_target}, {breakthrough_type}, {breakthrough_target}
 # {tuvi}, {tuvi_required}, {next_tuvi_required}, {thuc_luc}, {thuc_luc_required}
-# {money}, {money_required}, {dot_pha_dan}, {cooldown}, {punishment}
+# {money}, {money_required}, {dot_pha_dan}, {dot_pha_dan_amount}, {cooldown}, {punishment}
+# {dot_pha_dan_item}, {dot_pha_dan_type}, {dot_pha_dan_id}
 # {lightning_name}, {lightning_bolts}, {damage_per_bolt}, {total_damage}, {success_rate}
 # {status_tuvi}, {status_thuc_luc}, {status_money}, {status_cooldown}, {status_ready}
 # {ready_text}, {click_text}
@@ -55,7 +56,7 @@ main-menu:
         - " {status_thuc_luc} &7Thực lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
         - " {status_money} &7Linh Thạch: &b{money} &7/ &e{money_required}"
         - " {status_cooldown} &7Hồi phục: &e{cooldown}"
-        - " &7Đột Phá Đan: &e{dot_pha_dan}"
+        - " &7Đột Phá Đan: &f{dot_pha_dan_item} &ex{dot_pha_dan_amount}"
         - ""
         - "&8ʟôɪ ᴋɪếᴘ:"
         - "&7 Dạng lôi sắp đánh xuống: &c{lightning_name}"

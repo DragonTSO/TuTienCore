@@ -882,7 +882,11 @@ breakthrough:
   fail-damage-multiplier: 2.0
   fail-demote: true
   fail-demote-min-realm: 1
-  dot-pha-dan-item: "DOT_PHA_DAN"
+  # MMOItems item dung lam Dot Pha Dan.
+  # Format: "TYPE.ID" (TYPE = MMOItems type/folder, ID = MMOItems item id).
+  # Vi du: "MATERIAL.DOT_PHA_DAN", "CONSUMABLE.DOT_PHA_DAN".
+  # Neu chi ghi "DOT_PHA_DAN", plugin tu hieu la "MATERIAL.DOT_PHA_DAN".
+  dot-pha-dan-item: "MATERIAL.DOT_PHA_DAN"
   dot-pha-dan-amounts:
     2: 1
     3: 1

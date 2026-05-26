@@ -59,7 +59,9 @@ public class RealmManager implements Listener {
     private double failDamageMultiplier;
     private boolean failDemote;
     private int failDemoteMinRealm;
-    private String dotPhaDanItem;
+    private String dotPhaDanItem = "MATERIAL.DOT_PHA_DAN";
+    private String dotPhaDanType = "MATERIAL";
+    private String dotPhaDanId = "DOT_PHA_DAN";
     private Map<Integer, Integer> dotPhaDanAmounts = new HashMap<>();
 
     // Default bolt settings (fallback when per-realm not specified)
@@ -100,6 +102,7 @@ public class RealmManager implements Listener {
     private void loadRealmConfig() {
         realms.clear();
         dotPhaDanAmounts.clear();
+        setDotPhaDanItem("MATERIAL.DOT_PHA_DAN");
         realmConfigFile = new File(plugin.getDataFolder(), "realms.yml");
         if (!realmConfigFile.exists()) {
             plugin.saveResource("realms.yml", false);
@@ -240,7 +243,7 @@ public class RealmManager implements Listener {
             failDamageMultiplier = btGeneral.getDouble("fail-damage-multiplier", 2.0);
             failDemote = btGeneral.getBoolean("fail-demote", true);
             failDemoteMinRealm = btGeneral.getInt("fail-demote-min-realm", 1);
-            dotPhaDanItem = btGeneral.getString("dot-pha-dan-item", "DOT_PHA_DAN");
+            setDotPhaDanItem(btGeneral.getString("dot-pha-dan-item", "MATERIAL.DOT_PHA_DAN"));
 
             // Default lightning bolt settings (fallback for per-realm)
             defaultLightningBolts = btGeneral.getInt("default-lightning-bolts", 15);
@@ -821,6 +824,8 @@ public class RealmManager implements Listener {
     public int getDanLossPercent() { return danLossPercent; }
     public double getFailDamageMultiplier() { return failDamageMultiplier; }
     public String getDotPhaDanItem() { return dotPhaDanItem; }
+    public String getDotPhaDanType() { return dotPhaDanType; }
+    public String getDotPhaDanId() { return dotPhaDanId; }
     public int getDefaultLightningBolts() { return defaultLightningBolts; }
     public double getDefaultDamagePerBolt() { return defaultDamagePerBolt; }
     public double getDefaultDamagePercentPerBolt() { return defaultDamagePercentPerBolt; }
@@ -841,6 +846,25 @@ public class RealmManager implements Listener {
 
     public int getDotPhaDanRequired(int targetRealmId) {
         return dotPhaDanAmounts.getOrDefault(targetRealmId, 1);
+    }
+
+    private void setDotPhaDanItem(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty()) {
+            value = "MATERIAL.DOT_PHA_DAN";
+        }
+
+        String type = "MATERIAL";
+        String id = value;
+        int separator = Math.max(value.indexOf('.'), value.indexOf(':'));
+        if (separator > 0 && separator < value.length() - 1) {
+            type = value.substring(0, separator);
+            id = value.substring(separator + 1);
+        }
+
+        dotPhaDanType = type.trim().toUpperCase(Locale.ROOT);
+        dotPhaDanId = id.trim().toUpperCase(Locale.ROOT);
+        dotPhaDanItem = dotPhaDanType + "." + dotPhaDanId;
     }
 
     // ==========================================
