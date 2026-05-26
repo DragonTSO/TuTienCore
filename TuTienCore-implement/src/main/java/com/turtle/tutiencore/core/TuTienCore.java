@@ -18,6 +18,7 @@ import com.turtle.tutiencore.core.hook.LinhDuocDropRateHook;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
+import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
@@ -52,6 +53,7 @@ public class TuTienCore {
     private RealmListGUI realmListGUI;
     private InfusionManager infusionManager;
     private AfkKickManager afkKickManager;
+    private DeathTipManager deathTipManager;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
@@ -90,6 +92,7 @@ public class TuTienCore {
         this.realmListGUI = new RealmListGUI(plugin, realmManager);
         this.infusionManager = new InfusionManager(plugin, playerDataManager);
         this.afkKickManager = new AfkKickManager(plugin);
+        this.deathTipManager = new DeathTipManager(plugin);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);
@@ -126,7 +129,7 @@ public class TuTienCore {
 
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
                 flySwordManager, realmManager, playerHologramManager, actionBarManager,
-                infusionManager, afkKickManager, this::reloadCommandAliases);
+                infusionManager, afkKickManager, deathTipManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -201,6 +204,9 @@ public class TuTienCore {
         }
         if (afkKickManager != null) {
             afkKickManager.stop();
+        }
+        if (deathTipManager != null) {
+            deathTipManager.stop();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

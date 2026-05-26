@@ -5,6 +5,7 @@ import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
+import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
@@ -33,12 +34,14 @@ public class TuTienCommand implements CommandExecutor {
     private final ActionBarManager actionBarManager;
     private final InfusionManager infusionManager;
     private final AfkKickManager afkKickManager;
+    private final DeathTipManager deathTipManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
             PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
-            InfusionManager infusionManager, AfkKickManager afkKickManager, Runnable commandAliasReloader) {
+            InfusionManager infusionManager, AfkKickManager afkKickManager, DeathTipManager deathTipManager,
+            Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -49,6 +52,7 @@ public class TuTienCommand implements CommandExecutor {
         this.actionBarManager = actionBarManager;
         this.infusionManager = infusionManager;
         this.afkKickManager = afkKickManager;
+        this.deathTipManager = deathTipManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -95,6 +99,7 @@ public class TuTienCommand implements CommandExecutor {
             actionBarManager.reload();
             infusionManager.reload();
             afkKickManager.reload();
+            deathTipManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }
