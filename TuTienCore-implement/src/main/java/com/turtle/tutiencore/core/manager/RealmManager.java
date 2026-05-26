@@ -894,13 +894,23 @@ public class RealmManager implements Listener {
     // ==========================================
 
     public static String formatNumber(long number) {
-        if (number >= 1_000_000_000) {
-            return String.format("%.1fB", number / 1_000_000_000.0);
-        } else if (number >= 1_000_000) {
-            return String.format("%.1fM", number / 1_000_000.0);
-        } else if (number >= 1_000) {
-            return String.format("%.1fK", number / 1_000.0);
+        long absolute = Math.abs(number);
+        if (absolute >= 1_000_000_000_000L) {
+            return formatCompact(number / 1_000_000_000_000.0, "T");
+        } else if (absolute >= 1_000_000_000L) {
+            return formatCompact(number / 1_000_000_000.0, "B");
+        } else if (absolute >= 1_000_000L) {
+            return formatCompact(number / 1_000_000.0, "M");
+        } else if (absolute >= 1_000L) {
+            return formatCompact(number / 1_000.0, "K");
         }
         return String.valueOf(number);
+    }
+
+    private static String formatCompact(double value, String suffix) {
+        if (value == Math.rint(value)) {
+            return String.valueOf((long) value) + suffix;
+        }
+        return String.format(Locale.US, "%.1f%s", value, suffix);
     }
 }

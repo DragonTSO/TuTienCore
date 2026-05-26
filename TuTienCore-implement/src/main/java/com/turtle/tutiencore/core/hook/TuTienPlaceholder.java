@@ -205,9 +205,6 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
     }
 
     private String formatCompact(double number) {
-        if (number < 1000) return String.valueOf((long) number);
-        int exp = (int) (Math.log(number) / Math.log(1000));
-        char suffix = "kMGTPE".charAt(exp - 1);
-        return String.format("%.1f%c", number / Math.pow(1000, exp), suffix);
+        return RealmManager.formatNumber((long) number);
     }
 }
