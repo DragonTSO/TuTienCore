@@ -127,8 +127,6 @@ public class DeathTipManager implements Listener {
     private String cinematicTextTitle;
     private String cinematicTextSubtitle;
     private boolean cinematicTextWaitForPitch;
-    private long cinematicTextTargetSettleDelayTicks;
-    private boolean cinematicTextSuppressImmediateTitle;
     private long cinematicTextDurationTicks;
     private long cinematicTextUpdateIntervalTicks;
     private boolean cinematicTextFollowPlayerCamera;
@@ -205,8 +203,6 @@ public class DeathTipManager implements Listener {
         cinematicTextTitle = config.getString(CONFIG_PATH + ".cinematic-text.title", "&c&lTrang bị chưa đủ mạnh");
         cinematicTextSubtitle = config.getString(CONFIG_PATH + ".cinematic-text.subtitle", "&7%tip%");
         cinematicTextWaitForPitch = config.getBoolean(CONFIG_PATH + ".cinematic-text.wait-for-pitch", true);
-        cinematicTextTargetSettleDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".cinematic-text.target-settle-delay-ticks", 20L));
-        cinematicTextSuppressImmediateTitle = config.getBoolean(CONFIG_PATH + ".cinematic-text.suppress-immediate-title", true);
         cinematicTextDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.duration-ticks", viewDurationTicks));
         cinematicTextUpdateIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.update-interval-ticks", 1L));
         cinematicTextFollowPlayerCamera = config.getBoolean(CONFIG_PATH + ".cinematic-text.follow-player-camera", true);
@@ -463,9 +459,7 @@ public class DeathTipManager implements Listener {
 
         showTip(player, tip);
         long pitchMotionTicks = cinematicEnabled ? computePitchMotionTicks(tip.deathLocation().getPitch()) : 0L;
-        long textStartDelayTicks = cinematicTextEnabled
-                ? ((cinematicTextWaitForPitch ? pitchMotionTicks : 0L) + cinematicTextTargetSettleDelayTicks)
-                : 0L;
+        long textStartDelayTicks = cinematicTextEnabled && cinematicTextWaitForPitch ? pitchMotionTicks : 0L;
         long totalViewTicks = Math.max(viewDurationTicks,
                 textStartDelayTicks + (cinematicTextEnabled ? cinematicTextDurationTicks : 0L));
         BukkitTask restoreTask = plugin.getServer().getScheduler().runTaskLater(plugin,
@@ -1131,7 +1125,7 @@ public class DeathTipManager implements Listener {
     private void showTip(Player player, PendingDeathTip tip) {
         String formattedTip = replacePlaceholders(tip.tip(), player, tip);
 
-        if (titleEnabled && !shouldSuppressImmediateTitle()) {
+        if (titleEnabled) {
             player.sendTitle(
                     color(replacePlaceholders(titleText, player, tip).replace("%tip%", formattedTip)),
                     color(replacePlaceholders(subtitleText, player, tip).replace("%tip%", formattedTip)),
@@ -1150,10 +1144,6 @@ public class DeathTipManager implements Listener {
                 player.sendMessage(color(replacePlaceholders(line, player, tip).replace("%tip%", formattedTip)));
             }
         }
-    }
-
-    private boolean shouldSuppressImmediateTitle() {
-        return cinematicTextEnabled && cinematicTextSuppressImmediateTitle;
     }
 
     private void cleanup(UUID uuid, boolean restorePlayer) {

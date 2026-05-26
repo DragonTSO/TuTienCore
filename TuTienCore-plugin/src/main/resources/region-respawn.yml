@@ -96,10 +96,6 @@ death-tips:
     subtitle: "&7%tip%"
     # true = chỉ bắt đầu hiện/fade text sau khi camera pitch đã tới hướng head/player.
     wait-for-pitch: true
-    # Chờ thêm sau khi spectator target/camera pitch đã ổn định để tránh tip bật lên ngay lúc mới chết.
-    target-settle-delay-ticks: 20
-    # true = không gửi title vanilla ngay lúc chết; cinematic-text sẽ hiện sau khi camera ổn định.
-    suppress-immediate-title: true
     duration-ticks: 80
     update-interval-ticks: 1
     # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
