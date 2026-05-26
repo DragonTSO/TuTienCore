@@ -125,6 +125,24 @@ death-tips:
     shadow: true
     see-through: true
     background-alpha: 0
+    screen-background:
+      # TextDisplay rieng nam phia sau title/subtitle, dung nhu nen ao truoc man hinh player.
+      enabled: true
+      # Neu bo trong, plugin se tu tao text trong suot bang columns/rows de day nen TextDisplay.
+      # text: ""
+      columns: 80
+      rows: 18
+      # Tang distance-offset de nen nam sau title/subtitle, giam neu bi qua xa camera.
+      distance-offset: 0.08
+      y-offset: 0.0
+      scale: 1.0
+      # Do mo nen: 0 = trong suot, 255 = kin.
+      alpha: 95
+      # 0 = an chu nen, chi hien mau background cua TextDisplay.
+      text-opacity: 0
+      line-width: 2000
+      shadow: false
+      see-through: true
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true
