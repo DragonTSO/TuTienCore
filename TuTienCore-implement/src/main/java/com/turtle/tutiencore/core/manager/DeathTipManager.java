@@ -7,6 +7,8 @@ import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -24,6 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +42,8 @@ public class DeathTipManager implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, PendingDeathTip> pending = new HashMap<>();
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
+    private File configFile;
+    private FileConfiguration config;
 
     private boolean enabled;
     private boolean requireImmediateRespawn;
@@ -71,36 +76,46 @@ public class DeathTipManager implements Listener {
     }
 
     public void reload() {
-        enabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".enabled", true);
-        requireImmediateRespawn = plugin.getConfig().getBoolean(CONFIG_PATH + ".require-immediate-respawn", true);
-        respawnDelayTicks = Math.max(0L, plugin.getConfig().getLong(CONFIG_PATH + ".respawn-delay-ticks", 2L));
-        viewDurationTicks = Math.max(1L, plugin.getConfig().getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
-        restoreGamemode = plugin.getConfig().getBoolean(CONFIG_PATH + ".restore-gamemode", true);
-        restoreToRespawnLocation = plugin.getConfig().getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
+        loadConfigFile();
 
-        armorStandMarker = plugin.getConfig().getBoolean(CONFIG_PATH + ".anchor.marker", true);
-        armorStandSmall = plugin.getConfig().getBoolean(CONFIG_PATH + ".anchor.small", true);
-        armorStandYOffset = plugin.getConfig().getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
+        enabled = config.getBoolean(CONFIG_PATH + ".enabled", true);
+        requireImmediateRespawn = config.getBoolean(CONFIG_PATH + ".require-immediate-respawn", true);
+        respawnDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".respawn-delay-ticks", 2L));
+        viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
+        restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
+        restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
 
-        titleEnabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".title.enabled", true);
-        titleText = plugin.getConfig().getString(CONFIG_PATH + ".title.title", "&c&lTrang Bị Yếu");
-        subtitleText = plugin.getConfig().getString(CONFIG_PATH + ".title.subtitle", "&7%tip%");
-        titleFadeIn = Math.max(0, plugin.getConfig().getInt(CONFIG_PATH + ".title.fade-in", 5));
-        titleStay = Math.max(1, plugin.getConfig().getInt(CONFIG_PATH + ".title.stay", 70));
-        titleFadeOut = Math.max(0, plugin.getConfig().getInt(CONFIG_PATH + ".title.fade-out", 15));
+        armorStandMarker = config.getBoolean(CONFIG_PATH + ".anchor.marker", true);
+        armorStandSmall = config.getBoolean(CONFIG_PATH + ".anchor.small", true);
+        armorStandYOffset = config.getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
 
-        soundEnabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".sound.enabled", true);
-        soundName = plugin.getConfig().getString(CONFIG_PATH + ".sound.name", "ENTITY_WITHER_SPAWN");
-        soundCategory = parseSoundCategory(plugin.getConfig().getString(CONFIG_PATH + ".sound.category", "MASTER"));
-        soundVolume = (float) Math.max(0.0, plugin.getConfig().getDouble(CONFIG_PATH + ".sound.volume", 0.55));
-        soundPitch = (float) Math.max(0.0, Math.min(2.0, plugin.getConfig().getDouble(CONFIG_PATH + ".sound.pitch", 0.75)));
+        titleEnabled = config.getBoolean(CONFIG_PATH + ".title.enabled", true);
+        titleText = config.getString(CONFIG_PATH + ".title.title", "&c&lTrang Bị Yếu");
+        subtitleText = config.getString(CONFIG_PATH + ".title.subtitle", "&7%tip%");
+        titleFadeIn = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-in", 5));
+        titleStay = Math.max(1, config.getInt(CONFIG_PATH + ".title.stay", 70));
+        titleFadeOut = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-out", 15));
 
-        messageEnabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".message.enabled", false);
-        messageLines = plugin.getConfig().getStringList(CONFIG_PATH + ".message.lines");
-        tips = plugin.getConfig().getStringList(CONFIG_PATH + ".tips");
+        soundEnabled = config.getBoolean(CONFIG_PATH + ".sound.enabled", true);
+        soundName = config.getString(CONFIG_PATH + ".sound.name", "ENTITY_WITHER_SPAWN");
+        soundCategory = parseSoundCategory(config.getString(CONFIG_PATH + ".sound.category", "MASTER"));
+        soundVolume = (float) Math.max(0.0, config.getDouble(CONFIG_PATH + ".sound.volume", 0.55));
+        soundPitch = (float) Math.max(0.0, Math.min(2.0, config.getDouble(CONFIG_PATH + ".sound.pitch", 0.75)));
+
+        messageEnabled = config.getBoolean(CONFIG_PATH + ".message.enabled", false);
+        messageLines = config.getStringList(CONFIG_PATH + ".message.lines");
+        tips = config.getStringList(CONFIG_PATH + ".tips");
         if (tips.isEmpty()) {
             tips = List.of("&7Trang bị của bạn còn yếu, hãy luyện khí hoặc nâng phẩm trước khi quay lại.");
         }
+    }
+
+    private void loadConfigFile() {
+        configFile = new File(plugin.getDataFolder(), "region-respawn.yml");
+        if (!configFile.exists()) {
+            plugin.saveResource("region-respawn.yml", false);
+        }
+        config = YamlConfiguration.loadConfiguration(configFile);
     }
 
     public void stop() {

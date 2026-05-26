@@ -21,3 +21,41 @@ regions:
     z: 0.5
     yaw: 0.0
     pitch: 0.0
+
+death-tips:
+  # Khi player chết bởi mob và world bật gamerule doImmediateRespawn,
+  # plugin sẽ cho player xem lại vị trí chết trong spectator rồi hiện tips riêng.
+  enabled: true
+  require-immediate-respawn: true
+  respawn-delay-ticks: 2
+  view-duration-ticks: 80
+  restore-gamemode: true
+  restore-to-respawn-location: true
+  anchor:
+    marker: true
+    small: true
+    y-offset: 0.0
+  title:
+    enabled: true
+    title: "&c&lTrang bị chưa đủ mạnh"
+    subtitle: "&7%tip%"
+    fade-in: 5
+    stay: 70
+    fade-out: 15
+  sound:
+    enabled: true
+    # Hỗ trợ Bukkit sound hoặc custom sound resourcepack, ví dụ: tutiencore:death_tip
+    name: "ENTITY_WITHER_SPAWN"
+    category: MASTER
+    volume: 0.55
+    pitch: 0.75
+  message:
+    enabled: false
+    lines:
+      - "&cBạn vừa bị &f%mob% &chạ gục."
+      - "&7%tip%"
+  tips:
+    - "&7Trang bị của bạn còn yếu, hãy luyện khí hoặc nâng phẩm trước khi quay lại."
+    - "&7Thử nâng vũ khí, giáp và chọn khu vực quái phù hợp cảnh giới."
+    - "&7Nếu quái đánh quá đau, hãy kiếm set phòng thủ hoặc tăng máu trước."
+    - "&7Luyện thêm trang bị ở Luyện Khí Các sẽ giúp sống sót tốt hơn."
