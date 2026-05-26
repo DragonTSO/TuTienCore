@@ -1661,7 +1661,7 @@ public class DeathTipManager implements Listener {
             watcher.setInteger(8, 0, true);
             watcher.setInteger(9, cinematicTextInterpolationDuration, true);
             watcher.setInteger(10, cinematicTextTeleportDuration, true);
-            watcher.setVector3F(12, new Vector3F(scale.x, scale.y, scale.z), true);
+            watcher.setObject(12, getVector3FSerializer(), new Vector3F(scale.x, scale.y, scale.z), true);
             watcher.setByte(15, (byte) 3, true);
             watcher.setFloat(17, cinematicTextViewRange, true);
             watcher.setFloat(20, 1.0F, true);
@@ -1678,6 +1678,14 @@ public class DeathTipManager implements Listener {
                 writeIfPresent(packet.getWatchableCollectionModifier(), 0, watcher.getWatchableObjects());
             }
             return sendPacket(viewer, packet);
+        }
+
+        private WrappedDataWatcher.Serializer getVector3FSerializer() {
+            try {
+                return WrappedDataWatcher.Registry.get(Vector3F.class);
+            } catch (IllegalArgumentException ignored) {
+                return WrappedDataWatcher.Registry.getVectorSerializer();
+            }
         }
     }
 
