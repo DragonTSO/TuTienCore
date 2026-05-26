@@ -544,7 +544,7 @@ public class DeathTipManager implements Listener {
         return focus;
     }
 
-    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, float deathPitch, long elapsedTicks) {
+    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, float deathPitch, double elapsedTicks) {
         double seconds = elapsedTicks / 20.0D;
         double angleDegrees = deathYaw + cinematicStartAngleDegrees;
         if (cinematicRotateAround) {
@@ -564,12 +564,12 @@ public class DeathTipManager implements Listener {
         return camera;
     }
 
-    private float computeCinematicPitch(float deathPitch, long elapsedTicks) {
+    private float computeCinematicPitch(float deathPitch, double elapsedTicks) {
         if (cinematicPitchStepPerTick <= 0.0D) {
             return deathPitch;
         }
 
-        double pitch = cinematicStartPitch - (cinematicPitchStepPerTick * Math.max(0L, elapsedTicks));
+        double pitch = cinematicStartPitch - (cinematicPitchStepPerTick * Math.max(0.0D, elapsedTicks));
         if (cinematicStartPitch >= deathPitch) {
             return (float) Math.max(deathPitch, pitch);
         }
@@ -662,7 +662,7 @@ public class DeathTipManager implements Listener {
                     return;
                 }
 
-                long pitchElapsedTicks = getCinematicPitchElapsedTicks(startNanos, elapsedTicks);
+                double pitchElapsedTicks = getCinematicPitchElapsedTicks(startNanos, elapsedTicks);
                 Location nextCameraLocation = computeCinematicCameraLocation(
                         tip.focusLocation(),
                         tip.deathYaw(),
@@ -686,12 +686,12 @@ public class DeathTipManager implements Listener {
         cinematicTasks.put(uuid, task);
     }
 
-    private long getCinematicPitchElapsedTicks(long startNanos, long elapsedTicks) {
+    private double getCinematicPitchElapsedTicks(long startNanos, long elapsedTicks) {
         if (!cinematicPitchUseRealtime) {
             return elapsedTicks;
         }
         long elapsedNanos = Math.max(0L, System.nanoTime() - startNanos);
-        return Math.max(0L, Math.round(elapsedNanos / 50_000_000.0D));
+        return Math.max(0.0D, elapsedNanos / 50_000_000.0D);
     }
 
     private void moveCameraTarget(Entity target, Location cameraLocation) {
