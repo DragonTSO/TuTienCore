@@ -9,10 +9,12 @@ import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -30,6 +32,7 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.util.HashMap;
@@ -49,6 +52,7 @@ public class DeathTipManager implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, PendingDeathTip> pending = new HashMap<>();
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
+    private final Map<UUID, BukkitTask> cinematicTasks = new HashMap<>();
     private final Set<UUID> internalGamemodeChanges = new HashSet<>();
     private final Set<UUID> internalTeleports = new HashSet<>();
     private File configFile;
@@ -69,6 +73,16 @@ public class DeathTipManager implements Listener {
     private boolean forceSpectatorCancelTeleport;
     private boolean forceSpectatorUseAnchorTarget;
     private boolean forceSpectatorLockPosition;
+    private boolean cinematicEnabled;
+    private CinematicMode cinematicMode;
+    private double cinematicRadius;
+    private double cinematicHeight;
+    private double cinematicLookAtYOffset;
+    private double cinematicStartAngleDegrees;
+    private double cinematicDegreesPerSecond;
+    private long cinematicStepTicks;
+    private int cinematicTeleportDuration;
+    private int cinematicInterpolationDuration;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -113,6 +127,16 @@ public class DeathTipManager implements Listener {
         forceSpectatorCancelTeleport = config.getBoolean(CONFIG_PATH + ".force-spectator.cancel-teleport", true);
         forceSpectatorUseAnchorTarget = config.getBoolean(CONFIG_PATH + ".force-spectator.use-anchor-target", false);
         forceSpectatorLockPosition = config.getBoolean(CONFIG_PATH + ".force-spectator.lock-position", true);
+        cinematicEnabled = config.getBoolean(CONFIG_PATH + ".cinematic.enabled", false);
+        cinematicMode = parseCinematicMode(config.getString(CONFIG_PATH + ".cinematic.mode", "DISPLAY"));
+        cinematicRadius = Math.max(0.5, config.getDouble(CONFIG_PATH + ".cinematic.radius", 4.5));
+        cinematicHeight = config.getDouble(CONFIG_PATH + ".cinematic.height", 2.0);
+        cinematicLookAtYOffset = config.getDouble(CONFIG_PATH + ".cinematic.look-at-y-offset", 1.0);
+        cinematicStartAngleDegrees = config.getDouble(CONFIG_PATH + ".cinematic.start-angle-degrees", 180.0);
+        cinematicDegreesPerSecond = config.getDouble(CONFIG_PATH + ".cinematic.degrees-per-second", 55.0);
+        cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
+        cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
+        cinematicInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic.interpolation-duration", 2));
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -307,9 +331,12 @@ public class DeathTipManager implements Listener {
 
         cleanup(player.getUniqueId(), false);
 
-        Location cameraLocation = tip.deathLocation().clone();
-        Entity anchor = forceSpectatorUseAnchorTarget ? spawnAnchor(cameraLocation) : null;
-        if (forceSpectatorUseAnchorTarget && anchor == null) {
+        Location focusLocation = createFocusLocation(tip.deathLocation());
+        Location cameraLocation = cinematicEnabled
+                ? computeCinematicCameraLocation(focusLocation, tip.deathLocation().getYaw(), 0L)
+                : tip.deathLocation().clone();
+        Entity anchor = createCameraAnchor(cameraLocation);
+        if (shouldUseCameraAnchor() && anchor == null) {
             debug(player, "Could not spawn anchor, showing title/sound only.");
             showTip(player, tip);
             return;
@@ -343,7 +370,18 @@ public class DeathTipManager implements Listener {
         BukkitTask restoreTask = plugin.getServer().getScheduler().runTaskLater(plugin,
                 () -> cleanup(player.getUniqueId(), true),
                 viewDurationTicks);
-        active.put(player.getUniqueId(), new ActiveDeathTip(anchor, restoreMode, respawnLocation, restoreTask, cameraLocation));
+        active.put(player.getUniqueId(), new ActiveDeathTip(
+                anchor,
+                restoreMode,
+                respawnLocation,
+                restoreTask,
+                cameraLocation,
+                focusLocation,
+                tip.deathLocation().getYaw()
+        ));
+        if (cinematicEnabled) {
+            startCinematicCamera(player.getUniqueId());
+        }
 
         if (spectatorReapplyDelayTicks >= 0L) {
             startSpectatorLock(player.getUniqueId());
@@ -383,6 +421,48 @@ public class DeathTipManager implements Listener {
             return true;
         }
         return player.getLocation().distanceSquared(target.getLocation()) > teleportToAnchorDistanceSquared;
+    }
+
+    private Entity createCameraAnchor(Location cameraLocation) {
+        if (cinematicEnabled && cinematicMode == CinematicMode.DISPLAY) {
+            return spawnDisplayCamera(cameraLocation);
+        }
+        if (forceSpectatorUseAnchorTarget) {
+            return spawnAnchor(cameraLocation);
+        }
+        return null;
+    }
+
+    private boolean shouldUseCameraAnchor() {
+        return (cinematicEnabled && cinematicMode == CinematicMode.DISPLAY) || forceSpectatorUseAnchorTarget;
+    }
+
+    private Location createFocusLocation(Location deathLocation) {
+        Location focus = deathLocation.clone();
+        focus.setY(focus.getY() + cinematicLookAtYOffset);
+        return focus;
+    }
+
+    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, long elapsedTicks) {
+        double seconds = elapsedTicks / 20.0D;
+        double angle = Math.toRadians(deathYaw + cinematicStartAngleDegrees + (cinematicDegreesPerSecond * seconds));
+        double x = -Math.sin(angle) * cinematicRadius;
+        double z = Math.cos(angle) * cinematicRadius;
+        Location camera = new Location(
+                focusLocation.getWorld(),
+                focusLocation.getX() + x,
+                focusLocation.getY() + cinematicHeight,
+                focusLocation.getZ() + z
+        );
+        faceLocation(camera, focusLocation);
+        return camera;
+    }
+
+    private void faceLocation(Location cameraLocation, Location focusLocation) {
+        Vector direction = focusLocation.toVector().subtract(cameraLocation.toVector());
+        if (direction.lengthSquared() > 0.0001D) {
+            cameraLocation.setDirection(direction);
+        }
     }
 
     private boolean isSameCameraPosition(Location current, Location cameraLocation) {
@@ -429,6 +509,59 @@ public class DeathTipManager implements Listener {
                 elapsed += spectatorReapplyIntervalTicks;
             }
         }.runTaskTimer(plugin, spectatorReapplyDelayTicks, spectatorReapplyIntervalTicks);
+    }
+
+    private void startCinematicCamera(UUID uuid) {
+        BukkitTask oldTask = cinematicTasks.remove(uuid);
+        if (oldTask != null) {
+            oldTask.cancel();
+        }
+
+        BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
+            private long elapsedTicks;
+
+            @Override
+            public void run() {
+                ActiveDeathTip tip = active.get(uuid);
+                if (tip == null) {
+                    cancel();
+                    return;
+                }
+                if (elapsedTicks > viewDurationTicks) {
+                    cancel();
+                    return;
+                }
+
+                Location nextCameraLocation = computeCinematicCameraLocation(
+                        tip.focusLocation(),
+                        tip.deathYaw(),
+                        elapsedTicks
+                );
+                copyLocation(tip.cameraLocation(), nextCameraLocation);
+
+                if (tip.anchor() != null) {
+                    applyDisplayCameraDurations(tip.anchor());
+                    tip.anchor().teleport(nextCameraLocation);
+                }
+
+                Player player = plugin.getServer().getPlayer(uuid);
+                if (player != null && player.isOnline() && tip.anchor() == null) {
+                    teleportInternally(player, nextCameraLocation);
+                }
+
+                elapsedTicks += cinematicStepTicks;
+            }
+        }.runTaskTimer(plugin, 0L, cinematicStepTicks);
+        cinematicTasks.put(uuid, task);
+    }
+
+    private void copyLocation(Location target, Location source) {
+        target.setWorld(source.getWorld());
+        target.setX(source.getX());
+        target.setY(source.getY());
+        target.setZ(source.getZ());
+        target.setYaw(source.getYaw());
+        target.setPitch(source.getPitch());
     }
 
     private void reapplySpectatorTarget(UUID uuid) {
@@ -518,6 +651,31 @@ public class DeathTipManager implements Listener {
                 + ".");
     }
 
+    private Entity spawnDisplayCamera(Location location) {
+        World world = location.getWorld();
+        if (world == null) {
+            return null;
+        }
+
+        return world.spawn(location, TextDisplay.class, display -> {
+            display.setText("");
+            display.setBillboard(Display.Billboard.FIXED);
+            display.setSeeThrough(true);
+            display.setShadowed(false);
+            display.setInvulnerable(true);
+            display.setPersistent(false);
+            display.addScoreboardTag(VIEW_TAG);
+            applyDisplayCameraDurations(display);
+        });
+    }
+
+    private void applyDisplayCameraDurations(Entity entity) {
+        if (entity instanceof Display display) {
+            display.setTeleportDuration(cinematicTeleportDuration);
+            display.setInterpolationDuration(cinematicInterpolationDuration);
+        }
+    }
+
     private Entity spawnAnchor(Location location) {
         World world = location.getWorld();
         if (world == null) {
@@ -567,6 +725,11 @@ public class DeathTipManager implements Listener {
         ActiveDeathTip tip = active.remove(uuid);
         if (tip == null) {
             return;
+        }
+
+        BukkitTask cinematicTask = cinematicTasks.remove(uuid);
+        if (cinematicTask != null) {
+            cinematicTask.cancel();
         }
 
         if (tip.restoreTask() != null) {
@@ -664,6 +827,17 @@ public class DeathTipManager implements Listener {
         }
     }
 
+    private CinematicMode parseCinematicMode(String modeName) {
+        if (modeName == null || modeName.isBlank()) {
+            return CinematicMode.DISPLAY;
+        }
+        try {
+            return CinematicMode.valueOf(modeName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return CinematicMode.DISPLAY;
+        }
+    }
+
     private String color(String text) {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
     }
@@ -690,7 +864,12 @@ public class DeathTipManager implements Listener {
     private record PendingDeathTip(Location deathLocation, GameMode previousGameMode, String mobName, String tip) {
     }
 
+    private enum CinematicMode {
+        DISPLAY,
+        PLAYER
+    }
+
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
-                                  Location cameraLocation) {
+                                  Location cameraLocation, Location focusLocation, float deathYaw) {
     }
 }

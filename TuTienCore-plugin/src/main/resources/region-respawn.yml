@@ -52,6 +52,21 @@ death-tips:
     # true = vẫn thử set spectator target vào Villager anchor.
     use-anchor-target: false
     lock-position: true
+  cinematic:
+    # true = camera quay kiểu góc nhìn thứ 3 quanh vị trí chết.
+    enabled: true
+    # DISPLAY = dùng TextDisplay làm camera target, có teleport-duration/interpolation-duration.
+    # PLAYER = không bám entity, teleport trực tiếp camera player quanh vị trí chết.
+    mode: DISPLAY
+    radius: 4.5
+    height: 2.0
+    look-at-y-offset: 1.0
+    # 180 = bắt đầu sau lưng hướng nhìn lúc chết, sau đó quay quanh điểm chết.
+    start-angle-degrees: 180.0
+    degrees-per-second: 55.0
+    step-ticks: 2
+    teleport-duration: 2
+    interpolation-duration: 2
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true
