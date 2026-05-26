@@ -1,7 +1,14 @@
 package com.turtle.tutiencore.core.manager;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.reflect.StructureModifier;
+import com.comphenix.protocol.wrappers.Vector3F;
+import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import org.bukkit.ChatColor;
-import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
@@ -51,18 +58,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DeathTipManager implements Listener {
 
     private static final String CONFIG_PATH = "death-tips";
     private static final String VIEW_TAG = "tutiencore_death_tip_view";
+    private static final AtomicInteger FAKE_ENTITY_IDS = new AtomicInteger(2_000_000_000);
 
     private final JavaPlugin plugin;
+    private final ProtocolManager protocolManager;
     private final Map<UUID, PendingDeathTip> pending = new HashMap<>();
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
     private final Map<UUID, BukkitTask> cinematicTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> cinematicTextTasks = new HashMap<>();
-    private final Map<UUID, List<TextDisplay>> cinematicTextDisplays = new HashMap<>();
+    private final Map<UUID, ClientsideCinematicText> cinematicTextDisplays = new HashMap<>();
     private final Set<UUID> internalGamemodeChanges = new HashSet<>();
     private final Set<UUID> internalTeleports = new HashSet<>();
     private File configFile;
@@ -153,6 +163,7 @@ public class DeathTipManager implements Listener {
 
     public DeathTipManager(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.protocolManager = ProtocolLibrary.getProtocolManager();
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -828,23 +839,21 @@ public class DeathTipManager implements Listener {
             return;
         }
 
-        TextDisplay titleDisplay = spawnCinematicTextDisplay(world, initialLocation);
-        TextDisplay subtitleDisplay = spawnCinematicTextDisplay(
-                world,
+        ClientsideCinematicText textDisplay = spawnClientsideCinematicText(
+                player,
+                initialLocation,
                 computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextYOffset + cinematicTextSubtitleStartYOffset)
         );
-
-        for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
-            if (!onlinePlayer.getUniqueId().equals(uuid)) {
-                onlinePlayer.hideEntity(plugin, titleDisplay);
-                onlinePlayer.hideEntity(plugin, subtitleDisplay);
-            }
+        if (textDisplay == null) {
+            debug(player, "Could not spawn clientside cinematic text packets.");
+            return;
         }
-        player.showEntity(plugin, titleDisplay);
-        player.showEntity(plugin, subtitleDisplay);
 
-        cinematicTextDisplays.put(uuid, List.of(titleDisplay, subtitleDisplay));
-        updateCinematicText(player, pendingTip, titleDisplay, subtitleDisplay, activeTip.cameraLocation(), 0L);
+        cinematicTextDisplays.put(uuid, textDisplay);
+        if (!updateCinematicText(player, pendingTip, textDisplay, activeTip.cameraLocation(), 0L)) {
+            clearCinematicText(uuid);
+            return;
+        }
 
         BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
             private long elapsedTicks;
@@ -855,34 +864,20 @@ public class DeathTipManager implements Listener {
                 ActiveDeathTip currentTip = active.get(uuid);
                 Player currentPlayer = plugin.getServer().getPlayer(uuid);
                 if (currentTip == null || currentPlayer == null || !currentPlayer.isOnline()
-                        || titleDisplay.isDead() || subtitleDisplay.isDead() || elapsedTicks >= totalTicks) {
+                        || !textDisplay.isActive() || elapsedTicks >= totalTicks) {
                     clearCinematicText(uuid);
                     cancel();
                     return;
                 }
 
                 elapsedTicks += cinematicTextUpdateIntervalTicks;
-                updateCinematicText(currentPlayer, pendingTip, titleDisplay, subtitleDisplay, currentTip.cameraLocation(), elapsedTicks);
+                if (!updateCinematicText(currentPlayer, pendingTip, textDisplay, currentTip.cameraLocation(), elapsedTicks)) {
+                    clearCinematicText(uuid);
+                    cancel();
+                }
             }
         }.runTaskTimer(plugin, cinematicTextUpdateIntervalTicks, cinematicTextUpdateIntervalTicks);
         cinematicTextTasks.put(uuid, task);
-    }
-
-    private TextDisplay spawnCinematicTextDisplay(World world, Location location) {
-        return world.spawn(location, TextDisplay.class, textDisplay -> {
-            textDisplay.setBillboard(Display.Billboard.CENTER);
-            textDisplay.setSeeThrough(cinematicTextSeeThrough);
-            textDisplay.setShadowed(cinematicTextShadow);
-            textDisplay.setLineWidth(cinematicTextLineWidth);
-            textDisplay.setViewRange(cinematicTextViewRange);
-            textDisplay.setTeleportDuration(cinematicTextTeleportDuration);
-            textDisplay.setInterpolationDuration(cinematicTextInterpolationDuration);
-            textDisplay.setBackgroundColor(Color.fromARGB(cinematicTextBackgroundAlpha, 0, 0, 0));
-            textDisplay.setGravity(false);
-            textDisplay.setInvulnerable(true);
-            textDisplay.setPersistent(false);
-            textDisplay.addScoreboardTag(VIEW_TAG);
-        });
     }
 
     private long cinematicTextTotalTicks() {
@@ -894,38 +889,34 @@ public class DeathTipManager implements Listener {
         return Math.min(1.0D, fadeTicks / (double) cinematicTextDurationTicks);
     }
 
-    private void updateCinematicText(Player player, PendingDeathTip pendingTip, TextDisplay titleDisplay,
-                                     TextDisplay subtitleDisplay, Location cameraLocation, long elapsedTicks) {
+    private boolean updateCinematicText(Player player, PendingDeathTip pendingTip, ClientsideCinematicText textDisplay,
+                                        Location cameraLocation, long elapsedTicks) {
         double introProgress = cinematicTextSubtitleIntroProgress(elapsedTicks);
         double fadeProgress = cinematicTextFadeProgress(elapsedTicks);
 
-        titleDisplay.setText(cinematicTextTitleLine(player, pendingTip));
-        titleDisplay.setTextOpacity(cinematicTextOpacity(fadeProgress));
-        titleDisplay.setTransformation(new Transformation(
-                new Vector3f(),
-                new Quaternionf(),
-                cinematicTextScale(),
-                new Quaternionf()
-        ));
-        titleDisplay.teleport(computeCinematicTextLocation(
+        Location titleLocation = computeCinematicTextLocation(
                 player,
                 cameraLocation,
                 cinematicTextYOffset + (cinematicTextRiseDistance * fadeProgress)
-        ));
+        );
 
-        subtitleDisplay.setText(cinematicTextSubtitleLine(player, pendingTip));
-        subtitleDisplay.setTextOpacity(cinematicTextSubtitleOpacity(introProgress, fadeProgress));
-        subtitleDisplay.setTransformation(new Transformation(
-                new Vector3f(),
-                new Quaternionf(),
-                cinematicTextSubtitleScale(),
-                new Quaternionf()
-        ));
         double subtitleOffset = cinematicTextSubtitleStartYOffset
                 + ((cinematicTextSubtitleEndYOffset - cinematicTextSubtitleStartYOffset) * introProgress)
                 + (cinematicTextRiseDistance * fadeProgress);
         double subtitleYOffset = cinematicTextYOffset + subtitleOffset;
-        subtitleDisplay.teleport(computeCinematicTextLocation(player, cameraLocation, subtitleYOffset));
+        Location subtitleLocation = computeCinematicTextLocation(player, cameraLocation, subtitleYOffset);
+
+        return textDisplay.update(
+                player,
+                titleLocation,
+                cinematicTextTitleLine(player, pendingTip),
+                cinematicTextOpacity(fadeProgress),
+                cinematicTextScale(),
+                subtitleLocation,
+                cinematicTextSubtitleLine(player, pendingTip),
+                cinematicTextSubtitleOpacity(introProgress, fadeProgress),
+                cinematicTextSubtitleScale()
+        );
     }
 
     private String cinematicTextTitleLine(Player player, PendingDeathTip pendingTip) {
@@ -1302,13 +1293,9 @@ public class DeathTipManager implements Listener {
             textTask.cancel();
         }
 
-        List<TextDisplay> displays = cinematicTextDisplays.remove(uuid);
+        ClientsideCinematicText displays = cinematicTextDisplays.remove(uuid);
         if (displays != null) {
-            for (TextDisplay display : displays) {
-                if (display != null && !display.isDead()) {
-                    display.remove();
-                }
-            }
+            displays.destroy();
         }
     }
 
@@ -1420,6 +1407,209 @@ public class DeathTipManager implements Listener {
 
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private ClientsideCinematicText spawnClientsideCinematicText(Player player, Location titleLocation, Location subtitleLocation) {
+        ClientsideCinematicText text = new ClientsideCinematicText(
+                player.getUniqueId(),
+                new ClientsideTextDisplay(nextFakeEntityId(), UUID.randomUUID()),
+                new ClientsideTextDisplay(nextFakeEntityId(), UUID.randomUUID())
+        );
+        if (!text.spawn(player, titleLocation, subtitleLocation)) {
+            text.destroy();
+            return null;
+        }
+        return text;
+    }
+
+    private int nextFakeEntityId() {
+        return FAKE_ENTITY_IDS.updateAndGet(current -> current >= Integer.MAX_VALUE - 4 ? 2_000_000_000 : current + 1);
+    }
+
+    private boolean sendPacket(Player player, PacketContainer packet) {
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+        try {
+            protocolManager.sendServerPacket(player, packet);
+            return true;
+        } catch (Exception exception) {
+            if (debug) {
+                plugin.getLogger().warning("[DeathTips] Could not send clientside cinematic packet to "
+                        + player.getName() + ": " + exception.getMessage());
+            }
+            return false;
+        }
+    }
+
+    private <T> boolean writeIfPresent(StructureModifier<T> modifier, int index, T value) {
+        if (modifier == null || modifier.size() <= index) {
+            return false;
+        }
+        modifier.write(index, value);
+        return true;
+    }
+
+    private byte angleToProtocolByte(float angle) {
+        return (byte) Math.floor(angle * 256.0F / 360.0F);
+    }
+
+    private int cinematicTextBackgroundColor() {
+        return (cinematicTextBackgroundAlpha << 24);
+    }
+
+    private byte cinematicTextStyleFlags() {
+        byte flags = 0;
+        if (cinematicTextShadow) {
+            flags |= 0x01;
+        }
+        if (cinematicTextSeeThrough) {
+            flags |= 0x02;
+        }
+        return flags;
+    }
+
+    private final class ClientsideCinematicText {
+        private final UUID viewerUuid;
+        private final ClientsideTextDisplay title;
+        private final ClientsideTextDisplay subtitle;
+        private boolean active;
+
+        private ClientsideCinematicText(UUID viewerUuid, ClientsideTextDisplay title, ClientsideTextDisplay subtitle) {
+            this.viewerUuid = viewerUuid;
+            this.title = title;
+            this.subtitle = subtitle;
+        }
+
+        private boolean spawn(Player viewer, Location titleLocation, Location subtitleLocation) {
+            active = title.spawn(viewer, titleLocation) && subtitle.spawn(viewer, subtitleLocation);
+            return active;
+        }
+
+        private boolean update(Player viewer,
+                               Location titleLocation,
+                               String titleText,
+                               byte titleOpacity,
+                               Vector3f titleScale,
+                               Location subtitleLocation,
+                               String subtitleText,
+                               byte subtitleOpacity,
+                               Vector3f subtitleScale) {
+            if (!active || !viewer.getUniqueId().equals(viewerUuid)) {
+                return false;
+            }
+            boolean titleUpdated = title.update(viewer, titleLocation, titleText, titleOpacity, titleScale);
+            boolean subtitleUpdated = subtitle.update(viewer, subtitleLocation, subtitleText, subtitleOpacity, subtitleScale);
+            active = titleUpdated && subtitleUpdated;
+            return active;
+        }
+
+        private boolean isActive() {
+            return active;
+        }
+
+        private void destroy() {
+            active = false;
+            Player viewer = plugin.getServer().getPlayer(viewerUuid);
+            if (viewer == null || !viewer.isOnline()) {
+                return;
+            }
+
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_DESTROY);
+            if (!writeIfPresent(packet.getIntLists(), 0, List.of(title.entityId(), subtitle.entityId()))) {
+                writeIfPresent(packet.getIntegerArrays(), 0, new int[]{title.entityId(), subtitle.entityId()});
+            }
+            sendPacket(viewer, packet);
+        }
+    }
+
+    private final class ClientsideTextDisplay {
+        private final int entityId;
+        private final UUID entityUuid;
+
+        private ClientsideTextDisplay(int entityId, UUID entityUuid) {
+            this.entityId = entityId;
+            this.entityUuid = entityUuid;
+        }
+
+        private int entityId() {
+            return entityId;
+        }
+
+        private boolean spawn(Player viewer, Location location) {
+            if (location == null || location.getWorld() == null) {
+                return false;
+            }
+
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
+            writeIfPresent(packet.getIntegers(), 0, entityId);
+            writeIfPresent(packet.getUUIDs(), 0, entityUuid);
+            writeIfPresent(packet.getEntityTypeModifier(), 0, org.bukkit.entity.EntityType.TEXT_DISPLAY);
+            writeIfPresent(packet.getDoubles(), 0, location.getX());
+            writeIfPresent(packet.getDoubles(), 1, location.getY());
+            writeIfPresent(packet.getDoubles(), 2, location.getZ());
+            writeIfPresent(packet.getBytes(), 0, angleToProtocolByte(location.getPitch()));
+            writeIfPresent(packet.getBytes(), 1, angleToProtocolByte(location.getYaw()));
+            writeIfPresent(packet.getBytes(), 2, angleToProtocolByte(location.getYaw()));
+            writeIfPresent(packet.getIntegers(), 1, 0);
+
+            if (!sendPacket(viewer, packet)) {
+                return false;
+            }
+            return update(viewer, location, "", (byte) 0, new Vector3f(cinematicTextStartScale));
+        }
+
+        private boolean update(Player viewer, Location location, String text, byte opacity, Vector3f scale) {
+            return teleport(viewer, location) && metadata(viewer, text, opacity, scale);
+        }
+
+        private boolean teleport(Player viewer, Location location) {
+            if (location == null || location.getWorld() == null) {
+                return false;
+            }
+
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
+            writeIfPresent(packet.getIntegers(), 0, entityId);
+            writeIfPresent(packet.getDoubles(), 0, location.getX());
+            writeIfPresent(packet.getDoubles(), 1, location.getY());
+            writeIfPresent(packet.getDoubles(), 2, location.getZ());
+            writeIfPresent(packet.getBytes(), 0, angleToProtocolByte(location.getYaw()));
+            writeIfPresent(packet.getBytes(), 1, angleToProtocolByte(location.getPitch()));
+            writeIfPresent(packet.getBooleans(), 0, false);
+            return sendPacket(viewer, packet);
+        }
+
+        private boolean metadata(Player viewer, String text, byte opacity, Vector3f scale) {
+            WrappedDataWatcher watcher = new WrappedDataWatcher();
+            watcher.setBoolean(5, true, true);
+            watcher.setInteger(8, 0, true);
+            watcher.setInteger(9, cinematicTextInterpolationDuration, true);
+            watcher.setInteger(10, cinematicTextTeleportDuration, true);
+            setWatcherObject(watcher, 12, Vector3F.class, new Vector3F(scale.x, scale.y, scale.z));
+            watcher.setByte(15, (byte) 3, true);
+            watcher.setFloat(17, cinematicTextViewRange, true);
+            watcher.setFloat(20, 1.0F, true);
+            watcher.setFloat(21, 0.5F, true);
+            watcher.setChatComponent(23, WrappedChatComponent.fromLegacyText(text == null ? "" : text), true);
+            watcher.setInteger(24, cinematicTextLineWidth, true);
+            watcher.setInteger(25, cinematicTextBackgroundColor(), true);
+            watcher.setByte(26, opacity, true);
+            watcher.setByte(27, cinematicTextStyleFlags(), true);
+
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
+            writeIfPresent(packet.getIntegers(), 0, entityId);
+            if (!writeIfPresent(packet.getDataValueCollectionModifier(), 0, watcher.toDataValueCollection())) {
+                writeIfPresent(packet.getWatchableCollectionModifier(), 0, watcher.getWatchableObjects());
+            }
+            return sendPacket(viewer, packet);
+        }
+
+        private <T> void setWatcherObject(WrappedDataWatcher watcher, int index, Class<T> type, T value) {
+            WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(type);
+            if (serializer != null) {
+                watcher.setObject(index, serializer, value, true);
+            }
+        }
     }
 
     private void debug(Player player, String message) {
