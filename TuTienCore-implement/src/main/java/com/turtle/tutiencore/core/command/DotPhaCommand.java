@@ -150,10 +150,9 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
 
         // Unified breakthrough button: one item handles both sub-realm and major breakthroughs.
-        int legacySubSlot = getSlot("main-menu.items.sub-realm-breakthrough", 20);
         int legacyMajorSlot = getSlot("main-menu.items.major-breakthrough", 24);
-        clearSlot(gui, legacySubSlot, size);
-        clearSlot(gui, legacyMajorSlot, size);
+        clearLegacySlot(gui, "main-menu.items.sub-realm-breakthrough", size);
+        clearLegacySlot(gui, "main-menu.items.major-breakthrough", size);
         BreakthroughButtonData breakthroughButton = createBreakthroughButton(player, pr, currentRealm, nextRealm, tuVi);
         gui.setItem(getSlot("main-menu.items.breakthrough", legacyMajorSlot), createConfiguredItem(player,
                 breakthroughButton.configPath, breakthroughButton.fallbackMaterial,
@@ -311,6 +310,12 @@ public class DotPhaCommand implements CommandExecutor, Listener {
     private void clearSlot(Inventory gui, int slot, int size) {
         if (slot >= 0 && slot < size) {
             gui.setItem(slot, null);
+        }
+    }
+
+    private void clearLegacySlot(Inventory gui, String path, int size) {
+        if (guiConfig.isConfigurationSection(path)) {
+            clearSlot(gui, getSlot(path, -1), size);
         }
     }
 
