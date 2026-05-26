@@ -5,7 +5,6 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.Vector3F;
 import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import org.bukkit.ChatColor;
@@ -1661,7 +1660,7 @@ public class DeathTipManager implements Listener {
             watcher.setInteger(8, 0, true);
             watcher.setInteger(9, cinematicTextInterpolationDuration, true);
             watcher.setInteger(10, cinematicTextTeleportDuration, true);
-            watcher.setObject(12, getVector3FSerializer(), new Vector3F(scale.x, scale.y, scale.z), true);
+            setDisplayScale(watcher, scale);
             watcher.setByte(15, (byte) 3, true);
             watcher.setFloat(17, cinematicTextViewRange, true);
             watcher.setFloat(20, 1.0F, true);
@@ -1680,11 +1679,19 @@ public class DeathTipManager implements Listener {
             return sendPacket(viewer, packet);
         }
 
-        private WrappedDataWatcher.Serializer getVector3FSerializer() {
+        private void setDisplayScale(WrappedDataWatcher watcher, Vector3f scale) {
             try {
-                return WrappedDataWatcher.Registry.get(Vector3F.class);
-            } catch (IllegalArgumentException ignored) {
-                return WrappedDataWatcher.Registry.getVectorSerializer();
+                watcher.setObject(
+                        12,
+                        WrappedDataWatcher.Registry.get(Vector3f.class),
+                        new Vector3f(scale.x, scale.y, scale.z),
+                        true
+                );
+            } catch (IllegalArgumentException exception) {
+                if (debug) {
+                    plugin.getLogger().warning("[DeathTips] ProtocolLib cannot serialize TextDisplay scale as JOML Vector3f: "
+                            + exception.getMessage());
+                }
             }
         }
     }
