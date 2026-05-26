@@ -50,6 +50,8 @@ public class DeathTipManager implements Listener {
     private boolean debug;
     private boolean requireImmediateRespawn;
     private long respawnDelayTicks;
+    private long fallbackDelayTicks;
+    private long spectatorReapplyDelayTicks;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -85,6 +87,8 @@ public class DeathTipManager implements Listener {
         debug = config.getBoolean(CONFIG_PATH + ".debug", false);
         requireImmediateRespawn = config.getBoolean(CONFIG_PATH + ".require-immediate-respawn", true);
         respawnDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".respawn-delay-ticks", 2L));
+        fallbackDelayTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".fallback-delay-ticks", 6L));
+        spectatorReapplyDelayTicks = Math.max(-1L, config.getLong(CONFIG_PATH + ".spectator-reapply-delay-ticks", 2L));
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -159,6 +163,9 @@ public class DeathTipManager implements Listener {
                 randomTip()
         ));
         debug(player, "Queued death tip at " + formatLocation(deathLocation) + " source=" + sourceName + ".");
+        plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> startFallbackDeathView(player.getUniqueId()),
+                fallbackDelayTicks);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -171,6 +178,7 @@ public class DeathTipManager implements Listener {
 
         Player player = event.getPlayer();
         Location respawnLocation = event.getRespawnLocation().clone();
+        debug(player, "Respawn event matched pending death tip. Starting view after " + respawnDelayTicks + " tick(s).");
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> startDeathView(player, tip, respawnLocation), respawnDelayTicks);
     }
 
@@ -179,6 +187,28 @@ public class DeathTipManager implements Listener {
         UUID uuid = event.getPlayer().getUniqueId();
         pending.remove(uuid);
         cleanup(uuid, false);
+    }
+
+    private void startFallbackDeathView(UUID uuid) {
+        PendingDeathTip tip = pending.get(uuid);
+        if (tip == null) {
+            return;
+        }
+
+        Player player = plugin.getServer().getPlayer(uuid);
+        if (player == null || !player.isOnline()) {
+            pending.remove(uuid);
+            return;
+        }
+
+        if (player.isDead()) {
+            debug(player, "Fallback waiting: player is still dead, keeping pending tip for respawn event.");
+            return;
+        }
+
+        pending.remove(uuid);
+        debug(player, "Fallback started death tip view because respawn event did not consume pending tip.");
+        startDeathView(player, tip, player.getLocation().clone());
     }
 
     private void startDeathView(Player player, PendingDeathTip tip, Location respawnLocation) {
@@ -197,8 +227,7 @@ public class DeathTipManager implements Listener {
 
         GameMode restoreMode = tip.previousGameMode();
         try {
-            player.setGameMode(GameMode.SPECTATOR);
-            player.setSpectatorTarget(anchor);
+            applySpectatorTarget(player, anchor);
             debug(player, "Spectator target set to death tip anchor " + anchor.getUniqueId() + ".");
         } catch (RuntimeException exception) {
             plugin.getLogger().warning("Could not start death tip spectator view for " + player.getName() + ": " + exception.getMessage());
@@ -212,6 +241,36 @@ public class DeathTipManager implements Listener {
                 () -> cleanup(player.getUniqueId(), true),
                 viewDurationTicks);
         active.put(player.getUniqueId(), new ActiveDeathTip(anchor, restoreMode, respawnLocation, restoreTask));
+
+        if (spectatorReapplyDelayTicks >= 0L) {
+            plugin.getServer().getScheduler().runTaskLater(plugin,
+                    () -> reapplySpectatorTarget(player.getUniqueId()),
+                    spectatorReapplyDelayTicks);
+        }
+    }
+
+    private void applySpectatorTarget(Player player, Entity target) {
+        if (player.getGameMode() != GameMode.SPECTATOR) {
+            player.setGameMode(GameMode.SPECTATOR);
+        }
+        player.setSpectatorTarget(target);
+    }
+
+    private void reapplySpectatorTarget(UUID uuid) {
+        ActiveDeathTip tip = active.get(uuid);
+        if (tip == null || tip.anchor() == null || tip.anchor().isDead()) {
+            return;
+        }
+        Player player = plugin.getServer().getPlayer(uuid);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        try {
+            applySpectatorTarget(player, tip.anchor());
+            debug(player, "Re-applied spectator target to death tip anchor " + tip.anchor().getUniqueId() + ".");
+        } catch (RuntimeException exception) {
+            plugin.getLogger().warning("Could not re-apply death tip spectator view for " + player.getName() + ": " + exception.getMessage());
+        }
     }
 
     private ArmorStand spawnAnchor(Location location) {

@@ -32,6 +32,11 @@ death-tips:
   debug: false
   require-immediate-respawn: true
   respawn-delay-ticks: 2
+  # Fallback nếu server immediate respawn không bắn PlayerRespawnEvent đúng timing.
+  fallback-delay-ticks: 6
+  # Re-apply spectator target sau vài tick để chống plugin khác đổi gamemode sau respawn.
+  # -1 = tắt re-apply.
+  spectator-reapply-delay-ticks: 2
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true
