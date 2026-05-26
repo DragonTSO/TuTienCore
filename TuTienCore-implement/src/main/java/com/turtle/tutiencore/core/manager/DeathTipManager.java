@@ -668,8 +668,7 @@ public class DeathTipManager implements Listener {
                 copyLocation(tip.cameraLocation(), nextCameraLocation);
 
                 if (tip.anchor() != null) {
-                    applyDisplayCameraDurations(tip.anchor());
-                    tip.anchor().teleport(nextCameraLocation);
+                    moveCameraTarget(tip.anchor(), nextCameraLocation);
                 }
 
                 Player player = plugin.getServer().getPlayer(uuid);
@@ -681,6 +680,13 @@ public class DeathTipManager implements Listener {
             }
         }.runTaskTimer(plugin, 0L, cinematicStepTicks);
         cinematicTasks.put(uuid, task);
+    }
+
+    private void moveCameraTarget(Entity target, Location cameraLocation) {
+        applyDisplayCameraDurations(target);
+        target.setRotation(cameraLocation.getYaw(), cameraLocation.getPitch());
+        target.teleport(cameraLocation);
+        target.setRotation(cameraLocation.getYaw(), cameraLocation.getPitch());
     }
 
     private void startCinematicText(Player player, PendingDeathTip pendingTip) {
