@@ -567,19 +567,22 @@ public class DeathTipManager implements Listener {
             return deathPitch;
         }
 
-        double distance = deathPitch - cinematicStartPitch;
-        double step = Math.min(Math.abs(distance), cinematicPitchStepPerTick * Math.max(0L, elapsedTicks));
-        if (distance < 0.0D) {
-            step = -step;
+        double pitch = cinematicStartPitch - (cinematicPitchStepPerTick * Math.max(0L, elapsedTicks));
+        if (cinematicStartPitch >= deathPitch) {
+            return (float) Math.max(deathPitch, pitch);
         }
-        return (float) (cinematicStartPitch + step);
+        return deathPitch;
     }
 
     private long computePitchMotionTicks(float deathPitch) {
         if (cinematicPitchStepPerTick <= 0.0D) {
             return 0L;
         }
-        return (long) Math.ceil(Math.abs(deathPitch - cinematicStartPitch) / cinematicPitchStepPerTick);
+        double distance = cinematicStartPitch - deathPitch;
+        if (distance <= 0.0D) {
+            return 0L;
+        }
+        return (long) Math.ceil(distance / cinematicPitchStepPerTick);
     }
 
     private void faceLocation(Location cameraLocation, Location focusLocation) {
