@@ -69,7 +69,9 @@ death-tips:
     degrees-per-second: 55.0
     # Pitch camera đi từ giá trị này về pitch lúc player chết/head đang nhìn.
     start-pitch: 100.0
-    step-ticks: 2
+    # Mỗi tick pitch sẽ tiến gần về pitch của head/player từng lượng này.
+    pitch-step-per-tick: 0.1
+    step-ticks: 1
     teleport-duration: 2
     interpolation-duration: 2
     # Client đôi khi bỏ qua packet spectator target ngay tick đầu sau respawn.
@@ -88,6 +90,8 @@ death-tips:
     enabled: true
     title: "&c&lTrang bi chua du manh"
     subtitle: "&7%tip%"
+    # true = chỉ bắt đầu hiện/fade text sau khi camera pitch đã tới hướng head/player.
+    wait-for-pitch: true
     duration-ticks: 80
     update-interval-ticks: 1
     # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.

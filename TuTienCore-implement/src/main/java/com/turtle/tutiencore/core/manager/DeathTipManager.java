@@ -92,6 +92,7 @@ public class DeathTipManager implements Listener {
     private double cinematicStartAngleDegrees;
     private double cinematicDegreesPerSecond;
     private float cinematicStartPitch;
+    private double cinematicPitchStepPerTick;
     private long cinematicStepTicks;
     private int cinematicTeleportDuration;
     private int cinematicInterpolationDuration;
@@ -123,6 +124,7 @@ public class DeathTipManager implements Listener {
     private boolean cinematicTextEnabled;
     private String cinematicTextTitle;
     private String cinematicTextSubtitle;
+    private boolean cinematicTextWaitForPitch;
     private long cinematicTextDurationTicks;
     private long cinematicTextUpdateIntervalTicks;
     private boolean cinematicTextFollowPlayerCamera;
@@ -175,6 +177,7 @@ public class DeathTipManager implements Listener {
         cinematicStartAngleDegrees = config.getDouble(CONFIG_PATH + ".cinematic.start-angle-degrees", 180.0);
         cinematicDegreesPerSecond = config.getDouble(CONFIG_PATH + ".cinematic.degrees-per-second", 55.0);
         cinematicStartPitch = (float) config.getDouble(CONFIG_PATH + ".cinematic.start-pitch", 100.0);
+        cinematicPitchStepPerTick = Math.max(0.0, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-per-tick", 0.1));
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
         cinematicInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic.interpolation-duration", 2));
@@ -195,6 +198,7 @@ public class DeathTipManager implements Listener {
         cinematicTextEnabled = config.getBoolean(CONFIG_PATH + ".cinematic-text.enabled", true);
         cinematicTextTitle = config.getString(CONFIG_PATH + ".cinematic-text.title", "&c&lTrang bị chưa đủ mạnh");
         cinematicTextSubtitle = config.getString(CONFIG_PATH + ".cinematic-text.subtitle", "&7%tip%");
+        cinematicTextWaitForPitch = config.getBoolean(CONFIG_PATH + ".cinematic-text.wait-for-pitch", true);
         cinematicTextDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.duration-ticks", viewDurationTicks));
         cinematicTextUpdateIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.update-interval-ticks", 1L));
         cinematicTextFollowPlayerCamera = config.getBoolean(CONFIG_PATH + ".cinematic-text.follow-player-camera", true);
@@ -450,9 +454,13 @@ public class DeathTipManager implements Listener {
         }
 
         showTip(player, tip);
+        long pitchMotionTicks = cinematicEnabled ? computePitchMotionTicks(tip.deathLocation().getPitch()) : 0L;
+        long textStartDelayTicks = cinematicTextEnabled && cinematicTextWaitForPitch ? pitchMotionTicks : 0L;
+        long totalViewTicks = Math.max(viewDurationTicks,
+                textStartDelayTicks + (cinematicTextEnabled ? cinematicTextDurationTicks : 0L));
         BukkitTask restoreTask = plugin.getServer().getScheduler().runTaskLater(plugin,
                 () -> cleanup(player.getUniqueId(), true),
-                viewDurationTicks);
+                totalViewTicks);
         active.put(player.getUniqueId(), new ActiveDeathTip(
                 anchor,
                 restoreMode,
@@ -462,7 +470,9 @@ public class DeathTipManager implements Listener {
                 focusLocation,
                 tip.deathLocation().getYaw(),
                 tip.deathLocation().getPitch(),
-                deathHead
+                deathHead,
+                textStartDelayTicks,
+                totalViewTicks
         ));
         startCinematicText(player, tip);
         if (cinematicEnabled) {
@@ -547,10 +557,29 @@ public class DeathTipManager implements Listener {
                 focusLocation.getY() + cinematicHeight,
                 focusLocation.getZ() + z
         );
-        double progress = Math.min(1.0D, elapsedTicks / (double) Math.max(1L, viewDurationTicks));
         camera.setYaw(deathYaw);
-        camera.setPitch(lerp(cinematicStartPitch, deathPitch, progress));
+        camera.setPitch(computeCinematicPitch(deathPitch, elapsedTicks));
         return camera;
+    }
+
+    private float computeCinematicPitch(float deathPitch, long elapsedTicks) {
+        if (cinematicPitchStepPerTick <= 0.0D) {
+            return deathPitch;
+        }
+
+        double distance = deathPitch - cinematicStartPitch;
+        double step = Math.min(Math.abs(distance), cinematicPitchStepPerTick * Math.max(0L, elapsedTicks));
+        if (distance < 0.0D) {
+            step = -step;
+        }
+        return (float) (cinematicStartPitch + step);
+    }
+
+    private long computePitchMotionTicks(float deathPitch) {
+        if (cinematicPitchStepPerTick <= 0.0D) {
+            return 0L;
+        }
+        return (long) Math.ceil(Math.abs(deathPitch - cinematicStartPitch) / cinematicPitchStepPerTick);
     }
 
     private void faceLocation(Location cameraLocation, Location focusLocation) {
@@ -596,7 +625,7 @@ public class DeathTipManager implements Listener {
                     cancel();
                     return;
                 }
-                if (elapsed > viewDurationTicks) {
+                if (elapsed > tip.totalViewTicks()) {
                     cancel();
                     return;
                 }
@@ -622,7 +651,7 @@ public class DeathTipManager implements Listener {
                     cancel();
                     return;
                 }
-                if (elapsedTicks > viewDurationTicks) {
+                if (elapsedTicks > tip.totalViewTicks()) {
                     cancel();
                     return;
                 }
@@ -663,6 +692,26 @@ public class DeathTipManager implements Listener {
         }
 
         clearCinematicText(uuid);
+        if (activeTip.textStartDelayTicks() > 0L) {
+            BukkitTask startTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                cinematicTextTasks.remove(uuid);
+                Player currentPlayer = plugin.getServer().getPlayer(uuid);
+                if (currentPlayer != null && currentPlayer.isOnline() && active.containsKey(uuid)) {
+                    startCinematicTextNow(currentPlayer, pendingTip);
+                }
+            }, activeTip.textStartDelayTicks());
+            cinematicTextTasks.put(uuid, startTask);
+            return;
+        }
+        startCinematicTextNow(player, pendingTip);
+    }
+
+    private void startCinematicTextNow(Player player, PendingDeathTip pendingTip) {
+        UUID uuid = player.getUniqueId();
+        ActiveDeathTip activeTip = active.get(uuid);
+        if (activeTip == null) {
+            return;
+        }
 
         Location initialLocation = computeCinematicTextLocation(player, activeTip.cameraLocation(), 0.0D);
         World world = initialLocation.getWorld();
@@ -1201,10 +1250,6 @@ public class DeathTipManager implements Listener {
         return Math.max(min, Math.min(max, value));
     }
 
-    private float lerp(float start, float end, double progress) {
-        return (float) (start + ((end - start) * progress));
-    }
-
     private void debug(Player player, String message) {
         if (!debug) {
             return;
@@ -1233,6 +1278,7 @@ public class DeathTipManager implements Listener {
     }
 
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
-                                  Location cameraLocation, Location focusLocation, float deathYaw, float deathPitch, Entity deathHead) {
+                                  Location cameraLocation, Location focusLocation, float deathYaw, float deathPitch,
+                                  Entity deathHead, long textStartDelayTicks, long totalViewTicks) {
     }
 }
