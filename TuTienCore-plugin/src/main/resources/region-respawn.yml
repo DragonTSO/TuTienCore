@@ -67,6 +67,9 @@ death-tips:
     step-ticks: 2
     teleport-duration: 2
     interpolation-duration: 2
+    # Client đôi khi bỏ qua packet spectator target ngay tick đầu sau respawn.
+    # Các mốc này sẽ clear target rồi set lại Display, giống hiệu ứng bấm shift refresh.
+    target-retry-ticks: [1, 3, 6, 10]
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true

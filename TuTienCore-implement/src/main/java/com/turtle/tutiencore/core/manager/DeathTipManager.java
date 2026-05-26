@@ -83,6 +83,7 @@ public class DeathTipManager implements Listener {
     private long cinematicStepTicks;
     private int cinematicTeleportDuration;
     private int cinematicInterpolationDuration;
+    private List<Long> cinematicTargetRetryTicks;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -137,6 +138,10 @@ public class DeathTipManager implements Listener {
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
         cinematicInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic.interpolation-duration", 2));
+        cinematicTargetRetryTicks = config.getLongList(CONFIG_PATH + ".cinematic.target-retry-ticks");
+        if (cinematicTargetRetryTicks.isEmpty()) {
+            cinematicTargetRetryTicks = List.of(1L, 3L, 6L, 10L);
+        }
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -382,6 +387,9 @@ public class DeathTipManager implements Listener {
         if (cinematicEnabled) {
             startCinematicCamera(player.getUniqueId());
         }
+        if (anchor != null) {
+            startSpectatorTargetWarmup(player.getUniqueId());
+        }
 
         if (spectatorReapplyDelayTicks >= 0L) {
             startSpectatorLock(player.getUniqueId());
@@ -553,6 +561,50 @@ public class DeathTipManager implements Listener {
             }
         }.runTaskTimer(plugin, 0L, cinematicStepTicks);
         cinematicTasks.put(uuid, task);
+    }
+
+    private void startSpectatorTargetWarmup(UUID uuid) {
+        for (long retryTick : cinematicTargetRetryTicks) {
+            plugin.getServer().getScheduler().runTaskLater(
+                    plugin,
+                    () -> refreshSpectatorTarget(uuid),
+                    Math.max(1L, retryTick)
+            );
+        }
+    }
+
+    private void refreshSpectatorTarget(UUID uuid) {
+        ActiveDeathTip tip = active.get(uuid);
+        if (tip == null || tip.anchor() == null || tip.anchor().isDead()) {
+            return;
+        }
+        Player player = plugin.getServer().getPlayer(uuid);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        if (player.getGameMode() != GameMode.SPECTATOR) {
+            setGameModeInternally(player, GameMode.SPECTATOR);
+        }
+
+        // Some clients ignore the first target packet right after respawn.
+        // Clearing for one tick then setting the target again mimics the manual shift refresh.
+        setSpectatorTargetInternally(player, null);
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            ActiveDeathTip currentTip = active.get(uuid);
+            if (currentTip == null || currentTip.anchor() == null || currentTip.anchor().isDead()) {
+                return;
+            }
+            Player currentPlayer = plugin.getServer().getPlayer(uuid);
+            if (currentPlayer == null || !currentPlayer.isOnline()) {
+                return;
+            }
+            if (currentPlayer.getGameMode() != GameMode.SPECTATOR) {
+                setGameModeInternally(currentPlayer, GameMode.SPECTATOR);
+            }
+            setSpectatorTargetInternally(currentPlayer, currentTip.anchor());
+            debug(currentPlayer, "Refreshed cinematic spectator target " + currentTip.anchor().getUniqueId() + ".");
+        });
     }
 
     private void copyLocation(Location target, Location source) {
