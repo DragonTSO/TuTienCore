@@ -93,6 +93,7 @@ public class DeathTipManager implements Listener {
     private double cinematicDegreesPerSecond;
     private float cinematicStartPitch;
     private double cinematicPitchStepPerTick;
+    private boolean cinematicPitchUseRealtime;
     private long cinematicStepTicks;
     private int cinematicTeleportDuration;
     private int cinematicInterpolationDuration;
@@ -178,6 +179,7 @@ public class DeathTipManager implements Listener {
         cinematicDegreesPerSecond = config.getDouble(CONFIG_PATH + ".cinematic.degrees-per-second", 55.0);
         cinematicStartPitch = (float) config.getDouble(CONFIG_PATH + ".cinematic.start-pitch", 100.0);
         cinematicPitchStepPerTick = Math.max(0.0, config.getDouble(CONFIG_PATH + ".cinematic.pitch-step-per-tick", 0.1));
+        cinematicPitchUseRealtime = config.getBoolean(CONFIG_PATH + ".cinematic.pitch-use-realtime", true);
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
         cinematicInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic.interpolation-duration", 2));
@@ -646,6 +648,7 @@ public class DeathTipManager implements Listener {
 
         BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
             private long elapsedTicks;
+            private final long startNanos = System.nanoTime();
 
             @Override
             public void run() {
@@ -659,11 +662,12 @@ public class DeathTipManager implements Listener {
                     return;
                 }
 
+                long pitchElapsedTicks = getCinematicPitchElapsedTicks(startNanos, elapsedTicks);
                 Location nextCameraLocation = computeCinematicCameraLocation(
                         tip.focusLocation(),
                         tip.deathYaw(),
                         tip.deathPitch(),
-                        elapsedTicks
+                        pitchElapsedTicks
                 );
                 copyLocation(tip.cameraLocation(), nextCameraLocation);
 
@@ -680,6 +684,14 @@ public class DeathTipManager implements Listener {
             }
         }.runTaskTimer(plugin, 0L, cinematicStepTicks);
         cinematicTasks.put(uuid, task);
+    }
+
+    private long getCinematicPitchElapsedTicks(long startNanos, long elapsedTicks) {
+        if (!cinematicPitchUseRealtime) {
+            return elapsedTicks;
+        }
+        long elapsedNanos = Math.max(0L, System.nanoTime() - startNanos);
+        return Math.max(0L, Math.round(elapsedNanos / 50_000_000.0D));
     }
 
     private void moveCameraTarget(Entity target, Location cameraLocation) {
@@ -702,17 +714,40 @@ public class DeathTipManager implements Listener {
 
         clearCinematicText(uuid);
         if (activeTip.textStartDelayTicks() > 0L) {
-            BukkitTask startTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            BukkitTask startTask = cinematicPitchUseRealtime
+                    ? startCinematicTextRealtimeDelay(uuid, pendingTip, activeTip.textStartDelayTicks())
+                    : plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        cinematicTextTasks.remove(uuid);
+                        Player currentPlayer = plugin.getServer().getPlayer(uuid);
+                        if (currentPlayer != null && currentPlayer.isOnline() && active.containsKey(uuid)) {
+                            startCinematicTextNow(currentPlayer, pendingTip);
+                        }
+                    }, activeTip.textStartDelayTicks());
+            cinematicTextTasks.put(uuid, startTask);
+            return;
+        }
+        startCinematicTextNow(player, pendingTip);
+    }
+
+    private BukkitTask startCinematicTextRealtimeDelay(UUID uuid, PendingDeathTip pendingTip, long delayTicks) {
+        return new org.bukkit.scheduler.BukkitRunnable() {
+            private final long startNanos = System.nanoTime();
+
+            @Override
+            public void run() {
+                long elapsedNanos = Math.max(0L, System.nanoTime() - startNanos);
+                long elapsedStandardTicks = Math.max(0L, Math.round(elapsedNanos / 50_000_000.0D));
+                if (elapsedStandardTicks < delayTicks) {
+                    return;
+                }
                 cinematicTextTasks.remove(uuid);
                 Player currentPlayer = plugin.getServer().getPlayer(uuid);
                 if (currentPlayer != null && currentPlayer.isOnline() && active.containsKey(uuid)) {
                     startCinematicTextNow(currentPlayer, pendingTip);
                 }
-            }, activeTip.textStartDelayTicks());
-            cinematicTextTasks.put(uuid, startTask);
-            return;
-        }
-        startCinematicTextNow(player, pendingTip);
+                cancel();
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
     }
 
     private void startCinematicTextNow(Player player, PendingDeathTip pendingTip) {
