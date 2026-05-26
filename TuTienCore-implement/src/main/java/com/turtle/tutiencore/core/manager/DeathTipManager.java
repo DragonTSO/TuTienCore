@@ -139,6 +139,8 @@ public class DeathTipManager implements Listener {
     private double cinematicTextSubtitleStartYOffset;
     private double cinematicTextSubtitleEndYOffset;
     private float cinematicTextStartScale;
+    private float cinematicTextSubtitleStartScale;
+    private float cinematicTextSubtitleEndScale;
     private int cinematicTextStartOpacity;
     private int cinematicTextSubtitleStartOpacity;
     private int cinematicTextEndOpacity;
@@ -220,6 +222,9 @@ public class DeathTipManager implements Listener {
         cinematicTextSubtitleStartYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-start-y-offset", -0.55D);
         cinematicTextSubtitleEndYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-end-y-offset", -0.24D);
         cinematicTextStartScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.start-scale", 0.9));
+        cinematicTextSubtitleStartScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-start-scale", cinematicTextStartScale));
+        cinematicTextSubtitleEndScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-end-scale",
+                config.getDouble(CONFIG_PATH + ".cinematic-text.end-scale", cinematicTextSubtitleStartScale)));
         cinematicTextStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.start-opacity", 230), 0, 255);
         cinematicTextSubtitleStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.subtitle-start-opacity", 0), 0, 255);
         cinematicTextEndOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.end-opacity", 0), 0, 255);
@@ -915,7 +920,7 @@ public class DeathTipManager implements Listener {
         subtitleDisplay.setTransformation(new Transformation(
                 new Vector3f(),
                 new Quaternionf(),
-                cinematicTextScale(),
+                cinematicTextSubtitleScale(fadeProgress),
                 new Quaternionf()
         ));
         double subtitleOffset = cinematicTextSubtitleStartYOffset
@@ -987,6 +992,12 @@ public class DeathTipManager implements Listener {
 
     private Vector3f cinematicTextScale() {
         return new Vector3f(cinematicTextStartScale, cinematicTextStartScale, cinematicTextStartScale);
+    }
+
+    private Vector3f cinematicTextSubtitleScale(double fadeProgress) {
+        float scale = (float) (cinematicTextSubtitleStartScale
+                + ((cinematicTextSubtitleEndScale - cinematicTextSubtitleStartScale) * fadeProgress));
+        return new Vector3f(scale, scale, scale);
     }
 
     private byte cinematicTextOpacity(double progress) {
