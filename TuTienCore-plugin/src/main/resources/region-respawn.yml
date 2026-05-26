@@ -26,6 +26,10 @@ death-tips:
   # Khi player chết bởi mob và world bật gamerule doImmediateRespawn,
   # plugin sẽ cho player xem lại vị trí chết trong spectator rồi hiện tips riêng.
   enabled: true
+  # false = /kill hoặc chết vì nguyên nhân khác cũng chạy death tips, tiện để test.
+  # true = chỉ chạy khi player chết bởi mob/projectile của mob.
+  mob-only: false
+  debug: false
   require-immediate-respawn: true
   respawn-delay-ticks: 2
   view-duration-ticks: 80

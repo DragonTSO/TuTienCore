@@ -46,6 +46,8 @@ public class DeathTipManager implements Listener {
     private FileConfiguration config;
 
     private boolean enabled;
+    private boolean mobOnly;
+    private boolean debug;
     private boolean requireImmediateRespawn;
     private long respawnDelayTicks;
     private long viewDurationTicks;
@@ -79,6 +81,8 @@ public class DeathTipManager implements Listener {
         loadConfigFile();
 
         enabled = config.getBoolean(CONFIG_PATH + ".enabled", true);
+        mobOnly = config.getBoolean(CONFIG_PATH + ".mob-only", false);
+        debug = config.getBoolean(CONFIG_PATH + ".debug", false);
         requireImmediateRespawn = config.getBoolean(CONFIG_PATH + ".require-immediate-respawn", true);
         respawnDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".respawn-delay-ticks", 2L));
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
@@ -134,29 +138,34 @@ public class DeathTipManager implements Listener {
 
         Player player = event.getEntity();
         LivingEntity mob = getMobKiller(player);
-        if (mob == null) {
+        if (mob == null && mobOnly) {
+            debug(player, "Skipped: death was not caused by a mob.");
             return;
         }
 
         World world = player.getWorld();
         if (requireImmediateRespawn && !Boolean.TRUE.equals(world.getGameRuleValue(GameRule.DO_IMMEDIATE_RESPAWN))) {
+            debug(player, "Skipped: gamerule doImmediateRespawn is not true in world " + world.getName() + ".");
             return;
         }
 
         Location deathLocation = player.getLocation().clone();
         deathLocation.setY(deathLocation.getY() + armorStandYOffset);
+        String sourceName = mob == null ? getDeathSourceName(player) : mob.getName();
         pending.put(player.getUniqueId(), new PendingDeathTip(
                 deathLocation,
                 player.getGameMode(),
-                mob.getName(),
+                sourceName,
                 randomTip()
         ));
+        debug(player, "Queued death tip at " + formatLocation(deathLocation) + " source=" + sourceName + ".");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         PendingDeathTip tip = pending.remove(event.getPlayer().getUniqueId());
         if (tip == null) {
+            debug(event.getPlayer(), "Respawn ignored: no pending death tip.");
             return;
         }
 
@@ -181,6 +190,7 @@ public class DeathTipManager implements Listener {
 
         ArmorStand anchor = spawnAnchor(tip.deathLocation());
         if (anchor == null) {
+            debug(player, "Could not spawn anchor, showing title/sound only.");
             showTip(player, tip);
             return;
         }
@@ -189,6 +199,7 @@ public class DeathTipManager implements Listener {
         try {
             player.setGameMode(GameMode.SPECTATOR);
             player.setSpectatorTarget(anchor);
+            debug(player, "Spectator target set to death tip anchor " + anchor.getUniqueId() + ".");
         } catch (RuntimeException exception) {
             plugin.getLogger().warning("Could not start death tip spectator view for " + player.getName() + ": " + exception.getMessage());
             anchor.remove();
@@ -305,6 +316,14 @@ public class DeathTipManager implements Listener {
         return null;
     }
 
+    private String getDeathSourceName(Player player) {
+        EntityDamageEvent cause = player.getLastDamageCause();
+        if (cause == null || cause.getCause() == null) {
+            return "Unknown";
+        }
+        return cause.getCause().name().toLowerCase(Locale.ROOT).replace('_', ' ');
+    }
+
     private String randomTip() {
         return tips.get(ThreadLocalRandom.current().nextInt(tips.size()));
     }
@@ -342,6 +361,25 @@ public class DeathTipManager implements Listener {
 
     private String color(String text) {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
+    }
+
+    private void debug(Player player, String message) {
+        if (!debug) {
+            return;
+        }
+        plugin.getLogger().info("[DeathTips] " + player.getName() + ": " + message);
+    }
+
+    private String formatLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return "unknown";
+        }
+        return location.getWorld().getName()
+                + " " + location.getX()
+                + " " + location.getY()
+                + " " + location.getZ()
+                + " yaw=" + location.getYaw()
+                + " pitch=" + location.getPitch();
     }
 
     private record PendingDeathTip(Location deathLocation, GameMode previousGameMode, String mobName, String tip) {
