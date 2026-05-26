@@ -56,6 +56,26 @@ public class DotPhaCommand implements CommandExecutor, Listener {
     private final Set<UUID> openGuis = new HashSet<>();
     private final Set<UUID> confirmGuis = new HashSet<>();
 
+    private static class BreakthroughButtonData {
+        final String configPath;
+        final Material fallbackMaterial;
+        final String fallbackName;
+        final List<String> fallbackLore;
+        final Map<String, String> placeholders;
+        final boolean ready;
+
+        BreakthroughButtonData(String configPath, Material fallbackMaterial, String fallbackName,
+                               List<String> fallbackLore, Map<String, String> placeholders,
+                               boolean ready) {
+            this.configPath = configPath;
+            this.fallbackMaterial = fallbackMaterial;
+            this.fallbackName = fallbackName;
+            this.fallbackLore = fallbackLore;
+            this.placeholders = placeholders;
+            this.ready = ready;
+        }
+    }
+
     public DotPhaCommand(JavaPlugin plugin, RealmManager realmManager, BreakthroughManager breakthroughManager, RealmListGUI realmListGUI) {
         this.plugin = plugin;
         this.realmManager = realmManager;
@@ -116,247 +136,35 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         // ==========================================
         // Slot 13: Current Realm Info (center top area)
         // ==========================================
-        List<String> currentRealmLore = new ArrayList<>();
-        currentRealmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-        currentRealmLore.add("§7Đại Giới: " + currentRealm.getTier().getColor() + currentRealm.getTier().getDisplayName());
-        currentRealmLore.add("§7Cảnh Giới: " + currentRealm.getFormattedName());
-        currentRealmLore.add("§7Tầng Nhỏ: §e" + pr.getSubRealm().getDisplayName());
-        currentRealmLore.add("");
-        currentRealmLore.add("§7Tu Vi: §b" + RealmManager.formatNumber((long) tuVi));
-        currentRealmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
-        // Progress bar for Tu Vi within current realm
-        if (currentRealm.getVienManTuVi() > 0) {
-            long startTuVi = currentRealm.getSoKyTuVi();
-            long endTuVi = currentRealm.getVienManTuVi();
-            double progress = Math.min(1.0, (tuVi - startTuVi) / (double)(endTuVi - startTuVi));
-            currentRealmLore.add(createProgressBar(progress) + " §7" + String.format("%.1f%%", progress * 100));
-        }
-
         Map<String, String> currentPlaceholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
         gui.setItem(getSlot("main-menu.items.current-realm", 13), createConfiguredItem(player,
                 "main-menu.items.current-realm", Material.NETHER_STAR,
                 currentRealm.getFormattedName() + " §7— §e" + pr.getSubRealm().getDisplayName(),
-                currentRealmLore, currentPlaceholders));
-
-        // ==========================================
-        // Slot 20: Sub-Realm Breakthrough (if not Viên Mãn)
-        // ==========================================
-        if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
-            SubRealm nextSub = pr.getSubRealm().next();
-            if (nextSub != null) {
-                long subRequired = currentRealm.getTuViForSubRealm(nextSub);
-                List<String> conditions = realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub);
-                boolean canSubBreak = conditions.isEmpty();
-
-                List<String> subLore = new ArrayList<>();
-                subLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-                subLore.add("§7Đột phá: §e" + pr.getSubRealm().getDisplayName() + " §7→ §a" + nextSub.getDisplayName());
-                subLore.add("");
-                subLore.add(canSubBreak ? "§a✅ Tu Vi đủ!" : "§c❌ Tu Vi chưa đủ!");
-                subLore.add("§7Cần: §e" + RealmManager.formatNumber(subRequired));
-                subLore.add("§7Hiện tại: §b" + RealmManager.formatNumber((long) tuVi));
-
-                long subThucLucRequired = currentRealm.getThucLucForSubRealm(nextSub);
-                long thucLuc = realmManager.getThucLuc(uuid);
-                String thucLucDisplay = realmManager.getThucLucDisplay(uuid);
-                boolean thucLucOk = thucLuc >= subThucLucRequired;
-                subLore.add((thucLucOk ? "§a✅ " : "§c❌ ") + "Thực Lực: §b" + RealmManager.formatNumber(thucLuc)
-                        + " §7/ §e" + RealmManager.formatNumber(subThucLucRequired));
-
-                double subMoneyRequired = currentRealm.getMoneyForSubRealm(nextSub);
-                double money = realmManager.getMoney(uuid);
-                boolean moneyOk = money >= subMoneyRequired;
-                subLore.add((moneyOk ? "§a✅ " : "§c❌ ") + "Tiền: §b" + RealmManager.formatMoney(money)
-                        + " §7/ §e" + RealmManager.formatMoney(subMoneyRequired));
-                subLore.add("");
-
-                int subBolts = realmManager.getSubRealmBolts(pr.getSubRealm());
-                double subDmg = realmManager.getSubRealmDmg(pr.getSubRealm());
-                subLore.add("§e⚡ Tiểu Lôi Kiếp:");
-                subLore.add("§7  Số tia sét: §c" + subBolts);
-                subLore.add("§7  DMG/tia: §c" + subDmg + " ❤");
-                subLore.add("§7  Tỉ lệ: §a100%");
-                subLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
-                if (canSubBreak) {
-                    subLore.add("§a§l▶ Click để đột phá tầng nhỏ!");
-                } else {
-                    subLore.add("§c§l✗ Chưa đủ điều kiện");
-                }
-
-                Map<String, String> subPlaceholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
-                subPlaceholders.put("{next_sub_realm}", nextSub.getDisplayName());
-                subPlaceholders.put("{tuvi_required}", RealmManager.formatNumber(subRequired));
-                subPlaceholders.put("{thuc_luc}", thucLucDisplay);
-                subPlaceholders.put("{thuc_luc_required}", RealmManager.formatNumber(subThucLucRequired));
-                subPlaceholders.put("{money}", RealmManager.formatMoney(money));
-                subPlaceholders.put("{money_required}", RealmManager.formatMoney(subMoneyRequired));
-                subPlaceholders.put("{lightning_bolts}", String.valueOf(subBolts));
-                subPlaceholders.put("{damage_per_bolt}", String.valueOf(subDmg));
-                subPlaceholders.put("{total_damage}", String.format("%.0f", subBolts * subDmg));
-                subPlaceholders.put("{status_tuvi}", canSubBreak ? "§a✅" : "§c❌");
-                subPlaceholders.put("{status_thuc_luc}", thucLucOk ? "§a✅" : "§c❌");
-                subPlaceholders.put("{status_money}", moneyOk ? "§a✅" : "§c❌");
-                subPlaceholders.put("{status_cooldown}", !pr.isOnCooldown() ? "§a✅" : "§c❌");
-
-                gui.setItem(getSlot("main-menu.items.sub-realm-breakthrough", 20), createConfiguredItem(player,
-                        "main-menu.items.sub-realm-breakthrough", canSubBreak ? Material.EXPERIENCE_BOTTLE : Material.GLASS_BOTTLE,
-                        "§e⚡ Đột Phá Tầng Nhỏ", subLore, subPlaceholders, canSubBreak));
-            }
-        }
+                Collections.emptyList(), currentPlaceholders));
 
         // ==========================================
         // Slot 22: Info panel (Realm List)
         // ==========================================
-        List<String> infoLore = new ArrayList<>();
-        infoLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-        infoLore.add("§7Hệ thống 19 Cảnh Giới:");
-        infoLore.add("");
-
-        // Show first few realms with current highlighted
-        for (int i = 1; i <= Math.min(19, 19); i++) {
-            Realm r = realmManager.getRealm(i);
-            if (r == null) continue;
-            String marker = (i == pr.getRealmId()) ? "§a§l➤ " : "§7  ";
-            String checkMark = (i < pr.getRealmId()) ? "§a✔ " : (i == pr.getRealmId() ? "§e★ " : "§8○ ");
-            infoLore.add(marker + checkMark + r.getFormattedName() + " §8(Lv" + i + ")");
-        }
-        infoLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
         gui.setItem(getSlot("main-menu.items.realm-list", 22), createConfiguredItem(player,
-                "main-menu.items.realm-list", Material.BOOK, "§b§l📖 Danh Sách Cảnh Giới", infoLore,
+                "main-menu.items.realm-list", Material.BOOK, "§b§l📖 Danh Sách Cảnh Giới", Collections.emptyList(),
                 createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
 
-        // ==========================================
-        // Slot 24: Major Realm Breakthrough
-        // ==========================================
-        if (nextRealm != null && pr.getSubRealm() == SubRealm.VIEN_MAN) {
-            List<String> conditions = realmManager.checkBreakthroughConditions(uuid);
-            boolean canBreak = conditions.isEmpty();
-
-            List<String> majorLore = new ArrayList<>();
-            majorLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            majorLore.add("§7Đột phá → " + nextRealm.getFormattedName());
-            majorLore.add("");
-
-            // Show conditions
-            majorLore.add("§e§l⚙ Điều Kiện:");
-            boolean tuViOk = tuVi >= nextRealm.getTuViRequired();
-            majorLore.add((tuViOk ? "§a  ✅ " : "§c  ❌ ") + "Tu Vi: " + RealmManager.formatNumber((long) tuVi) 
-                    + " / " + RealmManager.formatNumber(nextRealm.getTuViRequired()));
-
-            long thucLuc = realmManager.getThucLuc(uuid);
-            String thucLucDisplay = realmManager.getThucLucDisplay(uuid);
-            long thucLucRequired = nextRealm.getThucLucRequired();
-            boolean thucLucOk = thucLuc >= thucLucRequired;
-            majorLore.add((thucLucOk ? "§a  ✅ " : "§c  ❌ ") + "Thực Lực: " + RealmManager.formatNumber(thucLuc)
-                    + " / " + RealmManager.formatNumber(thucLucRequired));
-
-            double money = realmManager.getMoney(uuid);
-            double moneyRequired = nextRealm.getMoneyRequired();
-            boolean moneyOk = money >= moneyRequired;
-            majorLore.add((moneyOk ? "§a  ✅ " : "§c  ❌ ") + "Tiền: " + RealmManager.formatMoney(money)
-                    + " / " + RealmManager.formatMoney(moneyRequired));
-
-            boolean subOk = pr.getSubRealm() == SubRealm.VIEN_MAN;
-            majorLore.add((subOk ? "§a  ✅ " : "§c  ❌ ") + "Tầng: " + pr.getSubRealm().getDisplayName() + " (cần Viên Mãn)");
-
-            boolean cdOk = !pr.isOnCooldown();
-            if (!cdOk) {
-                long remaining = pr.getRemainingCooldownSeconds();
-                majorLore.add("§c  ❌ Cooldown: còn " + (remaining / 60) + " phút " + (remaining % 60) + "s");
-            } else {
-                majorLore.add("§a  ✅ Không cooldown");
-            }
-
-            majorLore.add("");
-
-            // Thiên Lôi Kiếp info
-            majorLore.add("§c§l⚡ Thiên Lôi Kiếp:");
-            majorLore.add("§7  Số tia sét: §c" + nextRealm.getLightningBolts());
-            majorLore.add("§7  DMG/tia: §c" + nextRealm.getDamagePerBoltDisplay());
-            majorLore.add("§7  Tổng DMG: §c" + nextRealm.getTotalDamageSuccessDisplay());
-            majorLore.add("§e  Sống sót qua sét = §a§lThành Công");
-            majorLore.add("§c  Chết bởi sét = §4§lThất Bại");
-            majorLore.add("");
-
-            // Đột Phá Đan requirement
-            int danRequired = realmManager.getDotPhaDanRequired(nextRealm.getId());
-            majorLore.add("§6  Đột Phá Đan: §e" + danRequired + " cái");
-            majorLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
-            if (canBreak) {
-                majorLore.add("§a§l▶ Click để mở xác nhận đột phá!");
-            } else {
-                majorLore.add("§c§l✗ Chưa đủ điều kiện");
-            }
-
-            Map<String, String> majorPlaceholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
-            majorPlaceholders.put("{next_realm}", nextRealm.getFormattedName());
-            majorPlaceholders.put("{tuvi_required}", RealmManager.formatNumber(nextRealm.getTuViRequired()));
-            majorPlaceholders.put("{thuc_luc}", thucLucDisplay);
-            majorPlaceholders.put("{thuc_luc_required}", RealmManager.formatNumber(thucLucRequired));
-            majorPlaceholders.put("{money}", RealmManager.formatMoney(money));
-            majorPlaceholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
-            majorPlaceholders.put("{lightning_bolts}", String.valueOf(nextRealm.getLightningBolts()));
-            majorPlaceholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
-            majorPlaceholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
-            majorPlaceholders.put("{status_tuvi}", tuViOk ? "§a✅" : "§c❌");
-            majorPlaceholders.put("{status_thuc_luc}", thucLucOk ? "§a✅" : "§c❌");
-            majorPlaceholders.put("{status_money}", moneyOk ? "§a✅" : "§c❌");
-            majorPlaceholders.put("{status_cooldown}", cdOk ? "§a✅" : "§c❌");
-
-            gui.setItem(getSlot("main-menu.items.major-breakthrough", 24), createConfiguredItem(player,
-                    "main-menu.items.major-breakthrough", canBreak ? Material.END_CRYSTAL : Material.BARRIER,
-                    "§c§l⚡ Đột Phá Đại Cảnh Giới", majorLore, majorPlaceholders, canBreak));
-        } else if (nextRealm != null) {
-            // Not at Viên Mãn yet
-            List<String> waitLore = new ArrayList<>();
-            waitLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            waitLore.add("§7Mục tiêu: " + nextRealm.getFormattedName());
-            waitLore.add("");
-            waitLore.add("§c❌ Cần đạt §eViên Mãn §ctrước!");
-            waitLore.add("§7Hiện tại: §e" + pr.getSubRealm().getDisplayName());
-            waitLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            waitLore.add("§7Hãy đột phá tầng nhỏ trước.");
-
-            gui.setItem(getSlot("main-menu.items.major-breakthrough", 24), createConfiguredItem(player,
-                    "main-menu.items.major-breakthrough", Material.BARRIER,
-                    "§8⚡ Đột Phá Đại Cảnh Giới §c(Chưa mở)", waitLore,
-                    createMajorPlaceholders(player, pr, currentRealm, nextRealm, tuVi), false));
-        } else {
-            // Max realm
-            List<String> maxLore = new ArrayList<>();
-            maxLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            maxLore.add("§a§lBạn đã đạt cực đỉnh!");
-            maxLore.add("§6Hồng Mông — Đạo tối thượng");
-            maxLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
-            gui.setItem(getSlot("main-menu.items.major-breakthrough", 24), createConfiguredItem(player,
-                    "main-menu.items.max-realm", Material.DRAGON_EGG, "§4§l✦ Cực Đỉnh ✦", maxLore,
-                    createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
-        }
+        // Unified breakthrough button: one item handles both sub-realm and major breakthroughs.
+        int legacySubSlot = getSlot("main-menu.items.sub-realm-breakthrough", 20);
+        int legacyMajorSlot = getSlot("main-menu.items.major-breakthrough", 24);
+        clearSlot(gui, legacySubSlot, size);
+        clearSlot(gui, legacyMajorSlot, size);
+        BreakthroughButtonData breakthroughButton = createBreakthroughButton(player, pr, currentRealm, nextRealm, tuVi);
+        gui.setItem(getSlot("main-menu.items.breakthrough", legacyMajorSlot), createConfiguredItem(player,
+                breakthroughButton.configPath, breakthroughButton.fallbackMaterial,
+                breakthroughButton.fallbackName, breakthroughButton.fallbackLore,
+                breakthroughButton.placeholders, breakthroughButton.ready));
 
         // ==========================================
         // Slot 31: Tips/Strategy
         // ==========================================
-        List<String> tipsLore = new ArrayList<>();
-        tipsLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-        tipsLore.add("§e💡 Mẹo vượt Thiên Lôi Kiếp:");
-        tipsLore.add("");
-        tipsLore.add("§7🧪 Uống §aHồi Phục Đan §7trước khi bắt đầu");
-        tipsLore.add("§7🛡️ Mặc §bgiáp DEF cao §7để giảm DMG");
-        tipsLore.add("§7💚 Mang §aPet Y Tu §7để tự heal");
-        tipsLore.add("§7🔮 Dùng §dHộ Thể Phù §7để chặn sét");
-        tipsLore.add("§7💎 VIP có §6Thiên Lôi Hộ Phù §7giảm 20%");
-        tipsLore.add("");
-        tipsLore.add("§c⚠ Đây là thử thách solo!");
-        tipsLore.add("§c  Không thể nhờ người khác heal!");
-        tipsLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-
         gui.setItem(getSlot("main-menu.items.tips", 31), createConfiguredItem(player,
-                "main-menu.items.tips", Material.WRITABLE_BOOK, "§e§l💡 Chiến Thuật", tipsLore,
+                "main-menu.items.tips", Material.WRITABLE_BOOK, "§e§l💡 Chiến Thuật", Collections.emptyList(),
                 createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
 
         // ==========================================
@@ -364,11 +172,146 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         // ==========================================
         gui.setItem(getSlot("main-menu.items.close-button", 49), createConfiguredItem(player,
                 "main-menu.items.close-button", Material.BARRIER, "§c§lĐóng Menu",
-                Collections.singletonList("§7Click để đóng"), createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
+                Collections.emptyList(), createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi)));
 
         openGuis.add(uuid);
         player.openInventory(gui);
         player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.MASTER, 1.0f, 1.0f);
+    }
+
+    private BreakthroughButtonData createBreakthroughButton(Player player, PlayerRealm pr, Realm currentRealm,
+                                                            Realm nextRealm, double tuVi) {
+        UUID uuid = player.getUniqueId();
+
+        if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
+            SubRealm nextSub = pr.getSubRealm().next();
+            if (nextSub != null) {
+                long tuViRequired = currentRealm.getTuViForSubRealm(nextSub);
+                long thucLuc = realmManager.getThucLuc(uuid);
+                String thucLucDisplay = realmManager.getThucLucDisplay(uuid);
+                long thucLucRequired = currentRealm.getThucLucForSubRealm(nextSub);
+                double money = realmManager.getMoney(uuid);
+                double moneyRequired = currentRealm.getMoneyForSubRealm(nextSub);
+                int bolts = realmManager.getSubRealmBolts(pr.getSubRealm());
+                double damage = realmManager.getSubRealmDmg(pr.getSubRealm());
+                boolean tuViOk = tuVi >= tuViRequired;
+                boolean thucLucOk = thucLuc >= thucLucRequired;
+                boolean moneyOk = money >= moneyRequired;
+                boolean ready = realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub).isEmpty();
+
+                Map<String, String> placeholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
+                placeholders.put("{breakthrough_type}", "Tầng nhỏ");
+                placeholders.put("{breakthrough_target}", pr.getSubRealm().getDisplayName() + " §7→ §a" + nextSub.getDisplayName());
+                placeholders.put("{next_sub_realm}", nextSub.getDisplayName());
+                placeholders.put("{next_target}", nextSub.getDisplayName());
+                placeholders.put("{tuvi_required}", RealmManager.formatNumber(tuViRequired));
+                placeholders.put("{thuc_luc}", thucLucDisplay);
+                placeholders.put("{thuc_luc_required}", RealmManager.formatNumber(thucLucRequired));
+                placeholders.put("{money}", RealmManager.formatMoney(money));
+                placeholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
+                placeholders.put("{lightning_name}", "Tiểu Lôi Kiếp");
+                placeholders.put("{lightning_bolts}", String.valueOf(bolts));
+                placeholders.put("{damage_per_bolt}", formatDecimal(damage) + " ❤");
+                placeholders.put("{total_damage}", formatDecimal(bolts * damage) + " ❤");
+                placeholders.put("{success_rate}", "100%");
+                placeholders.put("{dot_pha_dan}", "Không cần");
+                placeholders.put("{cooldown}", "Không");
+                placeholders.put("{punishment}", "Không tụt cảnh giới");
+                putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, true, ready);
+
+                List<String> fallbackLore = Collections.emptyList();
+
+                return new BreakthroughButtonData("main-menu.items.breakthrough",
+                        ready ? Material.EXPERIENCE_BOTTLE : Material.GLASS_BOTTLE,
+                        "§d§lĐột Phá", fallbackLore, placeholders, ready);
+            }
+        }
+
+        if (nextRealm != null) {
+            List<String> failures = realmManager.checkBreakthroughConditions(uuid);
+            boolean ready = failures.isEmpty();
+            long thucLuc = realmManager.getThucLuc(uuid);
+            String thucLucDisplay = realmManager.getThucLucDisplay(uuid);
+            long thucLucRequired = nextRealm.getThucLucRequired();
+            double money = realmManager.getMoney(uuid);
+            double moneyRequired = nextRealm.getMoneyRequired();
+            boolean tuViOk = tuVi >= nextRealm.getTuViRequired();
+            boolean thucLucOk = thucLuc >= thucLucRequired;
+            boolean moneyOk = money >= moneyRequired;
+            boolean cooldownOk = !pr.isOnCooldown();
+
+            Map<String, String> placeholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
+            placeholders.put("{breakthrough_type}", "Cảnh giới");
+            placeholders.put("{breakthrough_target}", currentRealm.getFormattedName() + " §7→ " + nextRealm.getFormattedName());
+            placeholders.put("{next_target}", nextRealm.getFormattedName());
+            placeholders.put("{next_realm}", nextRealm.getFormattedName());
+            placeholders.put("{tuvi_required}", RealmManager.formatNumber(nextRealm.getTuViRequired()));
+            placeholders.put("{thuc_luc}", thucLucDisplay);
+            placeholders.put("{thuc_luc_required}", RealmManager.formatNumber(thucLucRequired));
+            placeholders.put("{money}", RealmManager.formatMoney(money));
+            placeholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
+            placeholders.put("{lightning_name}", "Thiên Lôi Kiếp");
+            placeholders.put("{lightning_bolts}", String.valueOf(nextRealm.getLightningBolts()));
+            placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
+            placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
+            placeholders.put("{success_rate}", formatDecimal(nextRealm.getSuccessRate()) + "%");
+            placeholders.put("{dot_pha_dan}", "x" + realmManager.getDotPhaDanRequired(nextRealm.getId()));
+            placeholders.put("{cooldown}", cooldownOk ? "Không" : formatTime(pr.getRemainingCooldownSeconds()));
+            placeholders.put("{punishment}", "Thất bại có thể tụt cảnh giới");
+            putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, cooldownOk, ready);
+
+            List<String> fallbackLore = Collections.emptyList();
+
+            return new BreakthroughButtonData("main-menu.items.breakthrough",
+                    ready ? Material.END_CRYSTAL : Material.BARRIER,
+                    "§d§lĐột Phá", fallbackLore, placeholders, ready);
+        }
+
+        Map<String, String> placeholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
+        placeholders.put("{breakthrough_type}", "Cực đỉnh");
+        placeholders.put("{breakthrough_target}", "Đã đạt tối đa");
+        placeholders.put("{next_target}", "Không có");
+        putStatusPlaceholders(placeholders, true, true, true, true, false);
+        List<String> fallbackLore = Collections.emptyList();
+        return new BreakthroughButtonData("main-menu.items.max-realm", Material.DRAGON_EGG,
+                "§4§l✦ Cực Đỉnh ✦", fallbackLore, placeholders, false);
+    }
+
+    private void putStatusPlaceholders(Map<String, String> placeholders, boolean tuViOk, boolean thucLucOk,
+                                       boolean moneyOk, boolean cooldownOk, boolean ready) {
+        placeholders.put("{status_tuvi}", status(tuViOk));
+        placeholders.put("{status_thuc_luc}", status(thucLucOk));
+        placeholders.put("{status_money}", status(moneyOk));
+        placeholders.put("{status_cooldown}", status(cooldownOk));
+        placeholders.put("{status_ready}", status(ready));
+        placeholders.put("{ready_text}", ready ? "Có thể đột phá" : "Chưa đủ điều kiện");
+        placeholders.put("{click_text}", ready ? "Click để mở xác nhận." : "Cần hoàn tất điều kiện phía trên.");
+    }
+
+    private String status(boolean ok) {
+        return ok ? "§a✔" : "§c✘";
+    }
+
+    private String formatDecimal(double value) {
+        if (value == Math.rint(value)) {
+            return String.valueOf((long) value);
+        }
+        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private String formatTime(long seconds) {
+        long minutes = seconds / 60;
+        long remainSeconds = seconds % 60;
+        if (minutes <= 0) {
+            return remainSeconds + " giây";
+        }
+        return minutes + " phút " + remainSeconds + " giây";
+    }
+
+    private void clearSlot(Inventory gui, int slot, int size) {
+        if (slot >= 0 && slot < size) {
+            gui.setItem(slot, null);
+        }
     }
 
     // ==========================================
@@ -389,55 +332,25 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         Realm currentRealm = realmManager.getPlayerCurrentRealm(uuid);
         PlayerRealm pr = realmManager.getPlayerRealm(uuid);
 
-        List<String> confirmLore = new ArrayList<>();
-        if (isMajor) {
-            Realm nextRealm = realmManager.getNextRealm(uuid);
-            confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            confirmLore.add("§7Đột phá: " + currentRealm.getFormattedName() + " §7→ " + nextRealm.getFormattedName());
-            confirmLore.add("");
-            confirmLore.add("§c⚠ CẢNH BÁO:");
-            confirmLore.add("§c  Tia sét sẽ giáng xuống bạn!");
-            confirmLore.add("§c  Sống sót = Thành công");
-            confirmLore.add("§c  Chết = Thất bại:");
-            confirmLore.add("§4    → Tụt 1 bậc cảnh giới");
-            confirmLore.add("§4    → Cooldown 30 phút");
-            confirmLore.add("§c    → Mất 50% Đột Phá Đan đã dùng");
-            confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-        } else {
-            SubRealm nextSub = pr.getSubRealm().next();
-            confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-            confirmLore.add("§7Đột phá tầng nhỏ:");
-            confirmLore.add("§e  " + pr.getSubRealm().getDisplayName() + " §7→ §a" + nextSub.getDisplayName());
-            confirmLore.add("");
-            confirmLore.add("§a  Tỉ lệ: 100% thành công");
-            confirmLore.add("§7  Sét nhẹ, an toàn!");
-            confirmLore.add("§8━━━━━━━━━━━━━━━━━━━━━");
-        }
-
         double tuVi = TuTien.getApi().getTuVi(uuid);
         Realm nextRealm = realmManager.getNextRealm(uuid);
         Map<String, String> confirmPlaceholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
+        confirmPlaceholders.putAll(createBreakthroughButton(player, pr, currentRealm, nextRealm, tuVi).placeholders);
         if (!isMajor && pr.getSubRealm().next() != null) {
             confirmPlaceholders.put("{next_sub_realm}", pr.getSubRealm().next().getDisplayName());
         }
         gui.setItem(getSlot("confirm-menu.items.info", 13), createConfiguredItem(player,
-                "confirm-menu.items.info", Material.LIGHTNING_ROD, "§e§l⚡ Thông Tin Đột Phá", confirmLore,
+                "confirm-menu.items.info", Material.LIGHTNING_ROD, "§e§l⚡ Thông Tin Đột Phá", Collections.emptyList(),
                 confirmPlaceholders));
 
         // Confirm button (slot 11)
-        List<String> yesLore = new ArrayList<>();
-        yesLore.add("§a§lBắt đầu Thiên Lôi Kiếp!");
-        yesLore.add("§7Click để xác nhận");
         gui.setItem(getSlot("confirm-menu.items.confirm", 11), createConfiguredItem(player,
-                "confirm-menu.items.confirm", Material.LIME_CONCRETE, "§a§l✔ XÁC NHẬN", yesLore,
+                "confirm-menu.items.confirm", Material.LIME_CONCRETE, "§a§l✔ XÁC NHẬN", Collections.emptyList(),
                 confirmPlaceholders));
 
         // Cancel button (slot 15)
-        List<String> noLore = new ArrayList<>();
-        noLore.add("§cHủy bỏ đột phá");
-        noLore.add("§7Click để quay lại");
         gui.setItem(getSlot("confirm-menu.items.cancel", 15), createConfiguredItem(player,
-                "confirm-menu.items.cancel", Material.RED_CONCRETE, "§c§l✗ HỦY BỎ", noLore,
+                "confirm-menu.items.cancel", Material.RED_CONCRETE, "§c§l✗ HỦY BỎ", Collections.emptyList(),
                 confirmPlaceholders));
 
         openGuis.remove(uuid);
@@ -464,42 +377,11 @@ public class DotPhaCommand implements CommandExecutor, Listener {
 
             int slot = event.getRawSlot();
 
-            // Slot 20: Sub-realm breakthrough
-            if (slot == getSlot("main-menu.items.sub-realm-breakthrough", 20)) {
-                PlayerRealm pr = realmManager.getPlayerRealm(uuid);
-                if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
-                    SubRealm nextSub = pr.getSubRealm().next();
-                    if (nextSub != null) {
-                        List<String> failures = realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub);
-                        if (failures.isEmpty()) {
-                            openConfirmMenu(player, false);
-                        } else {
-                            player.sendMessage("§c§l⚠ Chưa đủ điều kiện:");
-                            for (String msg : failures) {
-                                player.sendMessage("  " + msg);
-                            }
-                            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
-                        }
-                    }
-                }
-            }
-
-            // Slot 24: Major realm breakthrough
-            if (slot == getSlot("main-menu.items.major-breakthrough", 24)) {
-                PlayerRealm pr = realmManager.getPlayerRealm(uuid);
-                Realm nextRealm = realmManager.getNextRealm(uuid);
-                if (nextRealm != null && pr.getSubRealm() == SubRealm.VIEN_MAN) {
-                    List<String> failures = realmManager.checkBreakthroughConditions(uuid);
-                    if (failures.isEmpty()) {
-                        openConfirmMenu(player, true);
-                    } else {
-                        player.sendMessage("§c§l⚠ Chưa đủ điều kiện:");
-                        for (String msg : failures) {
-                            player.sendMessage("  " + msg);
-                        }
-                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
-                    }
-                }
+            // Unified breakthrough button: sub-realm first, major realm at Viên Mãn.
+            if (slot == getSlot("main-menu.items.breakthrough",
+                    getSlot("main-menu.items.major-breakthrough", 24))) {
+                handleBreakthroughClick(player);
+                return;
             }
 
             // Slot 22: Open Realm List GUI
@@ -543,6 +425,50 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, SoundCategory.MASTER, 1.0f, 1.0f);
             }
         }
+    }
+
+    private void handleBreakthroughClick(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+
+        if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
+            SubRealm nextSub = pr.getSubRealm().next();
+            if (nextSub == null) {
+                player.sendMessage("§cKhông tìm thấy tầng nhỏ tiếp theo.");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
+                return;
+            }
+
+            List<String> failures = realmManager.checkSubRealmBreakthroughConditions(uuid, nextSub);
+            if (failures.isEmpty()) {
+                openConfirmMenu(player, false);
+            } else {
+                sendConditionFailures(player, failures);
+            }
+            return;
+        }
+
+        Realm nextRealm = realmManager.getNextRealm(uuid);
+        if (nextRealm == null) {
+            player.sendMessage("§aBạn đã đạt cảnh giới tối đa.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
+            return;
+        }
+
+        List<String> failures = realmManager.checkBreakthroughConditions(uuid);
+        if (failures.isEmpty()) {
+            openConfirmMenu(player, true);
+        } else {
+            sendConditionFailures(player, failures);
+        }
+    }
+
+    private void sendConditionFailures(Player player, List<String> failures) {
+        player.sendMessage("§c§l⚠ Chưa đủ điều kiện:");
+        for (String msg : failures) {
+            player.sendMessage("  " + msg);
+        }
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 1.0f, 1.0f);
     }
 
     @EventHandler
@@ -662,33 +588,29 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         placeholders.put("{next_sub_realm}", pr.getSubRealm().next() != null ? pr.getSubRealm().next().getDisplayName() : "Không có");
         placeholders.put("{tuvi}", RealmManager.formatNumber((long) tuVi));
         placeholders.put("{cooldown}", String.valueOf(pr.getRemainingCooldownSeconds()));
-        return placeholders;
-    }
-
-    private Map<String, String> createMajorPlaceholders(Player player, PlayerRealm pr, Realm currentRealm, Realm nextRealm, double tuVi) {
-        Map<String, String> placeholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
-        if (nextRealm == null) {
-            return placeholders;
+        if (pr.getSubRealm() != SubRealm.VIEN_MAN && pr.getSubRealm().next() != null) {
+            SubRealm nextSub = pr.getSubRealm().next();
+            long nextTuVi = currentRealm.getTuViForSubRealm(nextSub);
+            boolean ready = realmManager.checkSubRealmBreakthroughConditions(player.getUniqueId(), nextSub).isEmpty();
+            placeholders.put("{next_tuvi_required}", RealmManager.formatNumber(nextTuVi));
+            placeholders.put("{breakthrough_target}", pr.getSubRealm().getDisplayName() + " §7→ §a" + nextSub.getDisplayName());
+            placeholders.put("{breakthrough_type}", "Tầng nhỏ");
+            placeholders.put("{status_ready}", status(ready));
+            placeholders.put("{ready_text}", ready ? "Có thể đột phá tầng nhỏ" : "Chưa đủ điều kiện");
+        } else if (nextRealm != null) {
+            boolean ready = realmManager.checkBreakthroughConditions(player.getUniqueId()).isEmpty();
+            placeholders.put("{next_tuvi_required}", RealmManager.formatNumber(nextRealm.getTuViRequired()));
+            placeholders.put("{breakthrough_target}", currentRealm.getFormattedName() + " §7→ " + nextRealm.getFormattedName());
+            placeholders.put("{breakthrough_type}", "Cảnh giới");
+            placeholders.put("{status_ready}", status(ready));
+            placeholders.put("{ready_text}", ready ? "Có thể đột phá cảnh giới" : "Chưa đủ điều kiện");
+        } else {
+            placeholders.put("{next_tuvi_required}", "Tối đa");
+            placeholders.put("{breakthrough_target}", "Đã đạt cực đỉnh");
+            placeholders.put("{breakthrough_type}", "Cực đỉnh");
+            placeholders.put("{status_ready}", status(false));
+            placeholders.put("{ready_text}", "Đã đạt cảnh giới tối đa");
         }
-
-        long thucLuc = realmManager.getThucLuc(player.getUniqueId());
-        long thucLucRequired = nextRealm.getThucLucRequired();
-        double money = realmManager.getMoney(player.getUniqueId());
-        double moneyRequired = nextRealm.getMoneyRequired();
-
-        placeholders.put("{next_realm}", nextRealm.getFormattedName());
-        placeholders.put("{tuvi_required}", RealmManager.formatNumber(nextRealm.getTuViRequired()));
-        placeholders.put("{thuc_luc}", realmManager.getThucLucDisplay(player.getUniqueId()));
-        placeholders.put("{thuc_luc_required}", RealmManager.formatNumber(thucLucRequired));
-        placeholders.put("{money}", RealmManager.formatMoney(money));
-        placeholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
-        placeholders.put("{lightning_bolts}", String.valueOf(nextRealm.getLightningBolts()));
-        placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
-        placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
-        placeholders.put("{status_tuvi}", tuVi >= nextRealm.getTuViRequired() ? "§a✅" : "§c❌");
-        placeholders.put("{status_thuc_luc}", thucLuc >= thucLucRequired ? "§a✅" : "§c❌");
-        placeholders.put("{status_money}", money >= moneyRequired ? "§a✅" : "§c❌");
-        placeholders.put("{status_cooldown}", !pr.isOnCooldown() ? "§a✅" : "§c❌");
         return placeholders;
     }
 
@@ -724,16 +646,4 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
     }
 
-    /**
-     * Create a progress bar: §a█████§7█████ 50%
-     */
-    private String createProgressBar(double progress) {
-        int filled = (int) (progress * 20);
-        int empty = 20 - filled;
-        StringBuilder bar = new StringBuilder("§a");
-        for (int i = 0; i < filled; i++) bar.append("█");
-        bar.append("§7");
-        for (int i = 0; i < empty; i++) bar.append("█");
-        return bar.toString();
-    }
 }

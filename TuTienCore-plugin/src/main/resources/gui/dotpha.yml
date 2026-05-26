@@ -1,16 +1,20 @@
 # ==========================================
 # TuTienCore - /dotpha GUI Configuration
 # ==========================================
-# Chinh title, item, slot, material va lore cua menu /dotpha.
+# Lore va ten item nen sua o file nay, code chi cap nhat placeholder/trang thai.
 # Ho tro mau &: &a, &c, &l...
 # Ho tro PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
-# Ho tro placeholder noi bo: {realm}, {sub_realm}, {next_realm}, {next_sub_realm},
-# {tuvi}, {tuvi_required}, {thuc_luc}, {thuc_luc_required}, {money}, {money_required},
-# {lightning_bolts}, {damage_per_bolt}, {total_damage}, {status_tuvi}, {status_thuc_luc},
-# {status_money}, {status_cooldown}, {cooldown}.
+# Placeholder noi bo:
+# {realm}, {realm_name}, {realm_display}, {realm_tier}, {sub_realm}
+# {next_realm}, {next_sub_realm}, {next_target}, {breakthrough_type}, {breakthrough_target}
+# {tuvi}, {tuvi_required}, {next_tuvi_required}, {thuc_luc}, {thuc_luc_required}
+# {money}, {money_required}, {dot_pha_dan}, {cooldown}, {punishment}
+# {lightning_name}, {lightning_bolts}, {damage_per_bolt}, {total_damage}, {success_rate}
+# {status_tuvi}, {status_thuc_luc}, {status_money}, {status_cooldown}, {status_ready}
+# {ready_text}, {click_text}
 
 main-menu:
-  title: "&5&l⚡ Đột Phá Cảnh Giới ⚡"
+  title: "&8Đột Phá"
   size: 54
 
   items:
@@ -22,104 +26,91 @@ main-menu:
     current-realm:
       slot: 13
       material: NETHER_STAR
-      name: "{realm} &7— &e{sub_realm}"
+      name: "&d&lTu Luyện"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Cảnh Giới: {realm}"
-        - "&7Tầng Nhỏ: &e{sub_realm}"
+        - "&8Thông tin:"
+        - "&7Cảnh giới: {realm}"
+        - "&7Tầng nhỏ: &e{sub_realm}"
         - ""
-        - "&7Tu Vi: &b{tuvi}"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&7Tu Vi: &b{tuvi} &7/ &e{next_tuvi_required}"
+        - "&7Mục tiêu: {breakthrough_target}"
+        - "&7Đột phá: {status_ready} &f{ready_text}"
+        - ""
+        - "&8Gợi ý:"
+        - "&7Vượt các tầng nhỏ để lên Viên Mãn,"
+        - "&7sau đó mới mở cảnh giới tiếp theo."
 
-    sub-realm-breakthrough:
-      slot: 20
-      material-ready: EXPERIENCE_BOTTLE
-      material-locked: GLASS_BOTTLE
-      name: "&e⚡ Đột Phá Tầng Nhỏ"
+    breakthrough:
+      slot: 24
+      # Bỏ material-ready/material-locked để plugin tự chọn icon theo loại đột phá.
+      # Có thể thêm material-ready/material-locked nếu muốn cố định icon.
+      name: "&d&lĐột Phá"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Đột phá: &e{sub_realm} &7→ &a{next_sub_realm}"
+        - "&8Thông tin đột phá:"
+        - "&7Loại: &f{breakthrough_type}"
+        - "&7Mục tiêu: {breakthrough_target}"
         - ""
-        - "{status_tuvi} Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
-        - "{status_thuc_luc} Thực Lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
-        - "{status_money} Tiền: &b{money} &7/ &e{money_required}"
+        - "&8Điều kiện:"
+        - "{status_tuvi} &7Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
+        - "{status_thuc_luc} &7Thực lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
+        - "{status_money} &7Linh Thạch: &b{money} &7/ &e{money_required}"
+        - "{status_cooldown} &7Hồi phục: &e{cooldown}"
+        - "&8▪ &7Đột Phá Đan: &e{dot_pha_dan}"
         - ""
-        - "&e⚡ Tiểu Lôi Kiếp:"
-        - "&7  Số tia sét: &c{lightning_bolts}"
-        - "&7  DMG/tia: &c{damage_per_bolt}"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&a&l▶ Click để đột phá tầng nhỏ!"
+        - "&8Lôi kiếp:"
+        - "&7Dạng: &c{lightning_name}"
+        - "&7Số tia: &c{lightning_bolts}"
+        - "&7Sát thương: &c{damage_per_bolt}"
+        - "&7Tổng áp lực: &c{total_damage}"
+        - "&7Tỉ lệ thành công: &a{success_rate}"
+        - "&7Rủi ro: &c{punishment}"
+        - ""
+        - "&e{click_text}"
 
     realm-list:
       slot: 22
       material: BOOK
-      name: "&b&l📖 Danh Sách Cảnh Giới"
+      name: "&b&lDanh Sách Cảnh Giới"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Hệ thống 19 Cảnh Giới"
+        - "&8Thông tin:"
+        - "&7Xem toàn bộ cảnh giới, yêu cầu"
+        - "&7Tu Vi và Đột Phá Đan từng mốc."
+        - ""
         - "&7Hiện tại: {realm}"
         - "&7Tầng nhỏ: &e{sub_realm}"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - ""
         - "&eClick để xem danh sách."
 
-    major-breakthrough:
-      slot: 24
-      material-ready: END_CRYSTAL
-      material-locked: BARRIER
-      name: "&c&l⚡ Đột Phá Đại Cảnh Giới"
-      lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Đột phá → {next_realm}"
-        - ""
-        - "{status_tuvi} Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
-        - "{status_thuc_luc} Thực Lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
-        - "{status_money} Tiền: &b{money} &7/ &e{money_required}"
-        - "{status_cooldown} Cooldown: &e{cooldown}s"
-        - ""
-        - "&c&l⚡ Thiên Lôi Kiếp:"
-        - "&7  Số tia sét: &c{lightning_bolts}"
-        - "&7  DMG/tia: &c{damage_per_bolt}"
-        - "&7  Tổng DMG: &c{total_damage}"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&a&l▶ Click để mở xác nhận!"
-
     max-realm:
-      slot: 24
       material: DRAGON_EGG
-      name: "&4&l✦ Cực Đỉnh ✦"
+      name: "&4&lCực Đỉnh"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&a&lBạn đã đạt cực đỉnh!"
-        - "&6Hồng Mông &7— &fĐạo tối thượng"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&8Thông tin:"
+        - "&aBạn đã đạt cảnh giới tối đa."
+        - "&7Không còn mốc đột phá tiếp theo."
 
     tips:
       slot: 31
       material: WRITABLE_BOOK
-      name: "&e&l💡 Chiến Thuật"
+      name: "&e&lLưu Ý Khi Đột Phá"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&e💡 Mẹo vượt Thiên Lôi Kiếp:"
+        - "&8Kinh nghiệm:"
+        - "&7Chuẩn bị hồi phục và trang bị phòng thủ"
+        - "&7trước khi gọi lôi kiếp."
         - ""
-        - "&7🧪 Uống &aHồi Phục Đan &7trước khi bắt đầu"
-        - "&7🛡️ Mặc &bgiáp DEF cao &7để giảm DMG"
-        - "&7💚 Mang &aPet Y Tu &7để tự heal"
-        - "&7🔮 Dùng &dHộ Thể Phù &7để chặn sét"
-        - "&7💎 VIP có &6Thiên Lôi Hộ Phù &7giảm 20%"
-        - ""
-        - "&c⚠ Đây là thử thách solo!"
-        - "&c  Không thể nhờ người khác heal!"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&8▪ &7Tầng nhỏ dễ hơn, dùng để mở giới hạn Tu Vi."
+        - "&8▪ &7Cảnh giới lớn có rủi ro tụt cảnh giới."
+        - "&8▪ &7Nếu bị cooldown, hãy chờ hồi phục rồi thử lại."
 
     close-button:
       slot: 49
       material: BARRIER
-      name: "&c&lĐóng Menu"
+      name: "&cĐóng"
       lore:
-        - "&7Click để đóng"
+        - "&7Đóng menu."
 
 confirm-menu:
-  title: "&c&l⚡ XÁC NHẬN ĐỘT PHÁ ⚡"
+  title: "&8Xác Nhận Đột Phá"
   size: 27
 
   background:
@@ -129,29 +120,31 @@ confirm-menu:
     info:
       slot: 13
       material: LIGHTNING_ROD
-      name: "&e&l⚡ Thông Tin Đột Phá"
+      name: "&e&lXác Nhận Đột Phá"
       lore:
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
-        - "&7Cảnh giới: {realm}"
-        - "&7Tầng nhỏ: &e{sub_realm}"
+        - "&8Thông tin:"
+        - "&7Loại: &f{breakthrough_type}"
+        - "&7Mục tiêu: {breakthrough_target}"
         - ""
-        - "&c⚠ CẢNH BÁO:"
-        - "&c  Tia sét sẽ giáng xuống bạn!"
-        - "&c  Chết = thất bại và cooldown"
-        - "&8━━━━━━━━━━━━━━━━━━━━━"
+        - "&8Lôi kiếp:"
+        - "&7Dạng: &c{lightning_name}"
+        - "&7Số tia: &c{lightning_bolts}"
+        - "&7Sát thương: &c{damage_per_bolt}"
+        - "&7Rủi ro: &c{punishment}"
+        - ""
+        - "&cNếu đã sẵn sàng, hãy xác nhận."
 
     confirm:
       slot: 11
       material: LIME_CONCRETE
-      name: "&a&l✔ XÁC NHẬN"
+      name: "&a&lXác Nhận"
       lore:
-        - "&a&lBắt đầu Thiên Lôi Kiếp!"
-        - "&7Click để xác nhận"
+        - "&7Bắt đầu lôi kiếp."
+        - "&eClick để xác nhận."
 
     cancel:
       slot: 15
       material: RED_CONCRETE
-      name: "&c&l✗ HỦY BỎ"
+      name: "&cHủy Bỏ"
       lore:
-        - "&cHủy bỏ đột phá"
-        - "&7Click để quay lại"
+        - "&7Quay lại, chưa đột phá."
