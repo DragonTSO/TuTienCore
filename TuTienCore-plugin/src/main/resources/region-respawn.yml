@@ -99,6 +99,11 @@ death-tips:
     subtitle: "&7%tip%"
     # true = chỉ bắt đầu hiện/fade text sau khi camera pitch đã tới hướng head/player.
     wait-for-pitch: true
+    # Subtitle bắt đầu mờ/thấp hơn, rồi trượt lên gần title và rõ dần.
+    subtitle-intro-ticks: 16
+    subtitle-start-opacity: 0
+    subtitle-start-y-offset: -0.60
+    subtitle-end-y-offset: -0.28
     # Sau khi text xuất hiện, chờ từng này tick rồi mới bắt đầu fade mất.
     fade-delay-ticks: 10
     # Thời gian fade mất sau khi hết fade-delay-ticks.
@@ -109,8 +114,8 @@ death-tips:
     distance: 2.4
     y-offset: -0.05
     rise-distance: 0.55
+    # Giữ scale cố định để subtitle không bị hiệu ứng nhỏ-to.
     start-scale: 0.9
-    end-scale: 0.55
     start-opacity: 230
     end-opacity: 0
     teleport-duration: 1

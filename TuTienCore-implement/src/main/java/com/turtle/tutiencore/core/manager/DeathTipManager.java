@@ -62,7 +62,7 @@ public class DeathTipManager implements Listener {
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
     private final Map<UUID, BukkitTask> cinematicTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> cinematicTextTasks = new HashMap<>();
-    private final Map<UUID, TextDisplay> cinematicTextDisplays = new HashMap<>();
+    private final Map<UUID, List<TextDisplay>> cinematicTextDisplays = new HashMap<>();
     private final Set<UUID> internalGamemodeChanges = new HashSet<>();
     private final Set<UUID> internalTeleports = new HashSet<>();
     private File configFile;
@@ -129,15 +129,18 @@ public class DeathTipManager implements Listener {
     private String cinematicTextSubtitle;
     private boolean cinematicTextWaitForPitch;
     private long cinematicTextFadeDelayTicks;
+    private long cinematicTextSubtitleIntroTicks;
     private long cinematicTextDurationTicks;
     private long cinematicTextUpdateIntervalTicks;
     private boolean cinematicTextFollowPlayerCamera;
     private double cinematicTextDistance;
     private double cinematicTextYOffset;
     private double cinematicTextRiseDistance;
+    private double cinematicTextSubtitleStartYOffset;
+    private double cinematicTextSubtitleEndYOffset;
     private float cinematicTextStartScale;
-    private float cinematicTextEndScale;
     private int cinematicTextStartOpacity;
+    private int cinematicTextSubtitleStartOpacity;
     private int cinematicTextEndOpacity;
     private int cinematicTextTeleportDuration;
     private int cinematicTextInterpolationDuration;
@@ -207,15 +210,18 @@ public class DeathTipManager implements Listener {
         cinematicTextSubtitle = config.getString(CONFIG_PATH + ".cinematic-text.subtitle", "&7%tip%");
         cinematicTextWaitForPitch = config.getBoolean(CONFIG_PATH + ".cinematic-text.wait-for-pitch", true);
         cinematicTextFadeDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".cinematic-text.fade-delay-ticks", 10L));
+        cinematicTextSubtitleIntroTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.subtitle-intro-ticks", 16L));
         cinematicTextDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.duration-ticks", viewDurationTicks));
         cinematicTextUpdateIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic-text.update-interval-ticks", 1L));
         cinematicTextFollowPlayerCamera = config.getBoolean(CONFIG_PATH + ".cinematic-text.follow-player-camera", true);
         cinematicTextDistance = Math.max(0.1, config.getDouble(CONFIG_PATH + ".cinematic-text.distance", 2.4));
         cinematicTextYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.y-offset", -0.05);
         cinematicTextRiseDistance = config.getDouble(CONFIG_PATH + ".cinematic-text.rise-distance", 0.55);
+        cinematicTextSubtitleStartYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-start-y-offset", cinematicTextYOffset - 0.55D);
+        cinematicTextSubtitleEndYOffset = config.getDouble(CONFIG_PATH + ".cinematic-text.subtitle-end-y-offset", cinematicTextYOffset - 0.24D);
         cinematicTextStartScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.start-scale", 0.9));
-        cinematicTextEndScale = (float) Math.max(0.05, config.getDouble(CONFIG_PATH + ".cinematic-text.end-scale", 0.55));
         cinematicTextStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.start-opacity", 230), 0, 255);
+        cinematicTextSubtitleStartOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.subtitle-start-opacity", 0), 0, 255);
         cinematicTextEndOpacity = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.end-opacity", 0), 0, 255);
         cinematicTextTeleportDuration = clamp(config.getInt(CONFIG_PATH + ".cinematic-text.teleport-duration", 1), 0, 59);
         cinematicTextInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic-text.interpolation-duration", 1));
@@ -808,14 +814,54 @@ public class DeathTipManager implements Listener {
             return;
         }
 
-        Location initialLocation = computeCinematicTextLocation(player, activeTip.cameraLocation(), 0.0D);
+        Location initialLocation = computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextYOffset);
         World world = initialLocation.getWorld();
         if (world == null) {
             return;
         }
 
-        TextDisplay display = world.spawn(initialLocation, TextDisplay.class, textDisplay -> {
-            textDisplay.setText(cinematicText(player, pendingTip));
+        TextDisplay titleDisplay = spawnCinematicTextDisplay(world, initialLocation);
+        TextDisplay subtitleDisplay = spawnCinematicTextDisplay(
+                world,
+                computeCinematicTextLocation(player, activeTip.cameraLocation(), cinematicTextSubtitleStartYOffset)
+        );
+
+        for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
+            if (!onlinePlayer.getUniqueId().equals(uuid)) {
+                onlinePlayer.hideEntity(plugin, titleDisplay);
+                onlinePlayer.hideEntity(plugin, subtitleDisplay);
+            }
+        }
+        player.showEntity(plugin, titleDisplay);
+        player.showEntity(plugin, subtitleDisplay);
+
+        cinematicTextDisplays.put(uuid, List.of(titleDisplay, subtitleDisplay));
+        updateCinematicText(player, pendingTip, titleDisplay, subtitleDisplay, activeTip.cameraLocation(), 0L);
+
+        BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
+            private long elapsedTicks;
+            private final long totalTicks = cinematicTextTotalTicks();
+
+            @Override
+            public void run() {
+                ActiveDeathTip currentTip = active.get(uuid);
+                Player currentPlayer = plugin.getServer().getPlayer(uuid);
+                if (currentTip == null || currentPlayer == null || !currentPlayer.isOnline()
+                        || titleDisplay.isDead() || subtitleDisplay.isDead() || elapsedTicks >= totalTicks) {
+                    clearCinematicText(uuid);
+                    cancel();
+                    return;
+                }
+
+                elapsedTicks += cinematicTextUpdateIntervalTicks;
+                updateCinematicText(currentPlayer, pendingTip, titleDisplay, subtitleDisplay, currentTip.cameraLocation(), elapsedTicks);
+            }
+        }.runTaskTimer(plugin, cinematicTextUpdateIntervalTicks, cinematicTextUpdateIntervalTicks);
+        cinematicTextTasks.put(uuid, task);
+    }
+
+    private TextDisplay spawnCinematicTextDisplay(World world, Location location) {
+        return world.spawn(location, TextDisplay.class, textDisplay -> {
             textDisplay.setBillboard(Display.Billboard.CENTER);
             textDisplay.setSeeThrough(cinematicTextSeeThrough);
             textDisplay.setShadowed(cinematicTextShadow);
@@ -829,70 +875,61 @@ public class DeathTipManager implements Listener {
             textDisplay.setPersistent(false);
             textDisplay.addScoreboardTag(VIEW_TAG);
         });
-
-        for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
-            if (!onlinePlayer.getUniqueId().equals(uuid)) {
-                onlinePlayer.hideEntity(plugin, display);
-            }
-        }
-        player.showEntity(plugin, display);
-
-        cinematicTextDisplays.put(uuid, display);
-        updateCinematicText(player, pendingTip, display, activeTip.cameraLocation(), 0.0D);
-
-        BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
-            private long elapsedTicks;
-            private final long totalTicks = cinematicTextTotalTicks();
-
-            @Override
-            public void run() {
-                ActiveDeathTip currentTip = active.get(uuid);
-                Player currentPlayer = plugin.getServer().getPlayer(uuid);
-                if (currentTip == null || currentPlayer == null || !currentPlayer.isOnline()
-                        || display.isDead() || elapsedTicks >= totalTicks) {
-                    clearCinematicText(uuid);
-                    cancel();
-                    return;
-                }
-
-                elapsedTicks += cinematicTextUpdateIntervalTicks;
-                double progress = cinematicTextFadeProgress(elapsedTicks);
-                updateCinematicText(currentPlayer, pendingTip, display, currentTip.cameraLocation(), progress);
-            }
-        }.runTaskTimer(plugin, cinematicTextUpdateIntervalTicks, cinematicTextUpdateIntervalTicks);
-        cinematicTextTasks.put(uuid, task);
     }
 
     private long cinematicTextTotalTicks() {
-        return cinematicTextFadeDelayTicks + cinematicTextDurationTicks;
+        return cinematicTextSubtitleIntroTicks + cinematicTextFadeDelayTicks + cinematicTextDurationTicks;
     }
 
     private double cinematicTextFadeProgress(long elapsedTicks) {
-        long fadeTicks = Math.max(0L, elapsedTicks - cinematicTextFadeDelayTicks);
+        long fadeTicks = Math.max(0L, elapsedTicks - cinematicTextSubtitleIntroTicks - cinematicTextFadeDelayTicks);
         return Math.min(1.0D, fadeTicks / (double) cinematicTextDurationTicks);
     }
 
-    private void updateCinematicText(Player player, PendingDeathTip pendingTip, TextDisplay display,
-                                     Location cameraLocation, double progress) {
-        display.setText(cinematicText(player, pendingTip));
-        display.setTextOpacity(cinematicTextOpacity(progress));
-        display.setTransformation(new Transformation(
+    private void updateCinematicText(Player player, PendingDeathTip pendingTip, TextDisplay titleDisplay,
+                                     TextDisplay subtitleDisplay, Location cameraLocation, long elapsedTicks) {
+        double introProgress = cinematicTextSubtitleIntroProgress(elapsedTicks);
+        double fadeProgress = cinematicTextFadeProgress(elapsedTicks);
+
+        titleDisplay.setText(cinematicTextTitleLine(player, pendingTip));
+        titleDisplay.setTextOpacity(cinematicTextOpacity(fadeProgress));
+        titleDisplay.setTransformation(new Transformation(
                 new Vector3f(),
                 new Quaternionf(),
-                cinematicTextScale(progress),
+                cinematicTextScale(),
                 new Quaternionf()
         ));
-        display.teleport(computeCinematicTextLocation(player, cameraLocation, progress));
+        titleDisplay.teleport(computeCinematicTextLocation(
+                player,
+                cameraLocation,
+                cinematicTextYOffset + (cinematicTextRiseDistance * fadeProgress)
+        ));
+
+        subtitleDisplay.setText(cinematicTextSubtitleLine(player, pendingTip));
+        subtitleDisplay.setTextOpacity(cinematicTextSubtitleOpacity(introProgress, fadeProgress));
+        subtitleDisplay.setTransformation(new Transformation(
+                new Vector3f(),
+                new Quaternionf(),
+                cinematicTextScale(),
+                new Quaternionf()
+        ));
+        double subtitleYOffset = cinematicTextSubtitleStartYOffset
+                + ((cinematicTextSubtitleEndYOffset - cinematicTextSubtitleStartYOffset) * introProgress)
+                + (cinematicTextRiseDistance * fadeProgress);
+        subtitleDisplay.teleport(computeCinematicTextLocation(player, cameraLocation, subtitleYOffset));
     }
 
-    private String cinematicText(Player player, PendingDeathTip pendingTip) {
+    private String cinematicTextTitleLine(Player player, PendingDeathTip pendingTip) {
         String formattedTip = replacePlaceholders(pendingTip.tip(), player, pendingTip);
-        String title = replacePlaceholders(cinematicTextTitle, player, pendingTip).replace("%tip%", formattedTip);
-        String subtitle = replacePlaceholders(cinematicTextSubtitle, player, pendingTip).replace("%tip%", formattedTip);
-        return color(title) + "\n" + color(subtitle);
+        return color(replacePlaceholders(cinematicTextTitle, player, pendingTip).replace("%tip%", formattedTip));
     }
 
-    private Location computeCinematicTextLocation(Player player, Location cameraLocation, double progress) {
+    private String cinematicTextSubtitleLine(Player player, PendingDeathTip pendingTip) {
+        String formattedTip = replacePlaceholders(pendingTip.tip(), player, pendingTip);
+        return color(replacePlaceholders(cinematicTextSubtitle, player, pendingTip).replace("%tip%", formattedTip));
+    }
+
+    private Location computeCinematicTextLocation(Player player, Location cameraLocation, double yOffset) {
         Location camera = currentTextCameraLocation(player, cameraLocation);
         if (camera == null || camera.getWorld() == null) {
             return cameraLocation;
@@ -907,7 +944,7 @@ public class DeathTipManager implements Listener {
         Vector up = screenUp(forward);
         Location textLocation = camera.clone()
                 .add(forward.multiply(cinematicTextDistance))
-                .add(up.multiply(cinematicTextYOffset + (cinematicTextRiseDistance * progress)));
+                .add(up.multiply(yOffset));
         textLocation.setYaw(camera.getYaw());
         textLocation.setPitch(camera.getPitch());
         return textLocation;
@@ -938,16 +975,29 @@ public class DeathTipManager implements Listener {
         return up.normalize();
     }
 
-    private Vector3f cinematicTextScale(double progress) {
-        float scale = (float) (cinematicTextStartScale
-                + ((cinematicTextEndScale - cinematicTextStartScale) * progress));
-        return new Vector3f(scale, scale, scale);
+    private double cinematicTextSubtitleIntroProgress(long elapsedTicks) {
+        return Math.min(1.0D, Math.max(0L, elapsedTicks) / (double) cinematicTextSubtitleIntroTicks);
+    }
+
+    private Vector3f cinematicTextScale() {
+        return new Vector3f(cinematicTextStartScale, cinematicTextStartScale, cinematicTextStartScale);
     }
 
     private byte cinematicTextOpacity(double progress) {
         int opacity = clamp((int) Math.round(cinematicTextStartOpacity
                 + ((cinematicTextEndOpacity - cinematicTextStartOpacity) * progress)), 0, 255);
         return (byte) opacity;
+    }
+
+    private byte cinematicTextSubtitleOpacity(double introProgress, double fadeProgress) {
+        int introOpacity = clamp((int) Math.round(cinematicTextSubtitleStartOpacity
+                + ((cinematicTextStartOpacity - cinematicTextSubtitleStartOpacity) * introProgress)), 0, 255);
+        if (fadeProgress <= 0.0D) {
+            return (byte) introOpacity;
+        }
+        int fadeOpacity = clamp((int) Math.round(cinematicTextStartOpacity
+                + ((cinematicTextEndOpacity - cinematicTextStartOpacity) * fadeProgress)), 0, 255);
+        return (byte) fadeOpacity;
     }
 
     private void startSpectatorTargetWarmup(UUID uuid) {
@@ -1239,9 +1289,13 @@ public class DeathTipManager implements Listener {
             textTask.cancel();
         }
 
-        TextDisplay display = cinematicTextDisplays.remove(uuid);
-        if (display != null && !display.isDead()) {
-            display.remove();
+        List<TextDisplay> displays = cinematicTextDisplays.remove(uuid);
+        if (displays != null) {
+            for (TextDisplay display : displays) {
+                if (display != null && !display.isDead()) {
+                    display.remove();
+                }
+            }
         }
     }
 
