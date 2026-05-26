@@ -37,6 +37,10 @@ death-tips:
   # Re-apply spectator target sau vài tick để chống plugin khác đổi gamemode sau respawn.
   # -1 = tắt re-apply.
   spectator-reapply-delay-ticks: 2
+  # Sau delay trên, tiếp tục khóa camera mỗi bao nhiêu tick trong suốt thời gian xem tips.
+  spectator-reapply-interval-ticks: 2
+  # true = nếu plugin khác kéo player sang world/vị trí khác, kéo lại gần camera target trước khi spectate.
+  teleport-to-anchor-before-spectate: true
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true

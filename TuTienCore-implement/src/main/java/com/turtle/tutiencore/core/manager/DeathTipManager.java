@@ -54,6 +54,8 @@ public class DeathTipManager implements Listener {
     private long respawnDelayTicks;
     private long fallbackDelayTicks;
     private long spectatorReapplyDelayTicks;
+    private long spectatorReapplyIntervalTicks;
+    private boolean teleportToAnchorBeforeSpectate;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -89,6 +91,8 @@ public class DeathTipManager implements Listener {
         respawnDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".respawn-delay-ticks", 2L));
         fallbackDelayTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".fallback-delay-ticks", 6L));
         spectatorReapplyDelayTicks = Math.max(-1L, config.getLong(CONFIG_PATH + ".spectator-reapply-delay-ticks", 2L));
+        spectatorReapplyIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".spectator-reapply-interval-ticks", 2L));
+        teleportToAnchorBeforeSpectate = config.getBoolean(CONFIG_PATH + ".teleport-to-anchor-before-spectate", true);
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -241,17 +245,42 @@ public class DeathTipManager implements Listener {
         active.put(player.getUniqueId(), new ActiveDeathTip(anchor, restoreMode, respawnLocation, restoreTask));
 
         if (spectatorReapplyDelayTicks >= 0L) {
-            plugin.getServer().getScheduler().runTaskLater(plugin,
-                    () -> reapplySpectatorTarget(player.getUniqueId()),
-                    spectatorReapplyDelayTicks);
+            startSpectatorLock(player.getUniqueId());
         }
     }
 
     private void applySpectatorTarget(Player player, Entity target) {
+        if (teleportToAnchorBeforeSpectate && target.getWorld() != null && !player.getWorld().equals(target.getWorld())) {
+            player.teleport(target.getLocation());
+        }
         if (player.getGameMode() != GameMode.SPECTATOR) {
             player.setGameMode(GameMode.SPECTATOR);
         }
+        if (target.getWorld() != null && !player.getWorld().equals(target.getWorld())) {
+            return;
+        }
         player.setSpectatorTarget(target);
+    }
+
+    private void startSpectatorLock(UUID uuid) {
+        new org.bukkit.scheduler.BukkitRunnable() {
+            private long elapsed;
+
+            @Override
+            public void run() {
+                ActiveDeathTip tip = active.get(uuid);
+                if (tip == null || tip.anchor() == null || tip.anchor().isDead()) {
+                    cancel();
+                    return;
+                }
+                if (elapsed > viewDurationTicks) {
+                    cancel();
+                    return;
+                }
+                reapplySpectatorTarget(uuid);
+                elapsed += spectatorReapplyIntervalTicks;
+            }
+        }.runTaskTimer(plugin, spectatorReapplyDelayTicks, spectatorReapplyIntervalTicks);
     }
 
     private void reapplySpectatorTarget(UUID uuid) {
@@ -265,7 +294,7 @@ public class DeathTipManager implements Listener {
         }
         try {
             applySpectatorTarget(player, tip.anchor());
-            debug(player, "Re-applied spectator target to death tip anchor " + tip.anchor().getUniqueId() + ".");
+            debug(player, "Locked spectator target to death tip anchor " + tip.anchor().getUniqueId() + ".");
         } catch (RuntimeException exception) {
             plugin.getLogger().warning("Could not re-apply death tip spectator view for " + player.getName() + ": " + exception.getMessage());
         }

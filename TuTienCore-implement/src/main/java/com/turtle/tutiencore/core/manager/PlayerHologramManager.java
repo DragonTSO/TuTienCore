@@ -66,6 +66,7 @@ public class PlayerHologramManager implements Listener {
     private final Map<UUID, PacketHologram> holograms = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, TeamState>> viewerTeams = new ConcurrentHashMap<>();
     private final Map<UUID, Set<String>> fallbackHiddenNames = new ConcurrentHashMap<>();
+    private final Set<UUID> fallbackTeamCreated = ConcurrentHashMap.newKeySet();
     private final PacketListenerAbstract packetListener;
 
     private BukkitTask task;
@@ -455,27 +456,27 @@ public class PlayerHologramManager implements Listener {
 
     private void syncFallbackNameTeam(User user, UUID viewerId, Set<String> needed) {
         Set<String> current = fallbackHiddenNames.computeIfAbsent(viewerId, uuid -> ConcurrentHashMap.newKeySet());
-        if (current.equals(needed)) {
+        boolean created = fallbackTeamCreated.contains(viewerId);
+        if (current.equals(needed) && (needed.isEmpty() || created)) {
             return;
         }
 
-        if (current.isEmpty() && !needed.isEmpty()) {
+        if (!created && !needed.isEmpty()) {
             user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.CREATE, createHiddenTeamInfo(), needed));
-        } else if (!current.isEmpty() && needed.isEmpty()) {
-            user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.REMOVE, (WrapperPlayServerTeams.ScoreBoardTeamInfo) null, Collections.emptyList()));
+            fallbackTeamCreated.add(viewerId);
         } else {
-            Set<String> removed = new HashSet<>(current);
-            removed.removeAll(needed);
             Set<String> added = new HashSet<>(needed);
             added.removeAll(current);
 
-            if (!removed.isEmpty()) {
-                user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.REMOVE_ENTITIES, (WrapperPlayServerTeams.ScoreBoardTeamInfo) null, removed));
-            }
+            // On 1.21.11 the client can crash if it receives REMOVE_ENTITIES for a
+            // scoreboard member that another team packet already moved away. Real
+            // team packets still hide those names, so only add/update the fallback.
             if (!added.isEmpty()) {
                 user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.ADD_ENTITIES, (WrapperPlayServerTeams.ScoreBoardTeamInfo) null, added));
             }
-            user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.UPDATE, createHiddenTeamInfo(), needed));
+            if (!needed.isEmpty()) {
+                user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.UPDATE, createHiddenTeamInfo(), needed));
+            }
         }
 
         current.clear();
@@ -490,11 +491,19 @@ public class PlayerHologramManager implements Listener {
 
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             User user = getUser(viewer);
-            if (user != null && user.getChannel() != null && !fallbackHiddenNames.getOrDefault(viewer.getUniqueId(), Collections.emptySet()).isEmpty()) {
+            if (user != null && user.getChannel() != null && fallbackTeamCreated.contains(viewer.getUniqueId())) {
                 user.sendPacket(new WrapperPlayServerTeams(HIDDEN_NAME_TEAM, WrapperPlayServerTeams.TeamMode.REMOVE, (WrapperPlayServerTeams.ScoreBoardTeamInfo) null, Collections.emptyList()));
             }
         }
         fallbackHiddenNames.clear();
+        fallbackTeamCreated.clear();
+    }
+
+    private void removeFallbackMembers(UUID viewerId, Collection<String> members) {
+        Set<String> fallback = fallbackHiddenNames.get(viewerId);
+        if (fallback != null) {
+            fallback.removeAll(members);
+        }
     }
 
     private Set<String> getNamesCoveredByRealTeams(UUID viewerId) {
@@ -610,6 +619,7 @@ public class PlayerHologramManager implements Listener {
         removeViewer(playerId);
         viewerTeams.remove(playerId);
         fallbackHiddenNames.remove(playerId);
+        fallbackTeamCreated.remove(playerId);
         Bukkit.getScheduler().runTaskLater(plugin, this::syncFallbackNameTeams, 1L);
     }
 
@@ -812,6 +822,7 @@ public class PlayerHologramManager implements Listener {
             TeamState state = teams.computeIfAbsent(teamName, ignored -> new TeamState());
             state.members.clear();
             state.members.addAll(packet.getPlayers());
+            removeFallbackMembers(event.getUser().getUUID(), state.members);
             packet.getTeamInfo().ifPresent(info -> {
                 state.info = info;
                 if (containsOnlinePlayer(state.members)) {
@@ -835,6 +846,7 @@ public class PlayerHologramManager implements Listener {
         private void handleAddEntitiesPacket(PacketSendEvent event, WrapperPlayServerTeams packet, Map<String, TeamState> teams, String teamName) {
             TeamState state = teams.computeIfAbsent(teamName, ignored -> new TeamState());
             state.members.addAll(packet.getPlayers());
+            removeFallbackMembers(event.getUser().getUUID(), packet.getPlayers());
 
             if (containsOnlinePlayer(packet.getPlayers()) && state.info != null) {
                 state.info.setTagVisibility(WrapperPlayServerTeams.NameTagVisibility.NEVER);
