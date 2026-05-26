@@ -237,6 +237,10 @@ public class DeathTipManager implements Listener {
         if (tip == null || internalTeleports.contains(uuid)) {
             return;
         }
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE && isAnchorSpectateTeleport(tip, event.getTo())) {
+            debug(player, "Allowed spectator teleport to death tip anchor.");
+            return;
+        }
 
         event.setCancelled(true);
         Location to = event.getTo();
@@ -282,6 +286,9 @@ public class DeathTipManager implements Listener {
             showTip(player, tip);
             return;
         }
+        debug(player, "Spawned death tip anchor " + anchor.getType() + " " + anchor.getUniqueId()
+                + " at " + formatLocation(anchor.getLocation()) + ".");
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> debugAnchorState(player.getUniqueId(), anchor), 1L);
 
         GameMode restoreMode = tip.previousGameMode();
         try {
@@ -317,7 +324,7 @@ public class DeathTipManager implements Listener {
         if (target.getWorld() != null && !player.getWorld().equals(target.getWorld())) {
             return;
         }
-        player.setSpectatorTarget(target);
+        setSpectatorTargetInternally(player, target);
     }
 
     private boolean shouldTeleportToAnchor(Player player, Entity target) {
@@ -328,6 +335,15 @@ public class DeathTipManager implements Listener {
             return true;
         }
         return player.getLocation().distanceSquared(target.getLocation()) > teleportToAnchorDistanceSquared;
+    }
+
+    private boolean isAnchorSpectateTeleport(ActiveDeathTip tip, Location to) {
+        if (tip.anchor() == null || tip.anchor().isDead() || to == null || to.getWorld() == null) {
+            return false;
+        }
+        Location anchorLocation = tip.anchor().getLocation();
+        return to.getWorld().equals(anchorLocation.getWorld())
+                && to.distanceSquared(anchorLocation) <= Math.max(1.0, teleportToAnchorDistanceSquared);
     }
 
     private void startSpectatorLock(UUID uuid) {
@@ -390,6 +406,32 @@ public class DeathTipManager implements Listener {
         } finally {
             internalTeleports.remove(uuid);
         }
+    }
+
+    private void setSpectatorTargetInternally(Player player, Entity target) {
+        UUID uuid = player.getUniqueId();
+        internalTeleports.add(uuid);
+        try {
+            player.setSpectatorTarget(target);
+        } finally {
+            internalTeleports.remove(uuid);
+        }
+    }
+
+    private void debugAnchorState(UUID playerUuid, Entity anchor) {
+        if (!debug) {
+            return;
+        }
+        Player player = plugin.getServer().getPlayer(playerUuid);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        debug(player, "Anchor check: valid=" + anchor.isValid()
+                + ", dead=" + anchor.isDead()
+                + ", world=" + (anchor.getWorld() == null ? "unknown" : anchor.getWorld().getName())
+                + ", location=" + formatLocation(anchor.getLocation())
+                + ", spectatorTarget=" + (player.getSpectatorTarget() == null ? "none" : player.getSpectatorTarget().getUniqueId())
+                + ".");
     }
 
     private Entity spawnAnchor(Location location) {
