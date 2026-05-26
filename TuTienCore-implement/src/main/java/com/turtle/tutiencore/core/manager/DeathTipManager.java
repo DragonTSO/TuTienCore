@@ -56,6 +56,7 @@ public class DeathTipManager implements Listener {
     private long spectatorReapplyDelayTicks;
     private long spectatorReapplyIntervalTicks;
     private boolean teleportToAnchorBeforeSpectate;
+    private double teleportToAnchorDistanceSquared;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -93,6 +94,8 @@ public class DeathTipManager implements Listener {
         spectatorReapplyDelayTicks = Math.max(-1L, config.getLong(CONFIG_PATH + ".spectator-reapply-delay-ticks", 2L));
         spectatorReapplyIntervalTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".spectator-reapply-interval-ticks", 2L));
         teleportToAnchorBeforeSpectate = config.getBoolean(CONFIG_PATH + ".teleport-to-anchor-before-spectate", true);
+        double teleportDistance = Math.max(0.0, config.getDouble(CONFIG_PATH + ".teleport-to-anchor-distance", 8.0));
+        teleportToAnchorDistanceSquared = teleportDistance * teleportDistance;
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -250,8 +253,10 @@ public class DeathTipManager implements Listener {
     }
 
     private void applySpectatorTarget(Player player, Entity target) {
-        if (teleportToAnchorBeforeSpectate && target.getWorld() != null && !player.getWorld().equals(target.getWorld())) {
-            player.teleport(target.getLocation());
+        if (teleportToAnchorBeforeSpectate && shouldTeleportToAnchor(player, target)) {
+            Location targetLocation = target.getLocation();
+            player.teleport(targetLocation);
+            debug(player, "Teleported to death tip anchor before spectating at " + formatLocation(targetLocation) + ".");
         }
         if (player.getGameMode() != GameMode.SPECTATOR) {
             player.setGameMode(GameMode.SPECTATOR);
@@ -260,6 +265,16 @@ public class DeathTipManager implements Listener {
             return;
         }
         player.setSpectatorTarget(target);
+    }
+
+    private boolean shouldTeleportToAnchor(Player player, Entity target) {
+        if (target.getWorld() == null) {
+            return false;
+        }
+        if (!player.getWorld().equals(target.getWorld())) {
+            return true;
+        }
+        return player.getLocation().distanceSquared(target.getLocation()) > teleportToAnchorDistanceSquared;
     }
 
     private void startSpectatorLock(UUID uuid) {
