@@ -28,12 +28,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -121,7 +123,7 @@ public class PlayerHologramManager implements Listener {
         Set<UUID> onlineOwners = new HashSet<>();
         for (Player owner : Bukkit.getOnlinePlayers()) {
             onlineOwners.add(owner.getUniqueId());
-            if (owner.hasMetadata("NPC") || shouldHideForTuLuyen(owner)) {
+            if (owner.hasMetadata("NPC") || shouldHideWhileSpectator(owner) || shouldHideForTuLuyen(owner)) {
                 removeHologram(owner.getUniqueId());
                 continue;
             }
@@ -154,8 +156,16 @@ public class PlayerHologramManager implements Listener {
         return tuLuyenManager != null && tuLuyenManager.isTuLuyenHologramVisible(player);
     }
 
+    private boolean shouldHideWhileSpectator(Player player) {
+        return plugin.getConfig().getBoolean("player-hologram.hide-while-spectator", true)
+                && player.getGameMode() == GameMode.SPECTATOR;
+    }
+
     private boolean shouldSee(Player viewer, Player owner) {
         if (!viewer.isOnline() || !owner.isOnline()) {
+            return false;
+        }
+        if (shouldHideWhileSpectator(owner)) {
             return false;
         }
         if (viewer.getWorld() != owner.getWorld()) {
@@ -631,6 +641,22 @@ public class PlayerHologramManager implements Listener {
                 hologram.hideFromAll();
             }
             if (isEnabled()) {
+                tick();
+            }
+        }, 2L);
+    }
+
+    @EventHandler
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Player player = event.getPlayer();
+        if (event.getNewGameMode() == GameMode.SPECTATOR
+                && plugin.getConfig().getBoolean("player-hologram.hide-while-spectator", true)) {
+            removeHologram(player.getUniqueId());
+            return;
+        }
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline() && isEnabled()) {
                 tick();
             }
         }, 2L);
