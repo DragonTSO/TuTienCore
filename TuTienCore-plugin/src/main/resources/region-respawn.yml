@@ -99,6 +99,9 @@ death-tips:
     subtitle: "&7%tip%"
     # true = chỉ bắt đầu hiện/fade text sau khi camera pitch đã tới hướng head/player.
     wait-for-pitch: true
+    # Sau khi text xuất hiện, chờ từng này tick rồi mới bắt đầu fade mất.
+    fade-delay-ticks: 10
+    # Thời gian fade mất sau khi hết fade-delay-ticks.
     duration-ticks: 80
     update-interval-ticks: 1
     # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
