@@ -38,6 +38,7 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -73,6 +74,7 @@ public class PlayerHologramManager implements Listener {
 
     private BukkitTask task;
     private boolean packetListenerRegistered;
+    private boolean loggedNexoNameTeamCompatibility;
     private TuLuyenManager tuLuyenManager;
 
     public PlayerHologramManager(JavaPlugin plugin, ConfigManager configManager, RealmManager realmManager) {
@@ -494,8 +496,9 @@ public class PlayerHologramManager implements Listener {
     }
 
     private void clearFallbackNameTeams() {
-        if (!isPacketEventsReady()) {
+        if (!isPacketEventsReady() || isNameTeamPacketDisabledByCompatibility()) {
             fallbackHiddenNames.clear();
+            fallbackTeamCreated.clear();
             return;
         }
 
@@ -606,7 +609,37 @@ public class PlayerHologramManager implements Listener {
     }
 
     private boolean hideVanillaName() {
-        return plugin.getConfig().getBoolean("player-hologram.hide-vanilla-name", true);
+        if (!plugin.getConfig().getBoolean("player-hologram.hide-vanilla-name", true)) {
+            return false;
+        }
+        if (isNameTeamPacketDisabledByCompatibility()) {
+            logNexoNameTeamCompatibilityOnce();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isNameTeamPacketDisabledByCompatibility() {
+        return plugin.getConfig().getBoolean("player-hologram.disable-name-team-packets-when-nexo", true)
+                && isPluginEnabled("Nexo");
+    }
+
+    private boolean isPluginEnabled(String pluginName) {
+        for (Plugin loadedPlugin : Bukkit.getPluginManager().getPlugins()) {
+            if (loadedPlugin.getName().equalsIgnoreCase(pluginName) && loadedPlugin.isEnabled()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void logNexoNameTeamCompatibilityOnce() {
+        if (loggedNexoNameTeamCompatibility) {
+            return;
+        }
+        loggedNexoNameTeamCompatibility = true;
+        plugin.getLogger().warning("Nexo detected; disabling player-hologram vanilla name hiding team packets "
+                + "to avoid ClientboundSetPlayerTeamPacket ClassCastException.");
     }
 
     private boolean showSelf() {
