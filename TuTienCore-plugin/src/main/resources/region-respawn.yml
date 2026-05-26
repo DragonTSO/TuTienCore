@@ -41,8 +41,7 @@ death-tips:
   restore-gamemode: true
   restore-to-respawn-location: true
   anchor:
-    marker: true
-    small: true
+    # Camera target là Villager tàng hình/silent/no-ai để spectator bám ổn hơn ArmorStand.
     y-offset: 0.0
   title:
     enabled: true

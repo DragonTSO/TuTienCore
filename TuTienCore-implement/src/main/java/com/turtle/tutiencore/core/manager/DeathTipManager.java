@@ -9,11 +9,11 @@ import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -24,6 +24,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
@@ -55,9 +57,7 @@ public class DeathTipManager implements Listener {
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
-    private boolean armorStandMarker;
-    private boolean armorStandSmall;
-    private double armorStandYOffset;
+    private double anchorYOffset;
     private boolean titleEnabled;
     private String titleText;
     private String subtitleText;
@@ -93,9 +93,7 @@ public class DeathTipManager implements Listener {
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
 
-        armorStandMarker = config.getBoolean(CONFIG_PATH + ".anchor.marker", true);
-        armorStandSmall = config.getBoolean(CONFIG_PATH + ".anchor.small", true);
-        armorStandYOffset = config.getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
+        anchorYOffset = config.getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
 
         titleEnabled = config.getBoolean(CONFIG_PATH + ".title.enabled", true);
         titleText = config.getString(CONFIG_PATH + ".title.title", "&c&lTrang Bị Yếu");
@@ -154,7 +152,7 @@ public class DeathTipManager implements Listener {
         }
 
         Location deathLocation = player.getLocation().clone();
-        deathLocation.setY(deathLocation.getY() + armorStandYOffset);
+        deathLocation.setY(deathLocation.getY() + anchorYOffset);
         String sourceName = mob == null ? getDeathSourceName(player) : mob.getName();
         pending.put(player.getUniqueId(), new PendingDeathTip(
                 deathLocation,
@@ -218,7 +216,7 @@ public class DeathTipManager implements Listener {
 
         cleanup(player.getUniqueId(), false);
 
-        ArmorStand anchor = spawnAnchor(tip.deathLocation());
+        Entity anchor = spawnAnchor(tip.deathLocation());
         if (anchor == null) {
             debug(player, "Could not spawn anchor, showing title/sound only.");
             showTip(player, tip);
@@ -273,23 +271,24 @@ public class DeathTipManager implements Listener {
         }
     }
 
-    private ArmorStand spawnAnchor(Location location) {
+    private Entity spawnAnchor(Location location) {
         World world = location.getWorld();
         if (world == null) {
             return null;
         }
 
-        return world.spawn(location, ArmorStand.class, armorStand -> {
-            armorStand.setVisible(false);
-            armorStand.setGravity(false);
-            armorStand.setSilent(true);
-            armorStand.setInvulnerable(true);
-            armorStand.setCollidable(false);
-            armorStand.setMarker(armorStandMarker);
-            armorStand.setSmall(armorStandSmall);
-            armorStand.addScoreboardTag(VIEW_TAG);
-            armorStand.setCustomNameVisible(false);
-            armorStand.setPersistent(false);
+        return world.spawn(location, Villager.class, villager -> {
+            villager.setInvisible(true);
+            villager.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false, false));
+            villager.setAI(false);
+            villager.setGravity(false);
+            villager.setSilent(true);
+            villager.setInvulnerable(true);
+            villager.setCollidable(false);
+            villager.setRemoveWhenFarAway(false);
+            villager.addScoreboardTag(VIEW_TAG);
+            villager.setCustomNameVisible(false);
+            villager.setPersistent(false);
         });
     }
 
@@ -444,6 +443,6 @@ public class DeathTipManager implements Listener {
     private record PendingDeathTip(Location deathLocation, GameMode previousGameMode, String mobName, String tip) {
     }
 
-    private record ActiveDeathTip(ArmorStand anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask) {
+    private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask) {
     }
 }
