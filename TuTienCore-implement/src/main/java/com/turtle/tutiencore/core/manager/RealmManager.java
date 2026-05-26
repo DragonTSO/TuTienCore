@@ -65,6 +65,7 @@ public class RealmManager implements Listener {
     // Default bolt settings (fallback when per-realm not specified)
     private int defaultLightningBolts;
     private double defaultDamagePerBolt;
+    private double defaultDamagePercentPerBolt;
 
     // Visual storm bolt settings (configurable from config.yml)
     private int visualStormInterval; // Interval for visual ambient storm (ticks)
@@ -110,9 +111,11 @@ public class RealmManager implements Listener {
         if (btDefaults != null) {
             defaultLightningBolts = btDefaults.getInt("default-lightning-bolts", 15);
             defaultDamagePerBolt = btDefaults.getDouble("default-damage-per-bolt", 4.0);
+            defaultDamagePercentPerBolt = btDefaults.getDouble("default-damage-percent-per-bolt", 0.0);
         } else {
             defaultLightningBolts = 15;
             defaultDamagePerBolt = 4.0;
+            defaultDamagePercentPerBolt = 0.0;
         }
 
         // Load all 19 realms
@@ -169,11 +172,13 @@ public class RealmManager implements Listener {
                 ConfigurationSection bt = rs.getConfigurationSection("breakthrough");
                 int bolts = bt != null ? bt.getInt("lightning-bolts", 0) : 0;
                 double dmgPerBolt = bt != null ? bt.getDouble("damage-per-bolt", 0) : 0;
+                double dmgPercentPerBolt = bt != null ? bt.getDouble("damage-percent-per-bolt", -1.0) : -1.0;
                 double successRate = bt != null ? bt.getDouble("success-rate", 100) : 100;
 
                 // Use global defaults as fallback if per-realm value is 0
                 if (bolts <= 0) bolts = defaultLightningBolts;
                 if (dmgPerBolt <= 0) dmgPerBolt = defaultDamagePerBolt;
+                if (dmgPercentPerBolt < 0) dmgPercentPerBolt = defaultDamagePercentPerBolt;
 
                 // Load stat bonus (dynamic map — supports ALL stats)
                 Map<String, Double> statBonuses = new HashMap<>();
@@ -193,7 +198,7 @@ public class RealmManager implements Listener {
                 Realm realm = new Realm(id, name, displayName, english, tier,
                         tuViRequired, thucLucRequired, moneyRequired, color,
                         soKy, trungKy, hauKy, dinhPhong, vienMan,
-                        bolts, dmgPerBolt, successRate, statBonuses);
+                        bolts, dmgPerBolt, dmgPercentPerBolt, successRate, statBonuses);
 
                 // Set sub-realm display names
                 if (trungKyDisplay != null) realm.setSubRealmDisplayName(SubRealm.TRUNG_KY, trungKyDisplay);
@@ -818,6 +823,7 @@ public class RealmManager implements Listener {
     public String getDotPhaDanItem() { return dotPhaDanItem; }
     public int getDefaultLightningBolts() { return defaultLightningBolts; }
     public double getDefaultDamagePerBolt() { return defaultDamagePerBolt; }
+    public double getDefaultDamagePercentPerBolt() { return defaultDamagePercentPerBolt; }
 
     // Visual storm bolt config getters
     public int getVisualStormInterval() { return visualStormInterval; }

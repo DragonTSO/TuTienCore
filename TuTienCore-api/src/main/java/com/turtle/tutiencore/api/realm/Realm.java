@@ -36,6 +36,7 @@ public class Realm {
     // Breakthrough settings
     private final int lightningBolts;
     private final double damagePerBolt;
+    private final double damagePercentPerBolt;
     private final double successRate;
 
     // Stat bonus on breakthrough success (stat name → percent value)
@@ -43,28 +44,14 @@ public class Realm {
 
     public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
                   long tuViRequired, long thucLucRequired, String color,
-                  long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
-                  long dinhPhongTuVi, long vienManTuVi,
+                 long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
+                 long dinhPhongTuVi, long vienManTuVi,
                  int lightningBolts, double damagePerBolt, double successRate,
                  Map<String, Double> statBonuses) {
-        this.id = id;
-        this.name = name;
-        this.displayName = displayName;
-        this.englishName = englishName;
-        this.tier = tier;
-        this.tuViRequired = tuViRequired;
-        this.thucLucRequired = thucLucRequired;
-        this.moneyRequired = 0;
-        this.color = color;
-        this.soKyTuVi = soKyTuVi;
-        this.trungKyTuVi = trungKyTuVi;
-        this.hauKyTuVi = hauKyTuVi;
-        this.dinhPhongTuVi = dinhPhongTuVi;
-        this.vienManTuVi = vienManTuVi;
-        this.lightningBolts = lightningBolts;
-        this.damagePerBolt = damagePerBolt;
-        this.successRate = successRate;
-        this.statBonuses = statBonuses != null ? new HashMap<>(statBonuses) : new HashMap<>();
+        this(id, name, displayName, englishName, tier,
+                tuViRequired, thucLucRequired, 0, color,
+                soKyTuVi, trungKyTuVi, hauKyTuVi, dinhPhongTuVi, vienManTuVi,
+                lightningBolts, damagePerBolt, 0.0, successRate, statBonuses);
     }
 
     public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
@@ -72,6 +59,18 @@ public class Realm {
                  long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
                  long dinhPhongTuVi, long vienManTuVi,
                  int lightningBolts, double damagePerBolt, double successRate,
+                 Map<String, Double> statBonuses) {
+        this(id, name, displayName, englishName, tier,
+                tuViRequired, thucLucRequired, moneyRequired, color,
+                soKyTuVi, trungKyTuVi, hauKyTuVi, dinhPhongTuVi, vienManTuVi,
+                lightningBolts, damagePerBolt, 0.0, successRate, statBonuses);
+    }
+
+    public Realm(int id, String name, String displayName, String englishName, RealmTier tier,
+                 long tuViRequired, long thucLucRequired, double moneyRequired, String color,
+                 long soKyTuVi, long trungKyTuVi, long hauKyTuVi,
+                 long dinhPhongTuVi, long vienManTuVi,
+                 int lightningBolts, double damagePerBolt, double damagePercentPerBolt, double successRate,
                  Map<String, Double> statBonuses) {
         this.id = id;
         this.name = name;
@@ -89,6 +88,7 @@ public class Realm {
         this.vienManTuVi = vienManTuVi;
         this.lightningBolts = lightningBolts;
         this.damagePerBolt = damagePerBolt;
+        this.damagePercentPerBolt = damagePercentPerBolt;
         this.successRate = successRate;
         this.statBonuses = statBonuses != null ? new HashMap<>(statBonuses) : new HashMap<>();
     }
@@ -147,6 +147,8 @@ public class Realm {
 
     public int getLightningBolts() { return lightningBolts; }
     public double getDamagePerBolt() { return damagePerBolt; }
+    public double getDamagePercentPerBolt() { return damagePercentPerBolt; }
+    public boolean usesPercentDamagePerBolt() { return damagePercentPerBolt > 0.0; }
     public double getSuccessRate() { return successRate; }
 
     /**
@@ -210,6 +212,27 @@ public class Realm {
 
     public double getTotalDamageSuccess() { return lightningBolts * damagePerBolt; }
     public double getTotalDamageFail() { return lightningBolts * damagePerBolt * 2; }
+
+    public String getDamagePerBoltDisplay() {
+        if (usesPercentDamagePerBolt()) {
+            return formatNumber(damagePercentPerBolt) + "% HP";
+        }
+        return formatNumber(damagePerBolt) + " ❤";
+    }
+
+    public String getTotalDamageSuccessDisplay() {
+        if (usesPercentDamagePerBolt()) {
+            return formatNumber(damagePercentPerBolt) + "% HP x" + lightningBolts;
+        }
+        return formatNumber(getTotalDamageSuccess()) + " ❤";
+    }
+
+    private static String formatNumber(double value) {
+        if (value == Math.rint(value)) {
+            return String.valueOf((long) value);
+        }
+        return String.format(java.util.Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
 
     @Override
     public String toString() {

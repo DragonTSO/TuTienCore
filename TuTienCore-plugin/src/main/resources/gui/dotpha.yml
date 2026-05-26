@@ -46,7 +46,7 @@ main-menu:
         - ""
         - "&e⚡ Tiểu Lôi Kiếp:"
         - "&7  Số tia sét: &c{lightning_bolts}"
-        - "&7  DMG/tia: &c{damage_per_bolt} ❤"
+        - "&7  DMG/tia: &c{damage_per_bolt}"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&a&l▶ Click để đột phá tầng nhỏ!"
 
@@ -78,8 +78,8 @@ main-menu:
         - ""
         - "&c&l⚡ Thiên Lôi Kiếp:"
         - "&7  Số tia sét: &c{lightning_bolts}"
-        - "&7  DMG/tia: &c{damage_per_bolt} ❤"
-        - "&7  Tổng DMG: &c{total_damage} ❤"
+        - "&7  DMG/tia: &c{damage_per_bolt}"
+        - "&7  Tổng DMG: &c{total_damage}"
         - "&8━━━━━━━━━━━━━━━━━━━━━"
         - "&a&l▶ Click để mở xác nhận!"
 

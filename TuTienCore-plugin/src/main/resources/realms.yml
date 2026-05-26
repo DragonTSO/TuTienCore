@@ -308,6 +308,7 @@ realms:
     breakthrough:
       lightning-bolts: 14
       damage-per-bolt: 4.0
+      damage-percent-per-bolt: 25.0
       success-rate: 75.0
 
   # ==========================================
@@ -859,6 +860,7 @@ sub-realm-breakthrough:
 # Mỗi cảnh giới có thể override riêng tại:
 #   realms.<id>.breakthrough.lightning-bolts
 #   realms.<id>.breakthrough.damage-per-bolt
+#   realms.<id>.breakthrough.damage-percent-per-bolt
 # Nếu không set → dùng giá trị mặc định bên dưới.
 breakthrough:
   # ── SỐ TIA SÉT MẶC ĐỊNH ──
@@ -867,6 +869,9 @@ breakthrough:
   default-lightning-bolts: 15
   # Damage mỗi tia sét mặc định (❤)
   default-damage-per-bolt: 4.0
+  # 0 = dùng damage-per-bolt cố định.
+  # >0 = mỗi tia sét trừ theo % máu tối đa của player. Ví dụ 25 = 25% HP/tia.
+  default-damage-percent-per-bolt: 0.0
   # Khoảng cách giữa mỗi tia sét (ticks, 20 ticks = 1 giây)
   lightning-interval-ticks: 50
   # Cooldown sau khi thất bại (giây, 1800 = 30 phút)

@@ -225,7 +225,7 @@ public class RealmListGUI implements Listener {
         text = text.replace("{realm_money}", RealmManager.formatMoney(realm.getMoneyRequired()));
         text = text.replace("{realm_dot_pha_dan}", String.valueOf(realmManager.getDotPhaDanRequired(realmId)));
         text = text.replace("{realm_bolts}", String.valueOf(realm.getLightningBolts()));
-        text = text.replace("{realm_damage}", String.format("%.1f", realm.getDamagePerBolt()));
+        text = text.replace("{realm_damage}", realm.getDamagePerBoltDisplay());
         text = text.replace("{realm_success}", String.format("%.0f%%", realm.getSuccessRate()));
         text = text.replace("{realm_id}", String.valueOf(realmId));
         return text;

@@ -275,8 +275,8 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             // Thiên Lôi Kiếp info
             majorLore.add("§c§l⚡ Thiên Lôi Kiếp:");
             majorLore.add("§7  Số tia sét: §c" + nextRealm.getLightningBolts());
-            majorLore.add("§7  DMG/tia: §c" + nextRealm.getDamagePerBolt() + " ❤");
-            majorLore.add("§7  Tổng DMG: §c" + String.format("%.0f", nextRealm.getTotalDamageSuccess()) + " ❤");
+            majorLore.add("§7  DMG/tia: §c" + nextRealm.getDamagePerBoltDisplay());
+            majorLore.add("§7  Tổng DMG: §c" + nextRealm.getTotalDamageSuccessDisplay());
             majorLore.add("§e  Sống sót qua sét = §a§lThành Công");
             majorLore.add("§c  Chết bởi sét = §4§lThất Bại");
             majorLore.add("");
@@ -300,8 +300,8 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             majorPlaceholders.put("{money}", RealmManager.formatMoney(money));
             majorPlaceholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
             majorPlaceholders.put("{lightning_bolts}", String.valueOf(nextRealm.getLightningBolts()));
-            majorPlaceholders.put("{damage_per_bolt}", String.valueOf(nextRealm.getDamagePerBolt()));
-            majorPlaceholders.put("{total_damage}", String.format("%.0f", nextRealm.getTotalDamageSuccess()));
+            majorPlaceholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
+            majorPlaceholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
             majorPlaceholders.put("{status_tuvi}", tuViOk ? "§a✅" : "§c❌");
             majorPlaceholders.put("{status_thuc_luc}", thucLucOk ? "§a✅" : "§c❌");
             majorPlaceholders.put("{status_money}", moneyOk ? "§a✅" : "§c❌");
@@ -683,8 +683,8 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         placeholders.put("{money}", RealmManager.formatMoney(money));
         placeholders.put("{money_required}", RealmManager.formatMoney(moneyRequired));
         placeholders.put("{lightning_bolts}", String.valueOf(nextRealm.getLightningBolts()));
-        placeholders.put("{damage_per_bolt}", String.valueOf(nextRealm.getDamagePerBolt()));
-        placeholders.put("{total_damage}", String.format("%.0f", nextRealm.getTotalDamageSuccess()));
+        placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
+        placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
         placeholders.put("{status_tuvi}", tuVi >= nextRealm.getTuViRequired() ? "§a✅" : "§c❌");
         placeholders.put("{status_thuc_luc}", thucLuc >= thucLucRequired ? "§a✅" : "§c❌");
         placeholders.put("{status_money}", money >= moneyRequired ? "§a✅" : "§c❌");

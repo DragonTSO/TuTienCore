@@ -73,6 +73,7 @@ public class BreakthroughManager implements Listener {
         final boolean isMajor;
         final int totalBolts;
         final double baseDamagePerBolt;
+        final double damagePercentPerBolt;
         final Realm targetRealm;
         final SubRealm targetSubRealm;
         int boltsRemaining;
@@ -86,12 +87,13 @@ public class BreakthroughManager implements Listener {
         volatile boolean completed; // Guard against double-execution
 
         BreakthroughSession(UUID playerId, boolean isMajor, int totalBolts,
-                            double baseDamagePerBolt,
+                            double baseDamagePerBolt, double damagePercentPerBolt,
                             Realm targetRealm, SubRealm targetSubRealm) {
             this.playerId = playerId;
             this.isMajor = isMajor;
             this.totalBolts = totalBolts;
             this.baseDamagePerBolt = baseDamagePerBolt;
+            this.damagePercentPerBolt = damagePercentPerBolt;
             this.targetRealm = targetRealm;
             this.targetSubRealm = targetSubRealm;
             this.boltsRemaining = totalBolts;
@@ -152,7 +154,7 @@ public class BreakthroughManager implements Listener {
 
         BreakthroughSession session = new BreakthroughSession(
                 uuid, true,
-                nextRealm.getLightningBolts(), actualDmg,
+                nextRealm.getLightningBolts(), actualDmg, nextRealm.getDamagePercentPerBolt(),
                 nextRealm, null
         );
 
@@ -224,7 +226,7 @@ public class BreakthroughManager implements Listener {
 
         BreakthroughSession session = new BreakthroughSession(
                 uuid, false,
-                bolts, dmg,
+                bolts, dmg, 0.0,
                 null, nextSub
         );
 
@@ -350,7 +352,7 @@ public class BreakthroughManager implements Listener {
                     session.boltsRemaining--;
 
                     int boltNumber = session.totalBolts - session.boltsRemaining;
-                    double currentDmg = calculateDamage(player, session);
+                    double currentDmg = calculateAppliedDamage(player, session);
                     // Show action bar progress
                     if (!shouldSuppressCinematicUi(player)) {
                         player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
@@ -609,7 +611,16 @@ public class BreakthroughManager implements Listener {
         double heightFactor = 1.0 + (heightDiff / 30.0) * (MAX_HEIGHT_DMG_MULTIPLIER - 1.0);
         heightFactor = Math.min(heightFactor, MAX_HEIGHT_DMG_MULTIPLIER);
 
+        if (session.damagePercentPerBolt > 0.0) {
+            return Math.max(0.0, player.getMaxHealth() * (session.damagePercentPerBolt / 100.0));
+        }
+
         return session.baseDamagePerBolt * heightFactor;
+    }
+
+    private double calculateAppliedDamage(Player player, BreakthroughSession session) {
+        double damage = calculateDamage(player, session);
+        return session.damagePercentPerBolt > 0.0 ? damage : damage * 2.0;
     }
 
     /**
@@ -641,7 +652,7 @@ public class BreakthroughManager implements Listener {
         world.strikeLightningEffect(mainStrikeLoc);
 
         // Calculate height-scaled damage and apply
-        double damage = calculateDamage(player, session) * 2.0;
+        double damage = calculateAppliedDamage(player, session);
         player.damage(damage);
 
         // ── 2) AMBIENT BOLTS — spread across full 40x40 area, visual only ──
