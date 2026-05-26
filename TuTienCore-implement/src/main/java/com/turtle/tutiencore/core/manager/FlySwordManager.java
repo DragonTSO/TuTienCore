@@ -1,6 +1,7 @@
 package com.turtle.tutiencore.core.manager;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
@@ -9,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
@@ -33,6 +35,7 @@ public class FlySwordManager implements Listener {
     private double scale;
     private boolean requirePermission;
     private String permission;
+    private boolean hideWhileSpectator;
 
     public FlySwordManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -48,6 +51,7 @@ public class FlySwordManager implements Listener {
         scale = plugin.getConfig().getDouble("fly-sword.scale", 1.5);
         requirePermission = plugin.getConfig().getBoolean("fly-sword.require-permission", false);
         permission = plugin.getConfig().getString("fly-sword.permission", "tutiencore.flysword");
+        hideWhileSpectator = plugin.getConfig().getBoolean("fly-sword.hide-while-spectator", true);
 
         if (!enabled) {
             cleanupAll();
@@ -74,7 +78,9 @@ public class FlySwordManager implements Listener {
     public void onToggleFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {
-            if (player.isOnline() && player.isFlying()) {
+            if (player.isOnline() && shouldHideWhileSpectator(player)) {
+                stop(player, false);
+            } else if (player.isOnline() && player.isFlying()) {
                 start(player);
             } else if (!player.isOnline() || !player.getAllowFlight()) {
                 stop(player, true);
@@ -87,7 +93,7 @@ public class FlySwordManager implements Listener {
         Player player = event.getPlayer();
         stop(player, false);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline() && player.isFlying()) {
+            if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
                 start(player);
             }
         }, 2L);
@@ -98,9 +104,28 @@ public class FlySwordManager implements Listener {
         Player player = event.getPlayer();
         ArmorStand stand = flyingPlayers.get(player.getUniqueId());
         Location to = event.getTo();
+        if (shouldHideWhileSpectator(player)) {
+            stop(player, false);
+            return;
+        }
         if (stand != null && player.isFlying() && !stand.isDead() && to != null) {
             teleportSword(player, stand, to);
         }
+    }
+
+    @EventHandler
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Player player = event.getPlayer();
+        if (hideWhileSpectator && event.getNewGameMode() == GameMode.SPECTATOR) {
+            stop(player, false);
+            return;
+        }
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
+                start(player);
+            }
+        }, 2L);
     }
 
     @EventHandler
@@ -118,6 +143,7 @@ public class FlySwordManager implements Listener {
         if (Bukkit.getPluginManager().getPlugin("ModelEngine") == null) return;
         if (modelId == null || modelId.trim().isEmpty()) return;
         if (requirePermission && !player.hasPermission(permission)) return;
+        if (shouldHideWhileSpectator(player)) return;
 
         try {
             Location loc = player.getLocation().add(0, yOffset, 0);
@@ -177,7 +203,8 @@ public class FlySwordManager implements Listener {
                 for (UUID uuid : new java.util.ArrayList<>(flyingPlayers.keySet())) {
                     Player player = Bukkit.getPlayer(uuid);
                     ArmorStand stand = flyingPlayers.get(uuid);
-                    if (player == null || !player.isOnline() || !player.isFlying() || stand == null || stand.isDead()) {
+                    if (player == null || !player.isOnline() || !player.isFlying() || shouldHideWhileSpectator(player)
+                            || stand == null || stand.isDead()) {
                         if (player != null) stop(player, false);
                         else flyingPlayers.remove(uuid);
                         continue;
@@ -195,6 +222,10 @@ public class FlySwordManager implements Listener {
         stand.teleport(loc);
         stand.setRotation(loc.getYaw(), 0.0F);
         stand.setVelocity(player.getVelocity());
+    }
+
+    private boolean shouldHideWhileSpectator(Player player) {
+        return hideWhileSpectator && player != null && player.getGameMode() == GameMode.SPECTATOR;
     }
 
     private void setDurationIfPresent(ArmorStand stand, String methodName, int duration) {

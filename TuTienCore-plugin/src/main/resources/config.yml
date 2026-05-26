@@ -349,6 +349,7 @@ fly-sword:
   scale: 0.95
   require-permission: false
   permission: "tutiencore.flysword"
+  hide-while-spectator: true
 
 # Model hiện lên khi đột phá thành công
 # Để trống "" nếu không có ModelEngine
