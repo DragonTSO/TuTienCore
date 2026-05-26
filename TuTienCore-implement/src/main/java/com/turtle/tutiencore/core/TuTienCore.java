@@ -23,6 +23,7 @@ import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
+import com.turtle.tutiencore.core.manager.RegionRespawnManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
@@ -54,6 +55,7 @@ public class TuTienCore {
     private InfusionManager infusionManager;
     private AfkKickManager afkKickManager;
     private DeathTipManager deathTipManager;
+    private RegionRespawnManager regionRespawnManager;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
@@ -93,6 +95,7 @@ public class TuTienCore {
         this.infusionManager = new InfusionManager(plugin, playerDataManager);
         this.afkKickManager = new AfkKickManager(plugin);
         this.deathTipManager = new DeathTipManager(plugin);
+        this.regionRespawnManager = new RegionRespawnManager(plugin, zoneManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);
@@ -129,7 +132,7 @@ public class TuTienCore {
 
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
                 flySwordManager, realmManager, playerHologramManager, actionBarManager,
-                infusionManager, afkKickManager, deathTipManager, this::reloadCommandAliases);
+                infusionManager, afkKickManager, deathTipManager, regionRespawnManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -207,6 +210,9 @@ public class TuTienCore {
         }
         if (deathTipManager != null) {
             deathTipManager.stop();
+        }
+        if (regionRespawnManager != null) {
+            regionRespawnManager.stop();
         }
         if (zoneManager != null) {
             zoneManager.saveZones();

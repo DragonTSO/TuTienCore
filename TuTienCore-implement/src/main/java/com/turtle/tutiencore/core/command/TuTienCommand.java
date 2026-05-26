@@ -9,6 +9,7 @@ import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
+import com.turtle.tutiencore.core.manager.RegionRespawnManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.model.CuboidZone;
@@ -35,13 +36,14 @@ public class TuTienCommand implements CommandExecutor {
     private final InfusionManager infusionManager;
     private final AfkKickManager afkKickManager;
     private final DeathTipManager deathTipManager;
+    private final RegionRespawnManager regionRespawnManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
             PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
             InfusionManager infusionManager, AfkKickManager afkKickManager, DeathTipManager deathTipManager,
-            Runnable commandAliasReloader) {
+            RegionRespawnManager regionRespawnManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -53,6 +55,7 @@ public class TuTienCommand implements CommandExecutor {
         this.infusionManager = infusionManager;
         this.afkKickManager = afkKickManager;
         this.deathTipManager = deathTipManager;
+        this.regionRespawnManager = regionRespawnManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -100,6 +103,7 @@ public class TuTienCommand implements CommandExecutor {
             infusionManager.reload();
             afkKickManager.reload();
             deathTipManager.reload();
+            regionRespawnManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }

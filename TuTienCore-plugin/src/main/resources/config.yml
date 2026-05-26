@@ -198,6 +198,26 @@ death-tips:
     - "&7Nếu quái đánh quá đau, hãy kiếm set phòng thủ hoặc tăng máu trước."
     - "&7Luyện thêm trang bị ở Luyện Khí Các sẽ giúp sống sót tốt hơn."
 
+region-respawn:
+  # Khi player chết/respawn trong region được config, đổi điểm hồi sinh về tọa độ riêng.
+  # Hỗ trợ cả TuTien zone id và WorldGuard region id.
+  enabled: true
+  # death = check region tại vị trí player chết.
+  # respawn = check region tại vị trí respawn mặc định của server.
+  check-location: death
+  debug: false
+  regions:
+    # Đổi "example_region" thành id region/zone thật.
+    example_region:
+      # Có thể bỏ dòng region nếu key bên trên chính là id region.
+      region: "example_region"
+      world: "world"
+      x: 0.5
+      y: 80.0
+      z: 0.5
+      yaw: 0.0
+      pitch: 0.0
+
 # Kick người chơi AFK theo rank VIP.
 # Plugin lấy rank cao nhất mà player có permission theo dạng:
 #   tutiencore.vip.0, tutiencore.vip.1, tutiencore.vip.2...
