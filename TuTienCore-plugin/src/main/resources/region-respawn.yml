@@ -69,9 +69,11 @@ death-tips:
     degrees-per-second: 55.0
     # Pitch camera đi từ giá trị này về pitch lúc player chết/head đang nhìn.
     start-pitch: 100.0
-    # Mỗi tick pitch sẽ tiến gần về pitch của head/player từng lượng này.
+    # Mỗi bước thời gian pitch sẽ tiến gần về pitch của head/player từng lượng này.
     pitch-step-per-tick: 0.1
-    # true = tính pitch theo tick chuẩn 20 TPS, TPS thấp vẫn giữ đúng tốc độ config.
+    # 0.01 = cứ 0.01 giây thật sẽ trừ pitch-step-per-tick.
+    pitch-step-seconds: 0.01
+    # true = tính pitch theo thời gian thật, TPS thấp vẫn giữ đúng tốc độ config.
     pitch-use-realtime: true
     step-ticks: 1
     teleport-duration: 2
