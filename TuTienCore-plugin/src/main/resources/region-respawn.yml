@@ -43,6 +43,11 @@ death-tips:
   teleport-to-anchor-before-spectate: true
   # Cách target quá số block này thì teleport lại trước khi set spectator target.
   teleport-to-anchor-distance: 8.0
+  # Force lock trong lúc xem death tips: chặn plugin khác đổi gamemode/teleport làm mất spectator.
+  force-spectator:
+    enabled: true
+    cancel-gamemode-change: true
+    cancel-teleport: true
   view-duration-ticks: 80
   restore-gamemode: true
   restore-to-respawn-location: true

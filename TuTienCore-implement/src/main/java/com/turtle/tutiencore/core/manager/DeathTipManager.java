@@ -20,8 +20,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.potion.PotionEffect;
@@ -30,9 +32,11 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -44,6 +48,8 @@ public class DeathTipManager implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, PendingDeathTip> pending = new HashMap<>();
     private final Map<UUID, ActiveDeathTip> active = new HashMap<>();
+    private final Set<UUID> internalGamemodeChanges = new HashSet<>();
+    private final Set<UUID> internalTeleports = new HashSet<>();
     private File configFile;
     private FileConfiguration config;
 
@@ -57,6 +63,9 @@ public class DeathTipManager implements Listener {
     private long spectatorReapplyIntervalTicks;
     private boolean teleportToAnchorBeforeSpectate;
     private double teleportToAnchorDistanceSquared;
+    private boolean forceSpectatorEnabled;
+    private boolean forceSpectatorCancelGamemodeChange;
+    private boolean forceSpectatorCancelTeleport;
     private long viewDurationTicks;
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
@@ -96,6 +105,9 @@ public class DeathTipManager implements Listener {
         teleportToAnchorBeforeSpectate = config.getBoolean(CONFIG_PATH + ".teleport-to-anchor-before-spectate", true);
         double teleportDistance = Math.max(0.0, config.getDouble(CONFIG_PATH + ".teleport-to-anchor-distance", 8.0));
         teleportToAnchorDistanceSquared = teleportDistance * teleportDistance;
+        forceSpectatorEnabled = config.getBoolean(CONFIG_PATH + ".force-spectator.enabled", true);
+        forceSpectatorCancelGamemodeChange = config.getBoolean(CONFIG_PATH + ".force-spectator.cancel-gamemode-change", true);
+        forceSpectatorCancelTeleport = config.getBoolean(CONFIG_PATH + ".force-spectator.cancel-teleport", true);
         viewDurationTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".view-duration-ticks", 80L));
         restoreGamemode = config.getBoolean(CONFIG_PATH + ".restore-gamemode", true);
         restoreToRespawnLocation = config.getBoolean(CONFIG_PATH + ".restore-to-respawn-location", true);
@@ -194,6 +206,47 @@ public class DeathTipManager implements Listener {
         cleanup(uuid, false);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerGameModeChange(PlayerGameModeChangeEvent event) {
+        if (!forceSpectatorEnabled || !forceSpectatorCancelGamemodeChange) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        if (internalGamemodeChanges.contains(uuid) || !active.containsKey(uuid)) {
+            return;
+        }
+
+        if (event.getNewGameMode() != GameMode.SPECTATOR) {
+            event.setCancelled(true);
+            debug(player, "Cancelled gamemode change to " + event.getNewGameMode() + " while death tip spectator is locked.");
+            scheduleSpectatorForce(uuid);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (!forceSpectatorEnabled || !forceSpectatorCancelTeleport) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        ActiveDeathTip tip = active.get(uuid);
+        if (tip == null || internalTeleports.contains(uuid)) {
+            return;
+        }
+
+        event.setCancelled(true);
+        Location to = event.getTo();
+        debug(player, "Cancelled teleport while death tip spectator is locked. Cause="
+                + event.getCause()
+                + ", to=" + (to == null ? "unknown" : formatLocation(to))
+                + ".");
+        scheduleSpectatorForce(uuid);
+    }
+
     private void startFallbackDeathView(UUID uuid) {
         PendingDeathTip tip = pending.get(uuid);
         if (tip == null) {
@@ -255,11 +308,11 @@ public class DeathTipManager implements Listener {
     private void applySpectatorTarget(Player player, Entity target) {
         if (teleportToAnchorBeforeSpectate && shouldTeleportToAnchor(player, target)) {
             Location targetLocation = target.getLocation();
-            player.teleport(targetLocation);
+            teleportInternally(player, targetLocation);
             debug(player, "Teleported to death tip anchor before spectating at " + formatLocation(targetLocation) + ".");
         }
         if (player.getGameMode() != GameMode.SPECTATOR) {
-            player.setGameMode(GameMode.SPECTATOR);
+            setGameModeInternally(player, GameMode.SPECTATOR);
         }
         if (target.getWorld() != null && !player.getWorld().equals(target.getWorld())) {
             return;
@@ -312,6 +365,30 @@ public class DeathTipManager implements Listener {
             debug(player, "Locked spectator target to death tip anchor " + tip.anchor().getUniqueId() + ".");
         } catch (RuntimeException exception) {
             plugin.getLogger().warning("Could not re-apply death tip spectator view for " + player.getName() + ": " + exception.getMessage());
+        }
+    }
+
+    private void scheduleSpectatorForce(UUID uuid) {
+        plugin.getServer().getScheduler().runTask(plugin, () -> reapplySpectatorTarget(uuid));
+    }
+
+    private void setGameModeInternally(Player player, GameMode gameMode) {
+        UUID uuid = player.getUniqueId();
+        internalGamemodeChanges.add(uuid);
+        try {
+            player.setGameMode(gameMode);
+        } finally {
+            internalGamemodeChanges.remove(uuid);
+        }
+    }
+
+    private void teleportInternally(Player player, Location location) {
+        UUID uuid = player.getUniqueId();
+        internalTeleports.add(uuid);
+        try {
+            player.teleport(location);
+        } finally {
+            internalTeleports.remove(uuid);
         }
     }
 
@@ -377,10 +454,10 @@ public class DeathTipManager implements Listener {
                     player.setSpectatorTarget(null);
                 }
                 if (restoreToRespawnLocation) {
-                    player.teleport(tip.respawnLocation());
+                    teleportInternally(player, tip.respawnLocation());
                 }
                 if (restoreGamemode && player.getGameMode() == GameMode.SPECTATOR) {
-                    player.setGameMode(tip.restoreMode());
+                    setGameModeInternally(player, tip.restoreMode());
                 }
             } catch (RuntimeException exception) {
                 plugin.getLogger().warning("Could not restore player after death tip view: " + exception.getMessage());
