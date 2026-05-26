@@ -53,7 +53,7 @@ death-tips:
     use-anchor-target: false
     lock-position: true
   cinematic:
-    # true = camera quay kiểu góc nhìn thứ 3 quanh vị trí chết.
+    # true = camera cinematic tại vị trí chết.
     enabled: true
     # DISPLAY = dùng TextDisplay làm camera target, có teleport-duration/interpolation-duration.
     # PLAYER = không bám entity, teleport trực tiếp camera player quanh vị trí chết.
@@ -61,9 +61,14 @@ death-tips:
     radius: 4.5
     height: 2.0
     look-at-y-offset: 1.0
-    # 180 = bắt đầu sau lưng hướng nhìn lúc chết, sau đó quay quanh điểm chết.
+    # false = không xoay vòng quanh điểm chết, chỉ giữ camera sau lưng hướng chết.
+    rotate-around: false
+    # 180 = đặt camera sau lưng hướng nhìn lúc chết.
     start-angle-degrees: 180.0
+    # Chỉ dùng khi rotate-around: true.
     degrees-per-second: 55.0
+    # Pitch camera đi từ giá trị này về pitch lúc player chết/head đang nhìn.
+    start-pitch: 100.0
     step-ticks: 2
     teleport-duration: 2
     interpolation-duration: 2

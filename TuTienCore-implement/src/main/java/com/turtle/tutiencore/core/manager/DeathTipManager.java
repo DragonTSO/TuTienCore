@@ -88,8 +88,10 @@ public class DeathTipManager implements Listener {
     private double cinematicRadius;
     private double cinematicHeight;
     private double cinematicLookAtYOffset;
+    private boolean cinematicRotateAround;
     private double cinematicStartAngleDegrees;
     private double cinematicDegreesPerSecond;
+    private float cinematicStartPitch;
     private long cinematicStepTicks;
     private int cinematicTeleportDuration;
     private int cinematicInterpolationDuration;
@@ -169,8 +171,10 @@ public class DeathTipManager implements Listener {
         cinematicRadius = Math.max(0.5, config.getDouble(CONFIG_PATH + ".cinematic.radius", 4.5));
         cinematicHeight = config.getDouble(CONFIG_PATH + ".cinematic.height", 2.0);
         cinematicLookAtYOffset = config.getDouble(CONFIG_PATH + ".cinematic.look-at-y-offset", 1.0);
+        cinematicRotateAround = config.getBoolean(CONFIG_PATH + ".cinematic.rotate-around", false);
         cinematicStartAngleDegrees = config.getDouble(CONFIG_PATH + ".cinematic.start-angle-degrees", 180.0);
         cinematicDegreesPerSecond = config.getDouble(CONFIG_PATH + ".cinematic.degrees-per-second", 55.0);
+        cinematicStartPitch = (float) config.getDouble(CONFIG_PATH + ".cinematic.start-pitch", 100.0);
         cinematicStepTicks = Math.max(1L, config.getLong(CONFIG_PATH + ".cinematic.step-ticks", 2L));
         cinematicTeleportDuration = Math.max(0, Math.min(59, config.getInt(CONFIG_PATH + ".cinematic.teleport-duration", 2)));
         cinematicInterpolationDuration = Math.max(0, config.getInt(CONFIG_PATH + ".cinematic.interpolation-duration", 2));
@@ -404,7 +408,7 @@ public class DeathTipManager implements Listener {
 
         Location focusLocation = createFocusLocation(tip.deathLocation());
         Location cameraLocation = cinematicEnabled
-                ? computeCinematicCameraLocation(focusLocation, tip.deathLocation().getYaw(), 0L)
+                ? computeCinematicCameraLocation(focusLocation, tip.deathLocation().getYaw(), tip.deathLocation().getPitch(), 0L)
                 : tip.deathLocation().clone();
         Entity anchor = createCameraAnchor(cameraLocation);
         if (shouldUseCameraAnchor() && anchor == null) {
@@ -457,6 +461,7 @@ public class DeathTipManager implements Listener {
                 cameraLocation,
                 focusLocation,
                 tip.deathLocation().getYaw(),
+                tip.deathLocation().getPitch(),
                 deathHead
         ));
         startCinematicText(player, tip);
@@ -527,9 +532,13 @@ public class DeathTipManager implements Listener {
         return focus;
     }
 
-    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, long elapsedTicks) {
+    private Location computeCinematicCameraLocation(Location focusLocation, float deathYaw, float deathPitch, long elapsedTicks) {
         double seconds = elapsedTicks / 20.0D;
-        double angle = Math.toRadians(deathYaw + cinematicStartAngleDegrees + (cinematicDegreesPerSecond * seconds));
+        double angleDegrees = deathYaw + cinematicStartAngleDegrees;
+        if (cinematicRotateAround) {
+            angleDegrees += cinematicDegreesPerSecond * seconds;
+        }
+        double angle = Math.toRadians(angleDegrees);
         double x = -Math.sin(angle) * cinematicRadius;
         double z = Math.cos(angle) * cinematicRadius;
         Location camera = new Location(
@@ -538,7 +547,9 @@ public class DeathTipManager implements Listener {
                 focusLocation.getY() + cinematicHeight,
                 focusLocation.getZ() + z
         );
-        faceLocation(camera, focusLocation);
+        double progress = Math.min(1.0D, elapsedTicks / (double) Math.max(1L, viewDurationTicks));
+        camera.setYaw(deathYaw);
+        camera.setPitch(lerp(cinematicStartPitch, deathPitch, progress));
         return camera;
     }
 
@@ -619,6 +630,7 @@ public class DeathTipManager implements Listener {
                 Location nextCameraLocation = computeCinematicCameraLocation(
                         tip.focusLocation(),
                         tip.deathYaw(),
+                        tip.deathPitch(),
                         elapsedTicks
                 );
                 copyLocation(tip.cameraLocation(), nextCameraLocation);
@@ -1189,6 +1201,10 @@ public class DeathTipManager implements Listener {
         return Math.max(min, Math.min(max, value));
     }
 
+    private float lerp(float start, float end, double progress) {
+        return (float) (start + ((end - start) * progress));
+    }
+
     private void debug(Player player, String message) {
         if (!debug) {
             return;
@@ -1217,6 +1233,6 @@ public class DeathTipManager implements Listener {
     }
 
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
-                                  Location cameraLocation, Location focusLocation, float deathYaw, Entity deathHead) {
+                                  Location cameraLocation, Location focusLocation, float deathYaw, float deathPitch, Entity deathHead) {
     }
 }
