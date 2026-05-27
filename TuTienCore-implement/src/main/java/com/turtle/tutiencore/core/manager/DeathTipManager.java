@@ -132,6 +132,13 @@ public class DeathTipManager implements Listener {
     private int titleFadeIn;
     private int titleStay;
     private int titleFadeOut;
+    private boolean endTitleEnabled;
+    private String endTitleText;
+    private String endSubtitleText;
+    private int endTitleFadeIn;
+    private int endTitleStay;
+    private int endTitleFadeOut;
+    private long endTitleDelayTicks;
     private boolean soundEnabled;
     private String soundName;
     private SoundCategory soundCategory;
@@ -285,6 +292,14 @@ public class DeathTipManager implements Listener {
         titleFadeIn = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-in", 5));
         titleStay = Math.max(1, config.getInt(CONFIG_PATH + ".title.stay", 70));
         titleFadeOut = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-out", 15));
+
+        endTitleEnabled = config.getBoolean(CONFIG_PATH + ".end-title.enabled", true);
+        endTitleText = config.getString(CONFIG_PATH + ".end-title.title", "&a&lDa hoi sinh");
+        endSubtitleText = config.getString(CONFIG_PATH + ".end-title.subtitle", "&7Hay nang cap trang bi roi quay lai.");
+        endTitleFadeIn = Math.max(0, config.getInt(CONFIG_PATH + ".end-title.fade-in", 5));
+        endTitleStay = Math.max(1, config.getInt(CONFIG_PATH + ".end-title.stay", 40));
+        endTitleFadeOut = Math.max(0, config.getInt(CONFIG_PATH + ".end-title.fade-out", 15));
+        endTitleDelayTicks = Math.max(0L, config.getLong(CONFIG_PATH + ".end-title.delay-ticks", 0L));
 
         soundEnabled = config.getBoolean(CONFIG_PATH + ".sound.enabled", true);
         soundName = config.getString(CONFIG_PATH + ".sound.name", "ENTITY_WITHER_SPAWN");
@@ -531,6 +546,7 @@ public class DeathTipManager implements Listener {
                 tip.deathLocation().getYaw(),
                 tip.deathLocation().getPitch(),
                 deathHead,
+                tip,
                 textStartDelayTicks,
                 totalViewTicks
         ));
@@ -1340,6 +1356,31 @@ public class DeathTipManager implements Listener {
         }
     }
 
+    private void showEndTitle(Player player, PendingDeathTip tip) {
+        if (!endTitleEnabled || player == null || !player.isOnline()) {
+            return;
+        }
+
+        Runnable task = () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            String formattedTip = replacePlaceholders(tip.tip(), player, tip);
+            player.sendTitle(
+                    color(replacePlaceholders(endTitleText, player, tip).replace("%tip%", formattedTip)),
+                    color(replacePlaceholders(endSubtitleText, player, tip).replace("%tip%", formattedTip)),
+                    endTitleFadeIn,
+                    endTitleStay,
+                    endTitleFadeOut
+            );
+        };
+        if (endTitleDelayTicks <= 0L) {
+            task.run();
+            return;
+        }
+        plugin.getServer().getScheduler().runTaskLater(plugin, task, endTitleDelayTicks);
+    }
+
     private void cleanup(UUID uuid, boolean restorePlayer) {
         ActiveDeathTip tip = active.remove(uuid);
         clearCinematicText(uuid);
@@ -1378,6 +1419,10 @@ public class DeathTipManager implements Listener {
         }
         if (tip.deathHead() != null && !tip.deathHead().isDead()) {
             tip.deathHead().remove();
+        }
+
+        if (restorePlayer && player != null && player.isOnline()) {
+            showEndTitle(player, tip.pendingTip());
         }
     }
 
@@ -1848,6 +1893,7 @@ public class DeathTipManager implements Listener {
 
     private record ActiveDeathTip(Entity anchor, GameMode restoreMode, Location respawnLocation, BukkitTask restoreTask,
                                   Location cameraLocation, Location focusLocation, float deathYaw, float deathPitch,
-                                  Entity deathHead, long textStartDelayTicks, long totalViewTicks) {
+                                  Entity deathHead, PendingDeathTip pendingTip,
+                                  long textStartDelayTicks, long totalViewTicks) {
     }
 }

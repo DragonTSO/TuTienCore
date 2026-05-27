@@ -150,11 +150,21 @@ death-tips:
     # Camera target là Villager tàng hình/silent/no-ai để spectator bám ổn hơn ArmorStand.
     y-offset: 0.0
   title:
+    # Title hien ngay khi player vua chet / bat dau cinematic.
     enabled: true
     title: "&c&lTrang bị chưa đủ mạnh"
     subtitle: "&7%tip%"
     fade-in: 5
     stay: 70
+    fade-out: 15
+  end-title:
+    # Title hien sau khi cinematic chet ket thuc va player duoc restore.
+    enabled: true
+    title: "&a&lDa hoi sinh"
+    subtitle: "&7Hay nang cap trang bi roi quay lai."
+    delay-ticks: 0
+    fade-in: 5
+    stay: 40
     fade-out: 15
   sound:
     enabled: true
