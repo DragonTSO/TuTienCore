@@ -126,12 +126,12 @@ public class DeathTipManager implements Listener {
     private boolean restoreGamemode;
     private boolean restoreToRespawnLocation;
     private double anchorYOffset;
-    private boolean titleEnabled;
-    private String titleText;
-    private String subtitleText;
-    private int titleFadeIn;
-    private int titleStay;
-    private int titleFadeOut;
+    private boolean startTitleEnabled;
+    private String startTitleText;
+    private String startSubtitleText;
+    private int startTitleFadeIn;
+    private int startTitleStay;
+    private int startTitleFadeOut;
     private boolean endTitleEnabled;
     private String endTitleText;
     private String endSubtitleText;
@@ -286,12 +286,21 @@ public class DeathTipManager implements Listener {
 
         anchorYOffset = config.getDouble(CONFIG_PATH + ".anchor.y-offset", 0.0);
 
-        titleEnabled = config.getBoolean(CONFIG_PATH + ".title.enabled", true);
-        titleText = config.getString(CONFIG_PATH + ".title.title", "&c&lTrang Bị Yếu");
-        subtitleText = config.getString(CONFIG_PATH + ".title.subtitle", "&7%tip%");
-        titleFadeIn = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-in", 5));
-        titleStay = Math.max(1, config.getInt(CONFIG_PATH + ".title.stay", 70));
-        titleFadeOut = Math.max(0, config.getInt(CONFIG_PATH + ".title.fade-out", 15));
+        String legacyTitlePath = CONFIG_PATH + ".title";
+        String startTitlePath = CONFIG_PATH + ".start-title";
+        boolean hasStartTitleConfig = config.isConfigurationSection(startTitlePath);
+        startTitleEnabled = config.getBoolean(startTitlePath + ".enabled",
+                hasStartTitleConfig || config.getBoolean(legacyTitlePath + ".enabled", true));
+        startTitleText = config.getString(startTitlePath + ".title",
+                config.getString(legacyTitlePath + ".title", "&c&lTrang Bi Yeu"));
+        startSubtitleText = config.getString(startTitlePath + ".subtitle",
+                config.getString(legacyTitlePath + ".subtitle", "&7%tip%"));
+        startTitleFadeIn = Math.max(0, config.getInt(startTitlePath + ".fade-in",
+                config.getInt(legacyTitlePath + ".fade-in", 5)));
+        startTitleStay = Math.max(1, config.getInt(startTitlePath + ".stay",
+                config.getInt(legacyTitlePath + ".stay", 70)));
+        startTitleFadeOut = Math.max(0, config.getInt(startTitlePath + ".fade-out",
+                config.getInt(legacyTitlePath + ".fade-out", 15)));
 
         endTitleEnabled = config.getBoolean(CONFIG_PATH + ".end-title.enabled", true);
         endTitleText = config.getString(CONFIG_PATH + ".end-title.title", "&a&lDa hoi sinh");
@@ -1007,9 +1016,9 @@ public class DeathTipManager implements Listener {
         player.sendTitle(
                 cinematicTextTitleLine(player, pendingTip),
                 cinematicTextSubtitleLine(player, pendingTip),
-                titleFadeIn,
+                startTitleFadeIn,
                 stay,
-                titleFadeOut
+                startTitleFadeOut
         );
         debug(player, "Using title fallback for Bedrock cinematic text.");
     }
@@ -1335,13 +1344,13 @@ public class DeathTipManager implements Listener {
     private void showTip(Player player, PendingDeathTip tip) {
         String formattedTip = replacePlaceholders(tip.tip(), player, tip);
 
-        if (titleEnabled) {
+        if (startTitleEnabled) {
             player.sendTitle(
-                    color(replacePlaceholders(titleText, player, tip).replace("%tip%", formattedTip)),
-                    color(replacePlaceholders(subtitleText, player, tip).replace("%tip%", formattedTip)),
-                    titleFadeIn,
-                    titleStay,
-                    titleFadeOut
+                    color(replacePlaceholders(startTitleText, player, tip).replace("%tip%", formattedTip)),
+                    color(replacePlaceholders(startSubtitleText, player, tip).replace("%tip%", formattedTip)),
+                    startTitleFadeIn,
+                    startTitleStay,
+                    startTitleFadeOut
             );
         }
 

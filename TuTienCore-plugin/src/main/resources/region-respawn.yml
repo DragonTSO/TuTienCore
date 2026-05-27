@@ -149,7 +149,7 @@ death-tips:
   anchor:
     # Camera target là Villager tàng hình/silent/no-ai để spectator bám ổn hơn ArmorStand.
     y-offset: 0.0
-  title:
+  start-title:
     # Title hien ngay khi player vua chet / bat dau cinematic.
     enabled: true
     title: "&c&lTrang bị chưa đủ mạnh"
