@@ -20,6 +20,18 @@ action-bar:
   # How to display the data.
   format: '&f༺ <#f03e5c>❤ {health}/{max_health} &f| <#82cfe8>〄 Linh Lực %TuTienClass_mana_left%/%TuTienClass_max_mana% &f༻'
 
+  # Hien EXP vua nhan tu TuTienLevel ben canh action bar cua TuTienCore.
+  exp-gain:
+    enabled: true
+    # Thoi gian hien sau moi lan nhan EXP (ticks).
+    duration-ticks: 40
+    # Placeholder: {exp}, {exp_formatted}, {source}, {mob}
+    format: " &8| &a+{exp_formatted} EXP"
+    # Mac dinh chi hien EXP kill MythicMob/quai tu TuTienLevel.
+    # De [] neu muon hien moi nguon EXP TuTienLevel (api, command, ...).
+    source-prefixes:
+      - "MythicMob:"
+
 # Configurable command aliases.
 # Set aliases: [] to disable aliases for a command.
 commands:

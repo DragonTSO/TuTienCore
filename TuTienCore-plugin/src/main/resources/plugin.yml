@@ -3,7 +3,7 @@ version: '${project.version}'
 main: com.turtle.tutiencore.TuTienCorePlugin
 api-version: '1.21'
 depend: [TurtleCore, ProtocolLib, packetevents]
-softdepend: [PlaceholderAPI, Vault, PlayerPoints, ModelEngine, MythicMobs, MMOCore, FancyHolograms, WorldGuard, SuperiorSkyblock2, TurtleIsland]
+softdepend: [PlaceholderAPI, Vault, PlayerPoints, ModelEngine, MythicMobs, MMOCore, FancyHolograms, WorldGuard, SuperiorSkyblock2, TurtleIsland, TuTienLevel]
 loadbefore: [BetterteamsAddon, MMOItems]
 description: Tu Tien sitting mechanic and particles
 
