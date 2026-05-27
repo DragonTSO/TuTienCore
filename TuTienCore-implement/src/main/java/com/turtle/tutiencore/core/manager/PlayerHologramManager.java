@@ -34,6 +34,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -125,7 +126,8 @@ public class PlayerHologramManager implements Listener {
         Set<UUID> onlineOwners = new HashSet<>();
         for (Player owner : Bukkit.getOnlinePlayers()) {
             onlineOwners.add(owner.getUniqueId());
-            if (owner.hasMetadata("NPC") || shouldHideWhileSpectator(owner) || shouldHideForTuLuyen(owner)) {
+            if (owner.hasMetadata("NPC") || owner.isDead()
+                    || shouldHideWhileSpectator(owner) || shouldHideForTuLuyen(owner)) {
                 removeHologram(owner.getUniqueId());
                 continue;
             }
@@ -165,6 +167,9 @@ public class PlayerHologramManager implements Listener {
 
     private boolean shouldSee(Player viewer, Player owner) {
         if (!viewer.isOnline() || !owner.isOnline()) {
+            return false;
+        }
+        if (owner.isDead()) {
             return false;
         }
         if (shouldHideWhileSpectator(owner)) {
@@ -659,6 +664,11 @@ public class PlayerHologramManager implements Listener {
         fallbackHiddenNames.remove(playerId);
         fallbackTeamCreated.remove(playerId);
         Bukkit.getScheduler().runTaskLater(plugin, this::syncFallbackNameTeams, 1L);
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent event) {
+        removeHologram(event.getEntity().getUniqueId());
     }
 
     @EventHandler
