@@ -31,6 +31,10 @@ commands:
     description: Mo menu hoac cap Nhap Than
     usage: /nhapthan [give <player> <type> <rarity>]
     permission: tutiencore.use
+  trangbi:
+    description: Mo menu trang bi Tu Tien
+    usage: /trangbi
+    permission: tutiencore.use
 
 permissions:
   tutiencore.use:

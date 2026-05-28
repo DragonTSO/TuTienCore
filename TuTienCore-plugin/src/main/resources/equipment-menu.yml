@@ -1,0 +1,94 @@
+enabled: true
+
+messages:
+  only-player: "&cChỉ player mới dùng được lệnh này."
+  invalid-item: "&cItem này không đúng type yêu cầu."
+  equipped: "&aĐã trang bị &f%slot%&a."
+  unequipped: "&eĐã tháo &f%slot%&e."
+  no-offhand-item: "&cHãy cầm item MMOItems ở offhand."
+  no-upgrade: "&cItem offhand này chưa có cấu hình tiến hoá."
+  upgrade-ready: "&aCó thể tiến hoá item này."
+  upgrade-success: "&aĐã tiến hoá item offhand!"
+
+gui:
+  title: "&8Trang Bị Tu Tiên"
+  size: 54
+  filler:
+    material: BLACK_STAINED_GLASS_PANE
+    name: " "
+  info-slot: 4
+  info-item:
+    material: NETHER_STAR
+    name: "&6Thông Tin Người Chơi"
+    lore:
+      - "&7Cảnh giới: &f%realm%"
+      - "&7Tu vi: &e%tuvi%"
+      - ""
+      - "&c⚔ Attack: &f%stat_ATTACK_DAMAGE%"
+      - "&a❤ Max Health: &f%stat_MAX_HEALTH%"
+      - "&9✦ Mana: &f%stat_MAX_MANA%"
+  upgrade-title: "&8Tiến Hoá Offhand"
+  upgrade-size: 27
+  upgrade-slots:
+    source: 11
+    result: 15
+    confirm: 13
+  upgrade-confirm:
+    material: EMERALD
+    name: "&aTiến Hoá"
+    lore:
+      - "&7Item hiện tại: &f%from_type%:%from_id%"
+      - "&7Sau tiến hoá: &e%to_type%:%to_id%"
+      - ""
+      - "&aClick để xác nhận."
+
+slots:
+  accessory:
+    slot: 20
+    accepted-types:
+      - ACCESSORY
+    empty:
+      material: AMETHYST_SHARD
+      name: "&dTrang Sức"
+      lore:
+        - "&7Đặt item MMOItems type &dACCESSORY"
+        - "&7vào đây để nhận chỉ số."
+    stats:
+      ATTACK_DAMAGE: 5
+      MAX_HEALTH: 20
+  dan_duoc:
+    slot: 24
+    accepted-types:
+      - DAN_DUOC
+    empty:
+      material: HONEY_BOTTLE
+      name: "&6Đan Dược"
+      lore:
+        - "&7Đặt item MMOItems type &6DAN_DUOC"
+        - "&7vào đây để nhận chỉ số."
+    stats:
+      MAX_HEALTH: 10
+      MAX_MANA: 15
+
+offhand:
+  info-item-types:
+    - TU_TIEN_INFO
+    - ACCESSORY
+    - DAN_DUOC
+  upgrades:
+    linh_bai_1:
+      from-type: TU_TIEN_INFO
+      from-id: LINH_BAI_1
+      to-type: TU_TIEN_INFO
+      to-id: LINH_BAI_2
+      take-source: true
+      commands:
+        - "mi give MATERIAL %player% LINH_BAI_2 1"
+    dan_duoc_1:
+      from-type: DAN_DUOC
+      from-id: DAN_DUOC_1
+      to-type: DAN_DUOC
+      to-id: DAN_DUOC_2
+      take-source: true
+      commands:
+        - "mi give DAN_DUOC %player% DAN_DUOC_2 1"

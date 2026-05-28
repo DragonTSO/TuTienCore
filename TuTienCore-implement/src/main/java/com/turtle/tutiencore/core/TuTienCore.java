@@ -19,6 +19,7 @@ import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.DeathTipManager;
+import com.turtle.tutiencore.core.manager.EquipmentMenuManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
@@ -56,6 +57,7 @@ public class TuTienCore {
     private AfkKickManager afkKickManager;
     private DeathTipManager deathTipManager;
     private RegionRespawnManager regionRespawnManager;
+    private EquipmentMenuManager equipmentMenuManager;
     private DotPhaCommand dotPhaCommand;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
     private MMOItemsMMOCoreStatsHook mmoItemsMMOCoreStatsHook;
@@ -96,6 +98,7 @@ public class TuTienCore {
         this.afkKickManager = new AfkKickManager(plugin);
         this.deathTipManager = new DeathTipManager(plugin);
         this.regionRespawnManager = new RegionRespawnManager(plugin, zoneManager);
+        this.equipmentMenuManager = new EquipmentMenuManager(plugin, realmManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);
@@ -132,7 +135,7 @@ public class TuTienCore {
 
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
                 flySwordManager, realmManager, playerHologramManager, actionBarManager,
-                infusionManager, afkKickManager, deathTipManager, regionRespawnManager, this::reloadCommandAliases);
+                infusionManager, afkKickManager, deathTipManager, regionRespawnManager, equipmentMenuManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
         }
@@ -158,6 +161,9 @@ public class TuTienCore {
         if (plugin.getCommand("nhapthan") != null) {
             plugin.getCommand("nhapthan").setExecutor(nhapThanCommand);
             plugin.getCommand("nhapthan").setTabCompleter(nhapThanCommand);
+        }
+        if (plugin.getCommand("trangbi") != null) {
+            plugin.getCommand("trangbi").setExecutor(equipmentMenuManager);
         }
         reloadCommandAliases();
 
@@ -186,6 +192,10 @@ public class TuTienCore {
         }
         if (infusionManager != null) {
             infusionManager.saveConfigFile();
+        }
+        if (equipmentMenuManager != null) {
+            equipmentMenuManager.saveAll();
+            equipmentMenuManager.removeAllOnlineModifiers();
         }
         if (realmManager != null) {
             realmManager.saveAllPlayerRealms();
