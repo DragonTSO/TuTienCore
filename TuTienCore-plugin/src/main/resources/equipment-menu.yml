@@ -41,7 +41,7 @@ gui:
     confirm: 13
   upgrade-preview:
     material: EMERALD
-    name: "&e%to_type%:%to_id%"
+    name: "&e%to_name%"
     lore:
       - "&7Item nhận qua command cấu hình."
       - ""
@@ -52,8 +52,8 @@ gui:
     material: EMERALD
     name: "&aTiến Hoá"
     lore:
-      - "&7Item hiện tại: &f%from_type%:%from_id%"
-      - "&7Sau tiến hoá: &e%to_type%:%to_id%"
+      - "&7Item hiện tại: &f%from_name%"
+      - "&7Sau tiến hoá: &e%to_name%"
       - ""
       - "&7Linh thạch: &e%cost%"
       - "&7Cấp yêu cầu: &a%required_level%"

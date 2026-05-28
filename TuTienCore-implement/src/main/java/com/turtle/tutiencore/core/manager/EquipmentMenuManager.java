@@ -151,8 +151,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         fill(inventory);
         inventory.setItem(config.getInt("gui.upgrade-slots.source", 11), offhand == null ? new ItemStack(Material.AIR) : offhand.clone());
         if (rule != null) {
-            inventory.setItem(config.getInt("gui.upgrade-slots.result", 15), previewItem(rule));
-            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), confirmItem(rule));
+            inventory.setItem(config.getInt("gui.upgrade-slots.result", 15), previewItem(player, rule));
+            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), confirmItem(player, offhand, rule));
         } else {
             inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), named(Material.BARRIER, "&cKhông thể tiến hoá", List.of(message("no-upgrade"))));
         }
@@ -404,8 +404,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private void refreshBoundOffhandLore(Player player, ItemStack item) {
         if (item == null || item.getType().isAir()) return;
         if (hasUnparsedMmoItemsExpansionLore(item)) {
-            scheduleBoundOffhandLoreAppend(player, 4L);
-            return;
+            parseMmoItemsExpansionLore(player, item);
+            if (hasUnparsedMmoItemsExpansionLore(item)) {
+                scheduleBoundOffhandLoreAppend(player, 4L);
+                return;
+            }
         }
         appendBoundOffhandLore(player, item);
     }
@@ -438,11 +441,33 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             ItemStack offhand = player.getInventory().getItemInOffHand();
             if (!isBoundOffhandItem(offhand)) return;
             if (hasUnparsedMmoItemsExpansionLore(offhand)) {
-                Bukkit.getScheduler().runTaskLater(plugin, () -> refreshBoundOffhandLore(player, offhand), 6L);
-                return;
+                parseMmoItemsExpansionLore(player, offhand);
+                if (hasUnparsedMmoItemsExpansionLore(offhand)) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> refreshBoundOffhandLore(player, offhand), 6L);
+                    return;
+                }
             }
             appendBoundOffhandLore(player, offhand);
         }, delay);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void parseMmoItemsExpansionLore(Player player, ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || meta.getLore() == null) return;
+        org.bukkit.plugin.Plugin expansion = Bukkit.getPluginManager().getPlugin("MMOItemsExpansion");
+        if (expansion == null || !expansion.isEnabled()) return;
+        try {
+            Object parsed = expansion.getClass()
+                    .getMethod("applyLorePlaceholders", Player.class, ItemStack.class, List.class)
+                    .invoke(expansion, player, item, meta.getLore());
+            if (parsed instanceof List<?> list) {
+                meta.setLore((List<String>) list);
+                item.setItemMeta(meta);
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 
     private boolean hasUnparsedMmoItemsExpansionLore(ItemStack item) {
@@ -684,12 +709,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         );
     }
 
-    private ItemStack confirmItem(UpgradeRule rule) {
+    private ItemStack confirmItem(Player player, ItemStack source, UpgradeRule rule) {
+        String fromName = displayName(source, rule.fromType() + ":" + rule.fromId());
+        String toName = displayName(createMmoItem(player, rule.toType(), rule.toId()), rule.toType() + ":" + rule.toId());
         ItemStack item = named(
                 Material.matchMaterial(config.getString("gui.upgrade-confirm.material", "EMERALD")),
                 config.getString("gui.upgrade-confirm.name", "&aTiến Hoá"),
                 config.getStringList("gui.upgrade-confirm.lore").stream()
-                        .map(line -> replaceUpgradePlaceholders(line, rule))
+                        .map(line -> replaceUpgradePlaceholders(line, rule, fromName, toName))
                         .toList()
         );
         ItemMeta meta = item.getItemMeta();
@@ -700,29 +727,39 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return item;
     }
 
-    private ItemStack previewItem(UpgradeRule rule) {
+    private ItemStack previewItem(Player player, UpgradeRule rule) {
+        String toName = displayName(createMmoItem(player, rule.toType(), rule.toId()), rule.toType() + ":" + rule.toId());
         if (config != null) {
             return named(
                     Material.matchMaterial(config.getString("gui.upgrade-preview.material", "EMERALD")),
-                    replaceUpgradePlaceholders(config.getString("gui.upgrade-preview.name", "&e%to_type%:%to_id%"), rule),
+                    replaceUpgradePlaceholders(config.getString("gui.upgrade-preview.name", "&e%to_name%"), rule, "", toName),
                     config.getStringList("gui.upgrade-preview.lore").stream()
-                            .map(line -> replaceUpgradePlaceholders(line, rule))
+                            .map(line -> replaceUpgradePlaceholders(line, rule, "", toName))
                             .toList()
             );
         }
         return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nhận qua command cấu hình."));
     }
 
-    private String replaceUpgradePlaceholders(String line, UpgradeRule rule) {
+    private String replaceUpgradePlaceholders(String line, UpgradeRule rule, String fromName, String toName) {
         return line
                 .replace("%from_type%", rule.fromType())
                 .replace("%from_id%", rule.fromId())
+                .replace("%from_name%", fromName)
                 .replace("%to_type%", rule.toType())
                 .replace("%to_id%", rule.toId())
+                .replace("%to_name%", toName)
                 .replace("%cost%", formatNumber(rule.cost()))
                 .replace("%required_level%", rule.requiredLevel() <= 0 ? "Không yêu cầu" : String.valueOf(rule.requiredLevel()))
                 .replace("%required_realm%", rule.requiredRealm() <= 0 ? "Không yêu cầu" : formatRealmRequirement(rule))
                 .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "Không yêu cầu" : rule.requiredSubRealm().getDisplayName());
+    }
+
+    private String displayName(ItemStack item, String fallback) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return fallback;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || !meta.hasDisplayName()) return fallback;
+        return meta.getDisplayName();
     }
 
     private void fill(Inventory inventory) {
