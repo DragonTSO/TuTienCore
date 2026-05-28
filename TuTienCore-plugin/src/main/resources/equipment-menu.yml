@@ -74,6 +74,7 @@ offhand:
   bound-item:
     enabled: true
     replace-existing: true
+    open-on-world-click: false
     type: OFF_CATALYST
     id: HA_MACH_HO_MENH_TIEN_HOAN
     fallback-material: NETHER_STAR

@@ -176,6 +176,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         if (!config.getBoolean("enabled", true)) return;
+        if (!config.getBoolean("offhand.bound-item.open-on-world-click", false)) return;
         ItemStack offhand = event.getPlayer().getInventory().getItemInOffHand();
         if (!isInfoOffhandItem(offhand)) return;
 
@@ -192,7 +193,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (isLockedOffhandClick(event, player)) {
+        if (handleBoundOffhandInventoryClick(event, player)) {
             event.setCancelled(true);
             Bukkit.getScheduler().runTask(plugin, () -> ensureBoundOffhand(player));
             return;
@@ -313,6 +314,25 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 && event.getClickedInventory().equals(player.getInventory())
                 && event.getSlot() == 40
                 && isBoundOffhandItem(player.getInventory().getItemInOffHand());
+    }
+
+    private boolean handleBoundOffhandInventoryClick(InventoryClickEvent event, Player player) {
+        if (!isLockedOffhandClick(event, player)) return false;
+        if (!isPlayerOffhandSlot(event, player) || !isBoundOffhandItem(event.getCurrentItem())) return true;
+
+        ClickType click = event.getClick();
+        if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
+            Bukkit.getScheduler().runTask(plugin, () -> openEquipment(player));
+        } else if (click == ClickType.LEFT || click == ClickType.SHIFT_LEFT) {
+            Bukkit.getScheduler().runTask(plugin, () -> openUpgrade(player));
+        }
+        return true;
+    }
+
+    private boolean isPlayerOffhandSlot(InventoryClickEvent event, Player player) {
+        return event.getClickedInventory() != null
+                && event.getClickedInventory().equals(player.getInventory())
+                && event.getSlot() == 40;
     }
 
     private void ensureBoundOffhand(Player player) {
