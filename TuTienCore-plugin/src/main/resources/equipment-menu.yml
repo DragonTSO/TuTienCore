@@ -71,6 +71,20 @@ slots:
       MAX_MANA: 15
 
 offhand:
+  bound-item:
+    enabled: true
+    replace-existing: true
+    type: OFF_CATALYST
+    id: HA_MACH_HO_MENH_TIEN_HOAN
+    fallback-material: NETHER_STAR
+    name: "&dHạ Mạch Hộ Mệnh Tiên Hoàn"
+    lore:
+      - "&7Vật phẩm tay phụ của hệ thống."
+      - ""
+      - "&eChuột phải &7để mở thông tin/trang bị."
+      - "&eChuột trái &7để mở nâng cấp."
+      - ""
+      - "&cKhông thể tháo khỏi tay phụ."
   info-item-types:
     - OFF_CATALYST
   info-items:

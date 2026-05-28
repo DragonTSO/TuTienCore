@@ -8,6 +8,9 @@ import io.lumine.mythic.lib.api.stat.StatInstance;
 import io.lumine.mythic.lib.api.stat.StatMap;
 import io.lumine.mythic.lib.api.stat.modifier.StatModifier;
 import io.lumine.mythic.lib.player.modifier.ModifierType;
+import net.Indyuce.mmoitems.MMOItems;
+import net.Indyuce.mmoitems.api.Type;
+import net.Indyuce.mmoitems.api.player.PlayerData;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,9 +41,12 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -57,6 +63,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final File configFile;
     private final File dataFile;
     private final NamespacedKey actionKey;
+    private final NamespacedKey boundOffhandKey;
 
     private FileConfiguration config;
     private FileConfiguration data;
@@ -69,6 +76,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         this.configFile = new File(plugin.getDataFolder(), "equipment-menu.yml");
         this.dataFile = new File(plugin.getDataFolder(), "equipment-data.yml");
         this.actionKey = new NamespacedKey(plugin, "equipment_action");
+        this.boundOffhandKey = new NamespacedKey(plugin, "equipment_bound_offhand");
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -84,6 +92,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayer(player.getUniqueId());
             applyStats(player);
+            ensureBoundOffhand(player);
         }
     }
 
@@ -119,6 +128,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     public void openEquipment(Player player) {
+        ensureBoundOffhand(player);
         loadPlayer(player.getUniqueId());
         Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.size", 54), color(config.getString("gui.title", "&8Trang Bị Tu Tiên")));
         fill(inventory);
@@ -131,6 +141,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private void openUpgrade(Player player) {
+        ensureBoundOffhand(player);
         ItemStack offhand = player.getInventory().getItemInOffHand();
         UpgradeRule rule = findUpgrade(offhand);
         Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.upgrade-size", 27), color(config.getString("gui.upgrade-title", "&8Tiến Hoá Offhand")));
@@ -148,7 +159,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onJoin(PlayerJoinEvent event) {
         loadPlayer(event.getPlayer().getUniqueId());
-        Bukkit.getScheduler().runTaskLater(plugin, () -> applyStats(event.getPlayer()), 20L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            applyStats(event.getPlayer());
+            ensureBoundOffhand(event.getPlayer());
+        }, 20L);
     }
 
     @EventHandler
@@ -178,6 +192,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (isLockedOffhandClick(event, player)) {
+            event.setCancelled(true);
+            Bukkit.getScheduler().runTask(plugin, () -> ensureBoundOffhand(player));
+            return;
+        }
         String title = event.getView().getTitle();
         if (title.equals(color(config.getString("gui.title", "&8Trang Bị Tu Tiên")))) {
             handleEquipmentClick(event, player);
@@ -258,6 +277,125 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8F, 1.2F);
         player.sendMessage(message("upgrade-success"));
         player.closeInventory();
+        Bukkit.getScheduler().runTask(plugin, () -> ensureBoundOffhand(player));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSwapHandItems(PlayerSwapHandItemsEvent event) {
+        if (!config.getBoolean("offhand.bound-item.enabled", true)) return;
+        if (!isBoundOffhandItem(event.getOffHandItem()) && !isBoundOffhandItem(event.getMainHandItem())) return;
+        event.setCancelled(true);
+        ensureBoundOffhand(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDrop(PlayerDropItemEvent event) {
+        if (!isBoundOffhandItem(event.getItemDrop().getItemStack())) return;
+        event.setCancelled(true);
+        ensureBoundOffhand(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!config.getBoolean("offhand.bound-item.enabled", true)) return;
+        if (event.getInventorySlots().contains(40) || isBoundOffhandItem(event.getOldCursor())) {
+            event.setCancelled(true);
+            Bukkit.getScheduler().runTask(plugin, () -> ensureBoundOffhand(player));
+        }
+    }
+
+    private boolean isLockedOffhandClick(InventoryClickEvent event, Player player) {
+        if (!config.getBoolean("offhand.bound-item.enabled", true)) return false;
+        if (event.getClick() == ClickType.SWAP_OFFHAND) return true;
+        if (isBoundOffhandItem(event.getCurrentItem()) || isBoundOffhandItem(event.getCursor())) return true;
+        return event.getClickedInventory() != null
+                && event.getClickedInventory().equals(player.getInventory())
+                && event.getSlot() == 40
+                && isBoundOffhandItem(player.getInventory().getItemInOffHand());
+    }
+
+    private void ensureBoundOffhand(Player player) {
+        if (!config.getBoolean("enabled", true) || !config.getBoolean("offhand.bound-item.enabled", true)) return;
+
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (isBoundOffhandItem(offhand)) {
+            refreshBoundOffhandLore(player, offhand);
+            return;
+        }
+
+        if (offhand != null && !offhand.getType().isAir()) {
+            if (!config.getBoolean("offhand.bound-item.replace-existing", true)) return;
+            giveOrDrop(player, offhand);
+        }
+
+        ItemStack item = createBoundOffhandItem(player);
+        if (item != null && !item.getType().isAir()) {
+            player.getInventory().setItemInOffHand(item);
+        }
+    }
+
+    private ItemStack createBoundOffhandItem(Player player) {
+        String typeId = config.getString("offhand.bound-item.type", "OFF_CATALYST");
+        String itemId = config.getString("offhand.bound-item.id", "HA_MACH_HO_MENH_TIEN_HOAN");
+        ItemStack item = createMmoItem(player, typeId, itemId);
+        if (item == null || item.getType().isAir()) {
+            item = named(
+                    Material.matchMaterial(config.getString("offhand.bound-item.fallback-material", "NETHER_STAR")),
+                    config.getString("offhand.bound-item.name", "&dHộ Mệnh Tiên Hoàn"),
+                    config.getStringList("offhand.bound-item.lore")
+            );
+        }
+        markBoundOffhand(item);
+        refreshBoundOffhandLore(player, item);
+        return item;
+    }
+
+    private ItemStack createMmoItem(Player player, String typeId, String itemId) {
+        if (typeId == null || typeId.isBlank() || itemId == null || itemId.isBlank()) return null;
+        try {
+            Type type = MMOItems.plugin.getTypes().get(normalize(typeId));
+            if (type == null) return null;
+            return MMOItems.plugin.getItem(type, normalize(itemId), PlayerData.get(player));
+        } catch (Throwable throwable) {
+            plugin.getLogger().warning("Could not create bound offhand MMOItem " + typeId + ":" + itemId + ": " + throwable.getMessage());
+            return null;
+        }
+    }
+
+    private void refreshBoundOffhandLore(Player player, ItemStack item) {
+        if (item == null || item.getType().isAir()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        String configuredName = config.getString("offhand.bound-item.name", "");
+        if (configuredName != null && !configuredName.isBlank()) {
+            meta.setDisplayName(color(configuredName));
+        }
+
+        List<String> lore = new ArrayList<>();
+        for (String line : config.getStringList("offhand.bound-item.lore")) {
+            lore.add(color(line.replace("%player%", player.getName())));
+        }
+        if (!lore.isEmpty()) {
+            meta.setLore(lore);
+        }
+        meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+    }
+
+    private void markBoundOffhand(ItemStack item) {
+        if (item == null || item.getType().isAir()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+    }
+
+    private boolean isBoundOffhandItem(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getPersistentDataContainer().has(boundOffhandKey, PersistentDataType.BYTE);
     }
 
     private void applyStats(Player player) {
