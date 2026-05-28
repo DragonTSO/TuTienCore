@@ -373,15 +373,30 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             meta.setDisplayName(color(configuredName));
         }
 
-        List<String> lore = new ArrayList<>();
+        List<String> appendix = new ArrayList<>();
         for (String line : config.getStringList("offhand.bound-item.lore")) {
-            lore.add(color(line.replace("%player%", player.getName())));
+            appendix.add(color(line.replace("%player%", player.getName())));
         }
-        if (!lore.isEmpty()) {
+        if (!appendix.isEmpty()) {
+            List<String> lore = meta.hasLore() && meta.getLore() != null
+                    ? new ArrayList<>(meta.getLore())
+                    : new ArrayList<>();
+            if (!endsWith(lore, appendix)) {
+                lore.addAll(appendix);
+            }
             meta.setLore(lore);
         }
         meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
+    }
+
+    private boolean endsWith(List<String> source, List<String> suffix) {
+        if (source.size() < suffix.size()) return false;
+        int offset = source.size() - suffix.size();
+        for (int i = 0; i < suffix.size(); i++) {
+            if (!source.get(offset + i).equals(suffix.get(i))) return false;
+        }
+        return true;
     }
 
     private void markBoundOffhand(ItemStack item) {

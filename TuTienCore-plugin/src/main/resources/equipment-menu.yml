@@ -79,6 +79,7 @@ offhand:
     fallback-material: NETHER_STAR
     name: "&dHạ Mạch Hộ Mệnh Tiên Hoàn"
     lore:
+      - ""
       - "&7Vật phẩm tay phụ của hệ thống."
       - ""
       - "&eChuột phải &7để mở thông tin/trang bị."
