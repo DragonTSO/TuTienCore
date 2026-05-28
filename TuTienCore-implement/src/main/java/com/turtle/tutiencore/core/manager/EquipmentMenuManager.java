@@ -24,6 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -54,12 +56,14 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private static final String MOD_PREFIX = "tutien_equipment_";
+    private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
@@ -673,17 +677,22 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private ItemStack infoItem(Player player) {
+        Material material = Material.matchMaterial(config.getString("gui.info-item.material", "NETHER_STAR"));
         ItemStack item = named(
-                Material.matchMaterial(config.getString("gui.info-item.material", "NETHER_STAR")),
+                material,
                 config.getString("gui.info-item.name", "&6Thông Tin Người Chơi"),
                 replaceInfo(config.getStringList("gui.info-item.lore"), player)
         );
+        if (material == Material.PLAYER_HEAD && item.getItemMeta() instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(player);
+            item.setItemMeta(skullMeta);
+        }
         return item;
     }
 
     private List<String> replaceInfo(List<String> lines, Player player) {
         List<String> result = new ArrayList<>();
-        Map<String, Double> stats = totalStats(player.getUniqueId());
+        Map<String, Double> equipmentStats = totalStats(player.getUniqueId());
         Realm realm = realmManager.getPlayerCurrentRealm(player.getUniqueId());
         String realmText = realmManager.getPlayerRealmDisplay(player.getUniqueId());
         String tuVi = String.valueOf((long) TuTien.getApi().getTuVi(player.getUniqueId()));
@@ -692,12 +701,33 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     .replace("%player%", player.getName())
                     .replace("%realm%", realm == null ? realmText : realmText)
                     .replace("%tuvi%", tuVi);
-            for (Map.Entry<String, Double> entry : stats.entrySet()) {
-                formatted = formatted.replace("%stat_" + entry.getKey() + "%", formatNumber(entry.getValue()));
+            Matcher matcher = STAT_PLACEHOLDER.matcher(formatted);
+            StringBuffer buffer = new StringBuffer();
+            while (matcher.find()) {
+                String stat = matcher.group(1);
+                double value = mythicStatTotal(player, stat);
+                if (Double.isNaN(value)) {
+                    value = equipmentStats.getOrDefault(stat, 0D);
+                }
+                matcher.appendReplacement(buffer, Matcher.quoteReplacement(formatNumber(value)));
             }
-            result.add(color(formatted.replaceAll("%stat_[A-Z0-9_]+%", "0")));
+            matcher.appendTail(buffer);
+            result.add(color(buffer.toString()));
         }
         return result;
+    }
+
+    private double mythicStatTotal(Player player, String stat) {
+        try {
+            MMOPlayerData mmoData = MMOPlayerData.get(player.getUniqueId());
+            if (mmoData == null || mmoData.getStatMap() == null) return Double.NaN;
+            StatInstance instance = mmoData.getStatMap().getInstance(stat);
+            if (instance == null) return Double.NaN;
+            Object total = instance.getClass().getMethod("getTotal").invoke(instance);
+            return total instanceof Number number ? number.doubleValue() : Double.NaN;
+        } catch (Throwable ignored) {
+            return Double.NaN;
+        }
     }
 
     private ItemStack emptySlotItem(EquipSlot slot) {

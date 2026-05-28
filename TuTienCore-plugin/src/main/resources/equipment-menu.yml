@@ -24,15 +24,27 @@ gui:
     name: " "
   info-slot: 4
   info-item:
-    material: NETHER_STAR
-    name: "&6Thông Tin Người Chơi"
+    material: PLAYER_HEAD
+    name: "&6Thông Tin Bản Thân"
     lore:
+      - "&7Người chơi: &f%player%"
       - "&7Cảnh giới: &f%realm%"
       - "&7Tu vi: &e%tuvi%"
       - ""
-      - "&c⚔ Attack: &f%stat_ATTACK_DAMAGE%"
-      - "&a❤ Max Health: &f%stat_MAX_HEALTH%"
-      - "&9✦ Mana: &f%stat_MAX_MANA%"
+      - "&6&lChỉ số chiến đấu"
+      - "&8- &c⚔ Sát thương: &f%stat_ATTACK_DAMAGE%"
+      - "&8- &e✦ Tốc đánh: &f%stat_ATTACK_SPEED%"
+      - "&8- &b⌖ Chí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
+      - "&8- &d✹ Sát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
+      - ""
+      - "&a&lSinh tồn"
+      - "&8- &a❤ Máu tối đa: &f%stat_MAX_HEALTH%"
+      - "&8- &3⛨ Phòng thủ: &f%stat_DEFENSE%"
+      - "&8- &2❖ Giảm sát thương: &f%stat_DAMAGE_REDUCTION%"
+      - ""
+      - "&9&lNăng lượng"
+      - "&8- &9✦ Mana tối đa: &f%stat_MAX_MANA%"
+      - "&8- &b✧ Hồi mana: &f%stat_MANA_REGENERATION%"
   upgrade-title: "&8Tiến Hoá Offhand"
   upgrade-size: 27
   upgrade-slots:
