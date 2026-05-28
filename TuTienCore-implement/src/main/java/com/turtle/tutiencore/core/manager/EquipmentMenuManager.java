@@ -1,7 +1,9 @@
 package com.turtle.tutiencore.core.manager;
 
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
+import com.turtle.tutiencore.api.realm.SubRealm;
 import io.lumine.mythic.lib.api.item.NBTItem;
 import io.lumine.mythic.lib.api.player.MMOPlayerData;
 import io.lumine.mythic.lib.api.stat.StatInstance;
@@ -267,6 +269,16 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         UpgradeRule rule = findUpgrade(offhand);
         if (rule == null) {
             player.sendMessage(message("no-upgrade"));
+            return;
+        }
+        List<String> failures = upgradeFailures(player, rule);
+        if (!failures.isEmpty()) {
+            player.sendMessage(message("upgrade-requirement-failed"));
+            failures.forEach(player::sendMessage);
+            return;
+        }
+        if (rule.cost() > 0 && !withdrawMoney(player, rule.cost())) {
+            player.sendMessage(message("not-enough-money").replace("%cost%", formatNumber(rule.cost())));
             return;
         }
         if (rule.takeSource()) {
@@ -603,6 +615,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     fromId,
                     normalize(config.getString(path + ".to-type", "")),
                     normalize(config.getString(path + ".to-id", "")),
+                    config.getDouble(path + ".cost", 0D),
+                    config.getInt(path + ".required-level", 0),
+                    config.getInt(path + ".required-realm", 0),
+                    parseSubRealm(config.getString(path + ".required-sub-realm", "")),
                     config.getBoolean(path + ".take-source", true),
                     config.getStringList(path + ".commands")
             );
@@ -673,11 +689,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 Material.matchMaterial(config.getString("gui.upgrade-confirm.material", "EMERALD")),
                 config.getString("gui.upgrade-confirm.name", "&aTiến Hoá"),
                 config.getStringList("gui.upgrade-confirm.lore").stream()
-                        .map(line -> line
-                                .replace("%from_type%", rule.fromType())
-                                .replace("%from_id%", rule.fromId())
-                                .replace("%to_type%", rule.toType())
-                                .replace("%to_id%", rule.toId()))
+                        .map(line -> replaceUpgradePlaceholders(line, rule))
                         .toList()
         );
         ItemMeta meta = item.getItemMeta();
@@ -689,7 +701,28 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private ItemStack previewItem(UpgradeRule rule) {
+        if (config != null) {
+            return named(
+                    Material.matchMaterial(config.getString("gui.upgrade-preview.material", "EMERALD")),
+                    replaceUpgradePlaceholders(config.getString("gui.upgrade-preview.name", "&e%to_type%:%to_id%"), rule),
+                    config.getStringList("gui.upgrade-preview.lore").stream()
+                            .map(line -> replaceUpgradePlaceholders(line, rule))
+                            .toList()
+            );
+        }
         return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nhận qua command cấu hình."));
+    }
+
+    private String replaceUpgradePlaceholders(String line, UpgradeRule rule) {
+        return line
+                .replace("%from_type%", rule.fromType())
+                .replace("%from_id%", rule.fromId())
+                .replace("%to_type%", rule.toType())
+                .replace("%to_id%", rule.toId())
+                .replace("%cost%", formatNumber(rule.cost()))
+                .replace("%required_level%", rule.requiredLevel() <= 0 ? "Không yêu cầu" : String.valueOf(rule.requiredLevel()))
+                .replace("%required_realm%", rule.requiredRealm() <= 0 ? "Không yêu cầu" : formatRealmRequirement(rule))
+                .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "Không yêu cầu" : rule.requiredSubRealm().getDisplayName());
     }
 
     private void fill(Inventory inventory) {
@@ -700,6 +733,119 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         );
         for (int i = 0; i < inventory.getSize(); i++) {
             inventory.setItem(i, filler);
+        }
+    }
+
+    private List<String> upgradeFailures(Player player, UpgradeRule rule) {
+        List<String> failures = new ArrayList<>();
+        if (rule.cost() > 0 && !hasMoney(player, rule.cost())) {
+            failures.add(message("failure-money").replace("%cost%", formatNumber(rule.cost())));
+        }
+
+        int currentLevel = getTuTienLevel(player);
+        if (rule.requiredLevel() > 0) {
+            if (currentLevel < 0) {
+                failures.add(message("failure-level-unavailable"));
+            } else if (currentLevel < rule.requiredLevel()) {
+                failures.add(message("failure-level")
+                        .replace("%current%", String.valueOf(currentLevel))
+                        .replace("%required%", String.valueOf(rule.requiredLevel())));
+            }
+        }
+
+        if (rule.requiredRealm() > 0) {
+            PlayerRealm playerRealm = realmManager.getPlayerRealm(player.getUniqueId());
+            int currentRealm = playerRealm == null ? -1 : playerRealm.getRealmId();
+            SubRealm currentSubRealm = playerRealm == null ? null : playerRealm.getSubRealm();
+            boolean realmOk = currentRealm > rule.requiredRealm()
+                    || (currentRealm == rule.requiredRealm() && (rule.requiredSubRealm() == null
+                    || (currentSubRealm != null && currentSubRealm.getOrder() >= rule.requiredSubRealm().getOrder())));
+            if (!realmOk) {
+                failures.add(message("failure-realm")
+                        .replace("%current%", formatPlayerRealm(player))
+                        .replace("%required%", formatRealmRequirement(rule)));
+            }
+        }
+        return failures;
+    }
+
+    private boolean hasMoney(Player player, double amount) {
+        Object economy = vaultEconomy();
+        if (economy == null) return amount <= 0;
+        try {
+            Object result = economy.getClass().getMethod("has", org.bukkit.OfflinePlayer.class, double.class)
+                    .invoke(economy, player, amount);
+            return result instanceof Boolean value && value;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private boolean withdrawMoney(Player player, double amount) {
+        if (amount <= 0) return true;
+        Object economy = vaultEconomy();
+        if (economy == null) return false;
+        try {
+            Object response = economy.getClass().getMethod("withdrawPlayer", org.bukkit.OfflinePlayer.class, double.class)
+                    .invoke(economy, player, amount);
+            Object success = response.getClass().getMethod("transactionSuccess").invoke(response);
+            return success instanceof Boolean value && value;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private Object vaultEconomy() {
+        try {
+            Class<?> economyClass = Class.forName("net.milkbowl.vault.economy.Economy");
+            Object registration = Bukkit.getServicesManager().getRegistration(economyClass);
+            if (registration == null) return null;
+            return registration.getClass().getMethod("getProvider").invoke(registration);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private int getTuTienLevel(Player player) {
+        try {
+            Class<?> apiClass = Class.forName("com.turtle.tutienlevel.api.TuTienLevelAPI");
+            Object registration = Bukkit.getServicesManager().getRegistration(apiClass);
+            if (registration == null) return -1;
+            Object api = registration.getClass().getMethod("getProvider").invoke(registration);
+            Object level = api.getClass().getMethod("getLevel", UUID.class).invoke(api, player.getUniqueId());
+            return level instanceof Number number ? number.intValue() : -1;
+        } catch (ReflectiveOperationException ignored) {
+            return -1;
+        }
+    }
+
+    private String formatPlayerRealm(Player player) {
+        PlayerRealm playerRealm = realmManager.getPlayerRealm(player.getUniqueId());
+        if (playerRealm == null) return "N/A";
+        return formatRealm(playerRealm.getRealmId(), playerRealm.getSubRealm());
+    }
+
+    private String formatRealmRequirement(UpgradeRule rule) {
+        return formatRealm(rule.requiredRealm(), rule.requiredSubRealm());
+    }
+
+    private String formatRealm(int realmId, SubRealm subRealm) {
+        if (realmId <= 0) return "Không yêu cầu";
+        Realm realm = realmManager.getRealm(realmId);
+        String display = realm == null ? String.valueOf(realmId) : realm.getDisplayNameTranslated();
+        if (subRealm != null) {
+            display += " " + subRealm.getDisplayName();
+        }
+        return realmId + " - " + display;
+    }
+
+    private SubRealm parseSubRealm(String value) {
+        String normalized = normalize(value);
+        if (normalized.isBlank() || normalized.equals("0") || normalized.equals("NONE")) return null;
+        try {
+            return SubRealm.valueOf(normalized);
+        } catch (IllegalArgumentException ignored) {
+            return null;
         }
     }
 
@@ -741,6 +887,16 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
     }
 
-    private record UpgradeRule(String fromType, String fromId, String toType, String toId, boolean takeSource, List<String> commands) {
+    private record UpgradeRule(
+            String fromType,
+            String fromId,
+            String toType,
+            String toId,
+            double cost,
+            int requiredLevel,
+            int requiredRealm,
+            SubRealm requiredSubRealm,
+            boolean takeSource,
+            List<String> commands) {
     }
 }

@@ -9,6 +9,12 @@ messages:
   no-upgrade: "&cItem offhand này chưa có cấu hình tiến hoá."
   upgrade-ready: "&aCó thể tiến hoá item này."
   upgrade-success: "&aĐã tiến hoá item offhand!"
+  upgrade-requirement-failed: "&cChưa đủ điều kiện tiến hoá:"
+  not-enough-money: "&cKhông đủ &e%cost% &clinh thạch."
+  failure-money: "&8- &7Cần &e%cost% &7linh thạch."
+  failure-level-unavailable: "&8- &7Không đọc được cấp TuTienLevel."
+  failure-level: "&8- &7Cấp hiện tại &e%current% &7< yêu cầu &a%required%&7."
+  failure-realm: "&8- &7Cảnh giới hiện tại &e%current% &7< yêu cầu &b%required%&7."
 
 gui:
   title: "&8Trang Bị Tu Tiên"
@@ -33,12 +39,25 @@ gui:
     source: 11
     result: 15
     confirm: 13
+  upgrade-preview:
+    material: EMERALD
+    name: "&e%to_type%:%to_id%"
+    lore:
+      - "&7Item nhận qua command cấu hình."
+      - ""
+      - "&7Linh thạch: &e%cost%"
+      - "&7Cấp yêu cầu: &a%required_level%"
+      - "&7Cảnh giới: &b%required_realm%"
   upgrade-confirm:
     material: EMERALD
     name: "&aTiến Hoá"
     lore:
       - "&7Item hiện tại: &f%from_type%:%from_id%"
       - "&7Sau tiến hoá: &e%to_type%:%to_id%"
+      - ""
+      - "&7Linh thạch: &e%cost%"
+      - "&7Cấp yêu cầu: &a%required_level%"
+      - "&7Cảnh giới: &b%required_realm%"
       - ""
       - "&aClick để xác nhận."
 
@@ -97,6 +116,10 @@ offhand:
       from-id: HA_MACH_HO_MENH_TIEN_HOAN
       to-type: OFF_CATALYST
       to-id: HA_MACH_HO_MENH_TIEN_HOAN_2
+      cost: 100000
+      required-level: 10
+      required-realm: 5
+      required-sub-realm: ""
       take-source: true
       commands:
         - "mi give OFF_CATALYST %player% HA_MACH_HO_MENH_TIEN_HOAN_2 1"
@@ -105,6 +128,10 @@ offhand:
       from-id: DAN_DUOC_1
       to-type: DAN_DUOC
       to-id: DAN_DUOC_2
+      cost: 0
+      required-level: 0
+      required-realm: 0
+      required-sub-realm: ""
       take-source: true
       commands:
         - "mi give DAN_DUOC %player% DAN_DUOC_2 1"
