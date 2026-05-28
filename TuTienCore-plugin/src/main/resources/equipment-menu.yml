@@ -72,18 +72,19 @@ slots:
 
 offhand:
   info-item-types:
-    - TU_TIEN_INFO
-    - ACCESSORY
-    - DAN_DUOC
+    - OFF_CATALYST
+  info-items:
+    - type: OFF_CATALYST
+      id: HA_MACH_HO_MENH_TIEN_HOAN
   upgrades:
-    linh_bai_1:
-      from-type: TU_TIEN_INFO
-      from-id: LINH_BAI_1
-      to-type: TU_TIEN_INFO
-      to-id: LINH_BAI_2
+    ha_mach_ho_menh_tien_hoan:
+      from-type: OFF_CATALYST
+      from-id: HA_MACH_HO_MENH_TIEN_HOAN
+      to-type: OFF_CATALYST
+      to-id: HA_MACH_HO_MENH_TIEN_HOAN_2
       take-source: true
       commands:
-        - "mi give MATERIAL %player% LINH_BAI_2 1"
+        - "mi give OFF_CATALYST %player% HA_MACH_HO_MENH_TIEN_HOAN_2 1"
     dan_duoc_1:
       from-type: DAN_DUOC
       from-id: DAN_DUOC_1

@@ -354,6 +354,30 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private boolean isInfoOffhandItem(ItemStack item) {
         String type = mmoType(item);
         if (type == null) return false;
+        String id = mmoId(item);
+
+        ConfigurationSection items = config.getConfigurationSection("offhand.info-items");
+        if (items != null) {
+            for (String key : items.getKeys(false)) {
+                String allowedType = normalize(config.getString("offhand.info-items." + key + ".type", ""));
+                String allowedId = normalize(config.getString("offhand.info-items." + key + ".id", ""));
+                if (type.equals(allowedType) && (allowedId.isBlank() || allowedId.equals(id))) {
+                    return true;
+                }
+            }
+        }
+
+        List<Map<?, ?>> itemMaps = config.getMapList("offhand.info-items");
+        for (Map<?, ?> map : itemMaps) {
+            Object typeValue = map.get("type");
+            Object idValue = map.get("id");
+            String allowedType = normalize(typeValue == null ? "" : String.valueOf(typeValue));
+            String allowedId = normalize(idValue == null ? "" : String.valueOf(idValue));
+            if (type.equals(allowedType) && (allowedId.isBlank() || allowedId.equals(id))) {
+                return true;
+            }
+        }
+
         for (String allowed : config.getStringList("offhand.info-item-types")) {
             if (type.equals(normalize(allowed))) return true;
         }
