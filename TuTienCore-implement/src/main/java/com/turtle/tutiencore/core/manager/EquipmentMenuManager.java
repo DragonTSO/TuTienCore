@@ -358,6 +358,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ItemStack item = createBoundOffhandItem(player);
         if (item != null && !item.getType().isAir()) {
             player.getInventory().setItemInOffHand(item);
+            scheduleBoundOffhandLoreAppend(player, 4L);
         }
     }
 
@@ -373,7 +374,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             );
         }
         markBoundOffhand(item);
-        refreshBoundOffhandLore(player, item);
         return item;
     }
 
@@ -391,13 +391,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private void refreshBoundOffhandLore(Player player, ItemStack item) {
         if (item == null || item.getType().isAir()) return;
+        if (hasUnparsedMmoItemsExpansionLore(item)) {
+            scheduleBoundOffhandLoreAppend(player, 4L);
+            return;
+        }
+        appendBoundOffhandLore(player, item);
+    }
+
+    private void appendBoundOffhandLore(Player player, ItemStack item) {
+        if (item == null || item.getType().isAir()) return;
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
-
-        String configuredName = config.getString("offhand.bound-item.name", "");
-        if (configuredName != null && !configuredName.isBlank()) {
-            meta.setDisplayName(color(configuredName));
-        }
 
         List<String> appendix = new ArrayList<>();
         for (String line : config.getStringList("offhand.bound-item.lore")) {
@@ -414,6 +418,26 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
+    }
+
+    private void scheduleBoundOffhandLoreAppend(Player player, long delay) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (!isBoundOffhandItem(offhand)) return;
+            if (hasUnparsedMmoItemsExpansionLore(offhand)) {
+                Bukkit.getScheduler().runTaskLater(plugin, () -> refreshBoundOffhandLore(player, offhand), 6L);
+                return;
+            }
+            appendBoundOffhandLore(player, offhand);
+        }, delay);
+    }
+
+    private boolean hasUnparsedMmoItemsExpansionLore(ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || meta.getLore() == null) return false;
+        return meta.getLore().stream().anyMatch(line -> line.contains("{can-use}") || line.contains("#can-use#"));
     }
 
     private boolean endsWith(List<String> source, List<String> suffix) {
