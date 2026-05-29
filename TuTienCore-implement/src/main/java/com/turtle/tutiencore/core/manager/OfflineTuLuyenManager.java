@@ -14,10 +14,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -123,7 +125,7 @@ public class OfflineTuLuyenManager implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (!openGuis.contains(player.getUniqueId())) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof OfflineGuiHolder)) {
             return;
         }
 
@@ -145,7 +147,9 @@ public class OfflineTuLuyenManager implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        openGuis.remove(event.getPlayer().getUniqueId());
+        if (event.getInventory().getHolder() instanceof OfflineGuiHolder) {
+            openGuis.remove(event.getPlayer().getUniqueId());
+        }
     }
 
     private void queueOfflineGuiOpen(Player player) {
@@ -202,12 +206,18 @@ public class OfflineTuLuyenManager implements Listener {
         if (pending <= 0) {
             return;
         }
+        if (isViewingOtherMenu(player)) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> open(player), 20L);
+            return;
+        }
 
         long earnedSeconds = data.getLong(path(uuid, "last-earned-seconds"), 0L);
         long realSeconds = data.getLong(path(uuid, "last-real-offline-seconds"), earnedSeconds);
         double multiplier = data.getDouble(path(uuid, "last-earned-multiplier"), getOfflineMultiplier(player));
 
-        Inventory gui = Bukkit.createInventory(null, GUI_SIZE, color("&0✦ Tu Luyện Offline ✦"));
+        OfflineGuiHolder holder = new OfflineGuiHolder();
+        Inventory gui = Bukkit.createInventory(holder, GUI_SIZE, color("&0✦ Tu Luyện Offline ✦"));
+        holder.setInventory(gui);
         fill(gui);
         gui.setItem(CLAIM_SLOT, item(Material.EXPERIENCE_BOTTLE, "&a&lNhận Tu Vi", List.of(
                 "&8thông tin",
@@ -233,6 +243,14 @@ public class OfflineTuLuyenManager implements Listener {
         openGuis.add(player.getUniqueId());
         player.openInventory(gui);
         player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.MASTER, 1.0f, 1.0f);
+    }
+
+    private boolean isViewingOtherMenu(Player player) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (top.getHolder() instanceof OfflineGuiHolder) {
+            return false;
+        }
+        return top.getType() != InventoryType.CRAFTING;
     }
 
     private void claim(Player player, boolean x2) {
@@ -367,5 +385,18 @@ public class OfflineTuLuyenManager implements Listener {
             return String.format("%d phút %02d giây", minutes, secs);
         }
         return secs + " giây";
+    }
+
+    private static final class OfflineGuiHolder implements InventoryHolder {
+        private Inventory inventory;
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+
+        private void setInventory(Inventory inventory) {
+            this.inventory = inventory;
+        }
     }
 }
