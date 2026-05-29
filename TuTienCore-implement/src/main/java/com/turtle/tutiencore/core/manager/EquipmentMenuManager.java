@@ -430,9 +430,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             List<String> lore = meta.hasLore() && meta.getLore() != null
                     ? new ArrayList<>(meta.getLore())
                     : new ArrayList<>();
-            if (!endsWith(lore, appendix)) {
-                lore.addAll(appendix);
-            }
+            lore.removeIf(this::isBoundOffhandGuideLine);
+            lore.addAll(appendix);
             meta.setLore(lore);
         }
         meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
@@ -481,13 +480,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return meta.getLore().stream().anyMatch(line -> line.contains("{can-use}") || line.contains("#can-use#"));
     }
 
-    private boolean endsWith(List<String> source, List<String> suffix) {
-        if (source.size() < suffix.size()) return false;
-        int offset = source.size() - suffix.size();
-        for (int i = 0; i < suffix.size(); i++) {
-            if (!source.get(offset + i).equals(suffix.get(i))) return false;
-        }
-        return true;
+    private boolean isBoundOffhandGuideLine(String line) {
+        String plain = ChatColor.stripColor(line);
+        if (plain == null) plain = line == null ? "" : line;
+        String normalized = java.text.Normalizer.normalize(plain, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .trim();
+        return normalized.equals("vat pham tay phu cua he thong.")
+                || normalized.equals("chuot phai de mo thong tin/trang bi.")
+                || normalized.equals("chuot trai de mo nang cap.")
+                || normalized.equals("khong the thao khoi tay phu.");
     }
 
     private void markBoundOffhand(ItemStack item) {
