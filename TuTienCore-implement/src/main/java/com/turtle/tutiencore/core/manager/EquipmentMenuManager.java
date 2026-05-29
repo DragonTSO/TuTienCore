@@ -422,15 +422,12 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
 
-        List<String> appendix = new ArrayList<>();
-        for (String line : config.getStringList("offhand.bound-item.lore")) {
-            appendix.add(color(line.replace("%player%", player.getName())));
-        }
+        List<String> appendix = boundOffhandAppendix(player);
         if (!appendix.isEmpty()) {
             List<String> lore = meta.hasLore() && meta.getLore() != null
                     ? new ArrayList<>(meta.getLore())
                     : new ArrayList<>();
-            lore.removeIf(this::isBoundOffhandGuideLine);
+            lore = stripBoundOffhandAppendix(lore);
             lore.addAll(appendix);
             meta.setLore(lore);
         }
@@ -480,17 +477,51 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return meta.getLore().stream().anyMatch(line -> line.contains("{can-use}") || line.contains("#can-use#"));
     }
 
+    private List<String> boundOffhandAppendix(Player player) {
+        List<String> appendix = new ArrayList<>();
+        for (String line : config.getStringList("offhand.bound-item.lore")) {
+            appendix.add(color(line.replace("%player%", player.getName())));
+        }
+        return appendix;
+    }
+
+    private List<String> stripBoundOffhandAppendix(List<String> lore) {
+        List<String> stripped = new ArrayList<>();
+        for (String line : lore) {
+            if (!isBoundOffhandGuideLine(line)) {
+                stripped.add(line);
+            }
+        }
+        while (!stripped.isEmpty() && isBlankLoreLine(stripped.get(stripped.size() - 1))) {
+            stripped.remove(stripped.size() - 1);
+        }
+        return stripped;
+    }
+
     private boolean isBoundOffhandGuideLine(String line) {
-        String plain = ChatColor.stripColor(line);
-        if (plain == null) plain = line == null ? "" : line;
-        String normalized = java.text.Normalizer.normalize(plain, java.text.Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .trim();
+        String normalized = normalizeLoreLine(line);
         return normalized.equals("vat pham tay phu cua he thong.")
                 || normalized.equals("chuot phai de mo thong tin/trang bi.")
                 || normalized.equals("chuot trai de mo nang cap.")
-                || normalized.equals("khong the thao khoi tay phu.");
+                || normalized.equals("khong the thao khoi tay phu.")
+                || (normalized.contains("vat pham") && normalized.contains("tay phu") && normalized.contains("he thong"))
+                || (normalized.contains("chuot phai") && normalized.contains("thong tin"))
+                || (normalized.contains("chuot trai") && normalized.contains("nang cap"))
+                || (normalized.contains("khong the") && normalized.contains("thao") && normalized.contains("tay phu"));
+    }
+
+    private boolean isBlankLoreLine(String line) {
+        return normalizeLoreLine(line).isEmpty();
+    }
+
+    private String normalizeLoreLine(String line) {
+        String plain = ChatColor.stripColor(line);
+        if (plain == null) plain = line == null ? "" : line;
+        return java.text.Normalizer.normalize(plain, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT)
+                .trim();
     }
 
     private void markBoundOffhand(ItemStack item) {
