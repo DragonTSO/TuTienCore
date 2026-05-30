@@ -75,6 +75,8 @@ public class TuTienCommand implements CommandExecutor {
         if (args.length == 0) {
             sender.sendMessage("§e[TuTienCore] Commands:");
             sender.sendMessage("§e/ttc tuluyen §7- Toggle cultivation");
+            sender.sendMessage("§e/ttc flysword info §7- Xem kiếm bay");
+            sender.sendMessage("§e/ttc flysword evolve §7- Tiến hoá kiếm bay");
             if (sender.hasPermission("tutiencore.admin")) {
                 sender.sendMessage("§c/ttc reload §7- Reload configuration");
                 sender.sendMessage("§c/ttc wand §7- Get Zone Wand");
@@ -87,6 +89,24 @@ public class TuTienCommand implements CommandExecutor {
 
         if (args[0].equalsIgnoreCase("tuluyen") && sender instanceof Player) {
             tuLuyenManager.toggleTuLuyen((Player) sender);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("flysword") || args[0].equalsIgnoreCase("fly-sword")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cOnly players can use this command.");
+                return true;
+            }
+            if (args.length < 2 || args[1].equalsIgnoreCase("info")) {
+                flySwordManager.sendInfo(player);
+                return true;
+            }
+            if (args[1].equalsIgnoreCase("evolve") || args[1].equalsIgnoreCase("upgrade")) {
+                flySwordManager.evolve(player);
+                return true;
+            }
+            player.sendMessage("§e/ttc flysword info §7- Xem kiếm bay");
+            player.sendMessage("§e/ttc flysword evolve §7- Tiến hoá kiếm bay");
             return true;
         }
 

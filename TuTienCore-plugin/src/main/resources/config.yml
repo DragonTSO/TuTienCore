@@ -364,6 +364,55 @@ fly-sword:
   require-permission: false
   permission: "tutiencore.flysword"
   hide-while-spectator: true
+  evolution:
+    enabled: true
+    default-level: 1
+    info:
+      - "&6Kiếm Bay &8| &fCấp: &e%level%"
+      - "&7Model hiện tại: &f%model%"
+      - "&7Model cấp sau: &e%next_model%"
+      - "&7Linh thạch cần: &e%vault_cost%"
+      - "&7Cổ thạch cần: &d%playerpoints_cost%"
+      - "&7Nguyên liệu: &f%materials%"
+      - "&e/ttc flysword evolve &7để tiến hoá."
+    format:
+      max-level: "Đã tối đa"
+      no-materials: "Không cần"
+    messages:
+      disabled: "&cTiến hoá kiếm bay đang tắt."
+      no-permission: "&cBạn không có quyền tiến hoá kiếm bay."
+      max-level: "&cKiếm bay đã đạt cấp tối đa."
+      not-enough-header: "&cBạn chưa đủ điều kiện tiến hoá kiếm bay:"
+      not-enough-line: "&8- &7%reason%"
+      missing-money: "Thiếu %amount% Linh thạch"
+      missing-playerpoints: "Thiếu %amount% Cổ thạch"
+      missing-material: "Thiếu %amount%x %type%:%id%"
+      not-enough-money: "&cKhông thể trừ Linh thạch."
+      not-enough-playerpoints: "&cKhông thể trừ Cổ thạch."
+      material-take-failed: "&cKhông thể trừ nguyên liệu, vui lòng thử lại."
+      success: "&aKiếm bay đã tiến hoá lên cấp &e%level%&a. Model: &b%model%"
+    levels:
+      1:
+        model: "kiembay"
+      2:
+        model: "kiembay_2"
+        vault-cost: 100000
+        playerpoints-cost: 100
+        materials:
+          - type: MATERIAL
+            id: LINH_THACH_KIEM_BAY
+            amount: 8
+      3:
+        model: "kiembay_3"
+        vault-cost: 300000
+        playerpoints-cost: 300
+        materials:
+          - type: MATERIAL
+            id: LINH_THACH_KIEM_BAY
+            amount: 16
+          - type: MATERIAL
+            id: TINH_HOA_KIEM_BAY
+            amount: 4
 
 # Model hiện lên khi đột phá thành công
 # Để trống "" nếu không có ModelEngine

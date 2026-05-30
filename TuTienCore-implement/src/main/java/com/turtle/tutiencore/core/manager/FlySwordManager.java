@@ -1,8 +1,13 @@
 package com.turtle.tutiencore.core.manager;
 
+import io.lumine.mythic.lib.api.item.NBTItem;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -15,11 +20,16 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +37,8 @@ public class FlySwordManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, ArmorStand> flyingPlayers = new HashMap<>();
+    private final File dataFile;
+    private YamlConfiguration data;
     private BukkitRunnable followTask;
 
     private boolean enabled;
@@ -36,9 +48,12 @@ public class FlySwordManager implements Listener {
     private boolean requirePermission;
     private String permission;
     private boolean hideWhileSpectator;
+    private boolean evolutionEnabled;
 
     public FlySwordManager(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.dataFile = new File(plugin.getDataFolder(), "fly-swords.yml");
+        loadData();
         loadConfig();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startFollowTask();
@@ -52,10 +67,91 @@ public class FlySwordManager implements Listener {
         requirePermission = plugin.getConfig().getBoolean("fly-sword.require-permission", false);
         permission = plugin.getConfig().getString("fly-sword.permission", "tutiencore.flysword");
         hideWhileSpectator = plugin.getConfig().getBoolean("fly-sword.hide-while-spectator", true);
+        evolutionEnabled = plugin.getConfig().getBoolean("fly-sword.evolution.enabled", true);
 
         if (!enabled) {
             cleanupAll();
+        } else {
+            restartOnlineFlyingPlayers();
         }
+    }
+
+    public void sendInfo(Player player) {
+        int level = getLevel(player.getUniqueId());
+        String currentModel = getModelId(player);
+        EvolutionTarget target = nextEvolution(level);
+        List<String> lines = plugin.getConfig().getStringList("fly-sword.evolution.info");
+        if (lines.isEmpty()) {
+            lines = List.of(
+                    "&6Kiếm Bay &8| &fCấp: &e%level%",
+                    "&7Model hiện tại: &f%model%",
+                    "&7Model cấp sau: &e%next_model%",
+                    "&7Linh thạch: &e%vault_cost%",
+                    "&7Cổ thạch: &d%playerpoints_cost%",
+                    "&7Nguyên liệu: &f%materials%"
+            );
+        }
+        for (String line : lines) {
+            player.sendMessage(color(applyEvolutionPlaceholders(line, level, currentModel, target)));
+        }
+    }
+
+    public boolean evolve(Player player) {
+        if (!evolutionEnabled) {
+            player.sendMessage(message("disabled", "&cTiến hoá kiếm bay đang tắt."));
+            return false;
+        }
+        if (requirePermission && !player.hasPermission(permission)) {
+            player.sendMessage(message("no-permission", "&cBạn không có quyền tiến hoá kiếm bay."));
+            return false;
+        }
+
+        int level = getLevel(player.getUniqueId());
+        EvolutionTarget target = nextEvolution(level);
+        if (target == null) {
+            player.sendMessage(message("max-level", "&cKiếm bay đã đạt cấp tối đa."));
+            return false;
+        }
+
+        List<String> failures = missingRequirements(player, target);
+        if (!failures.isEmpty()) {
+            player.sendMessage(message("not-enough-header", "&cBạn chưa đủ điều kiện tiến hoá kiếm bay:"));
+            for (String failure : failures) {
+                player.sendMessage(color(plugin.getConfig().getString("fly-sword.evolution.messages.not-enough-line", "&8- &7%reason%")
+                        .replace("%reason%", failure)));
+            }
+            return false;
+        }
+
+        if (!withdrawMoney(player, target.vaultCost())) {
+            player.sendMessage(message("not-enough-money", "&cKhông thể trừ Linh thạch."));
+            return false;
+        }
+        if (!takePlayerPoints(player, target.playerPointsCost())) {
+            depositMoney(player, target.vaultCost());
+            player.sendMessage(message("not-enough-playerpoints", "&cKhông thể trừ Cổ thạch."));
+            return false;
+        }
+        if (!takeMaterials(player, target.materials())) {
+            depositMoney(player, target.vaultCost());
+            givePlayerPoints(player, target.playerPointsCost());
+            player.sendMessage(message("material-take-failed", "&cKhông thể trừ nguyên liệu, vui lòng thử lại."));
+            return false;
+        }
+
+        setLevel(player.getUniqueId(), target.level());
+        player.sendMessage(color(message("success", "&aKiếm bay đã tiến hoá lên cấp &e%level%&a. Model: &b%model%")
+                .replace("%level%", String.valueOf(target.level()))
+                .replace("%model%", target.model())));
+        if (player.isFlying()) {
+            stop(player, false);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (player.isOnline() && player.isFlying()) {
+                    start(player);
+                }
+            });
+        }
+        return true;
     }
 
     public void cleanupAll() {
@@ -141,7 +237,8 @@ public class FlySwordManager implements Listener {
     private void start(Player player) {
         if (!enabled || flyingPlayers.containsKey(player.getUniqueId())) return;
         if (Bukkit.getPluginManager().getPlugin("ModelEngine") == null) return;
-        if (modelId == null || modelId.trim().isEmpty()) return;
+        String playerModelId = getModelId(player);
+        if (playerModelId == null || playerModelId.trim().isEmpty()) return;
         if (requirePermission && !player.hasPermission(permission)) return;
         if (shouldHideWhileSpectator(player)) return;
 
@@ -160,10 +257,10 @@ public class FlySwordManager implements Listener {
             setDurationIfPresent(stand, "setTeleportDuration", 0);
 
             com.ticxo.modelengine.api.model.ActiveModel activeModel =
-                    com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(modelId);
+                    com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(playerModelId);
             if (activeModel == null) {
                 stand.remove();
-                plugin.getLogger().warning("ModelEngine fly sword model not found: " + modelId);
+                plugin.getLogger().warning("ModelEngine fly sword model not found: " + playerModelId);
                 return;
             }
             activeModel.setScale(scale);
@@ -173,7 +270,7 @@ public class FlySwordManager implements Listener {
             modeledEntity.addModel(activeModel, true);
             flyingPlayers.put(player.getUniqueId(), stand);
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to spawn fly sword model '" + modelId + "': " + e.getMessage());
+            plugin.getLogger().warning("Failed to spawn fly sword model '" + playerModelId + "': " + e.getMessage());
         }
     }
 
@@ -228,6 +325,318 @@ public class FlySwordManager implements Listener {
         return hideWhileSpectator && player != null && player.getGameMode() == GameMode.SPECTATOR;
     }
 
+    private void loadData() {
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        data = YamlConfiguration.loadConfiguration(dataFile);
+    }
+
+    private void saveData() {
+        try {
+            data.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().warning("Could not save fly-swords.yml: " + e.getMessage());
+        }
+    }
+
+    private int getLevel(UUID uuid) {
+        return Math.max(1, data.getInt("players." + uuid + ".level", plugin.getConfig().getInt("fly-sword.evolution.default-level", 1)));
+    }
+
+    private void setLevel(UUID uuid, int level) {
+        data.set("players." + uuid + ".level", level);
+        saveData();
+    }
+
+    private String getModelId(Player player) {
+        int level = getLevel(player.getUniqueId());
+        return plugin.getConfig().getString("fly-sword.evolution.levels." + level + ".model", modelId);
+    }
+
+    private EvolutionTarget nextEvolution(int currentLevel) {
+        ConfigurationSection levels = plugin.getConfig().getConfigurationSection("fly-sword.evolution.levels");
+        if (levels == null) return null;
+        int nextLevel = Integer.MAX_VALUE;
+        for (String key : levels.getKeys(false)) {
+            try {
+                int level = Integer.parseInt(key);
+                if (level > currentLevel && level < nextLevel) {
+                    nextLevel = level;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        if (nextLevel == Integer.MAX_VALUE) return null;
+
+        String path = "fly-sword.evolution.levels." + nextLevel;
+        return new EvolutionTarget(
+                nextLevel,
+                plugin.getConfig().getString(path + ".model", modelId),
+                plugin.getConfig().getDouble(path + ".vault-cost", 0.0),
+                plugin.getConfig().getInt(path + ".playerpoints-cost", 0),
+                readMaterials(path + ".materials")
+        );
+    }
+
+    private List<MaterialCost> readMaterials(String path) {
+        List<MaterialCost> materials = new ArrayList<>();
+        for (Map<?, ?> map : plugin.getConfig().getMapList(path)) {
+            Object rawType = map.get("type");
+            Object rawId = map.get("id");
+            String type = String.valueOf(rawType == null ? "" : rawType).trim();
+            String id = String.valueOf(rawId == null ? "" : rawId).trim();
+            int amount = parseInt(map.get("amount"), 1);
+            if (!type.isBlank() && !id.isBlank() && amount > 0) {
+                materials.add(new MaterialCost(normalize(type), normalize(id), amount));
+            }
+        }
+        return materials;
+    }
+
+    private List<String> missingRequirements(Player player, EvolutionTarget target) {
+        List<String> failures = new ArrayList<>();
+        if (target.vaultCost() > 0 && !hasMoney(player, target.vaultCost())) {
+            failures.add(plugin.getConfig().getString("fly-sword.evolution.messages.missing-money", "Thiếu %amount% Linh thạch")
+                    .replace("%amount%", formatNumber(target.vaultCost())));
+        }
+        if (target.playerPointsCost() > 0 && getPlayerPoints(player) < target.playerPointsCost()) {
+            failures.add(plugin.getConfig().getString("fly-sword.evolution.messages.missing-playerpoints", "Thiếu %amount% Cổ thạch")
+                    .replace("%amount%", String.valueOf(target.playerPointsCost())));
+        }
+        for (MaterialCost material : target.materials()) {
+            int count = countMaterial(player, material);
+            if (count < material.amount()) {
+                failures.add(plugin.getConfig().getString("fly-sword.evolution.messages.missing-material", "Thiếu %amount%x %type%:%id%")
+                        .replace("%amount%", String.valueOf(material.amount() - count))
+                        .replace("%type%", material.type())
+                        .replace("%id%", material.id()));
+            }
+        }
+        return failures;
+    }
+
+    private boolean takeMaterials(Player player, List<MaterialCost> materials) {
+        for (MaterialCost material : materials) {
+            if (countMaterial(player, material) < material.amount()) {
+                return false;
+            }
+        }
+        for (MaterialCost material : materials) {
+            int remaining = material.amount();
+            ItemStack[] contents = player.getInventory().getContents();
+            for (int i = 0; i < contents.length && remaining > 0; i++) {
+                ItemStack item = contents[i];
+                if (!matchesMaterial(item, material)) continue;
+                int take = Math.min(remaining, item.getAmount());
+                item.setAmount(item.getAmount() - take);
+                remaining -= take;
+                if (item.getAmount() <= 0) {
+                    contents[i] = null;
+                }
+            }
+            player.getInventory().setContents(contents);
+        }
+        return true;
+    }
+
+    private int countMaterial(Player player, MaterialCost material) {
+        int count = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (matchesMaterial(item, material)) {
+                count += item.getAmount();
+            }
+        }
+        return count;
+    }
+
+    private boolean matchesMaterial(ItemStack item, MaterialCost material) {
+        if (item == null || item.getType() == Material.AIR) return false;
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            String type = firstNbt(nbt, "MMOITEMS_ITEM_TYPE", "MMOITEMS_TYPE", "type");
+            String id = firstNbt(nbt, "MMOITEMS_ITEM_ID", "MMOITEMS_ID", "id");
+            return material.type().equals(normalize(type)) && material.id().equals(normalize(id));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private String firstNbt(NBTItem nbt, String... keys) {
+        for (String key : keys) {
+            String value = nbt.getString(key);
+            if (value != null && !value.isBlank()) return value;
+        }
+        return "";
+    }
+
+    private boolean hasMoney(Player player, double amount) {
+        Object economy = vaultEconomy();
+        if (economy == null) return amount <= 0;
+        try {
+            Object result = economy.getClass().getMethod("has", org.bukkit.OfflinePlayer.class, double.class)
+                    .invoke(economy, player, amount);
+            return result instanceof Boolean value && value;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private boolean withdrawMoney(Player player, double amount) {
+        if (amount <= 0) return true;
+        Object economy = vaultEconomy();
+        if (economy == null) return false;
+        try {
+            Object response = economy.getClass().getMethod("withdrawPlayer", org.bukkit.OfflinePlayer.class, double.class)
+                    .invoke(economy, player, amount);
+            Object success = response.getClass().getMethod("transactionSuccess").invoke(response);
+            return success instanceof Boolean value && value;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private void depositMoney(Player player, double amount) {
+        if (amount <= 0) return;
+        Object economy = vaultEconomy();
+        if (economy == null) return;
+        try {
+            economy.getClass().getMethod("depositPlayer", org.bukkit.OfflinePlayer.class, double.class)
+                    .invoke(economy, player, amount);
+        } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
+    private Object vaultEconomy() {
+        try {
+            Class<?> economyClass = Class.forName("net.milkbowl.vault.economy.Economy");
+            Object registration = Bukkit.getServicesManager().getRegistration(economyClass);
+            if (registration == null) return null;
+            return registration.getClass().getMethod("getProvider").invoke(registration);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private int getPlayerPoints(Player player) {
+        Object api = playerPointsApi();
+        if (api == null) return 0;
+        try {
+            Object result = api.getClass().getMethod("look", UUID.class).invoke(api, player.getUniqueId());
+            return result instanceof Number number ? number.intValue() : 0;
+        } catch (ReflectiveOperationException ignored) {
+            return 0;
+        }
+    }
+
+    private boolean takePlayerPoints(Player player, int amount) {
+        if (amount <= 0) return true;
+        Object api = playerPointsApi();
+        if (api == null) return false;
+        try {
+            Object result = api.getClass().getMethod("take", UUID.class, int.class).invoke(api, player.getUniqueId(), amount);
+            return !(result instanceof Boolean value) || value;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private void givePlayerPoints(Player player, int amount) {
+        if (amount <= 0) return;
+        Object api = playerPointsApi();
+        if (api == null) return;
+        try {
+            api.getClass().getMethod("give", UUID.class, int.class).invoke(api, player.getUniqueId(), amount);
+        } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
+    private Object playerPointsApi() {
+        org.bukkit.plugin.Plugin playerPoints = Bukkit.getPluginManager().getPlugin("PlayerPoints");
+        if (playerPoints == null) return null;
+        try {
+            return playerPoints.getClass().getMethod("getAPI").invoke(playerPoints);
+        } catch (ReflectiveOperationException ignored) {
+            try {
+                Class<?> clazz = Class.forName("org.black_ixx.playerpoints.PlayerPoints");
+                Object instance = clazz.getMethod("getInstance").invoke(null);
+                return instance.getClass().getMethod("getAPI").invoke(instance);
+            } catch (ReflectiveOperationException ignoredAgain) {
+                return null;
+            }
+        }
+    }
+
+    private String applyEvolutionPlaceholders(String line, int level, String currentModel, EvolutionTarget target) {
+        String nextModel = target == null ? plugin.getConfig().getString("fly-sword.evolution.format.max-level", "Đã tối đa") : target.model();
+        String vaultCost = target == null ? "0" : formatNumber(target.vaultCost());
+        String pointsCost = target == null ? "0" : String.valueOf(target.playerPointsCost());
+        String materials = target == null ? plugin.getConfig().getString("fly-sword.evolution.format.no-materials", "Không cần") : formatMaterials(target.materials());
+        return line
+                .replace("%level%", String.valueOf(level))
+                .replace("%model%", currentModel == null ? "" : currentModel)
+                .replace("%next_model%", nextModel == null ? "" : nextModel)
+                .replace("%vault_cost%", vaultCost)
+                .replace("%playerpoints_cost%", pointsCost)
+                .replace("%materials%", materials);
+    }
+
+    private String formatMaterials(List<MaterialCost> materials) {
+        if (materials.isEmpty()) {
+            return plugin.getConfig().getString("fly-sword.evolution.format.no-materials", "Không cần");
+        }
+        List<String> parts = new ArrayList<>();
+        for (MaterialCost material : materials) {
+            parts.add(material.amount() + "x " + material.type() + ":" + material.id());
+        }
+        return String.join(", ", parts);
+    }
+
+    private String message(String key, String fallback) {
+        return color(plugin.getConfig().getString("fly-sword.evolution.messages." + key, fallback));
+    }
+
+    private String color(String text) {
+        return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toUpperCase(java.util.Locale.ROOT).replace('-', '_');
+    }
+
+    private int parseInt(Object value, int fallback) {
+        if (value instanceof Number number) return number.intValue();
+        if (value == null) return fallback;
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private String formatNumber(double value) {
+        if (value == (long) value) {
+            return String.valueOf((long) value);
+        }
+        return String.format(java.util.Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private void restartOnlineFlyingPlayers() {
+        for (UUID uuid : new ArrayList<>(flyingPlayers.keySet())) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline() || !player.isFlying()) {
+                if (player != null) stop(player, false);
+                continue;
+            }
+            stop(player, false);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
+                    start(player);
+                }
+            });
+        }
+    }
+
     private void setDurationIfPresent(ArmorStand stand, String methodName, int duration) {
         try {
             Method method = stand.getClass().getMethod(methodName, int.class);
@@ -243,5 +652,11 @@ public class FlySwordManager implements Listener {
             stand.addEquipmentLock(slot, ArmorStand.LockType.REMOVING_OR_CHANGING);
             stand.addEquipmentLock(slot, ArmorStand.LockType.ADDING);
         }
+    }
+
+    private record MaterialCost(String type, String id, int amount) {
+    }
+
+    private record EvolutionTarget(int level, String model, double vaultCost, int playerPointsCost, List<MaterialCost> materials) {
     }
 }
