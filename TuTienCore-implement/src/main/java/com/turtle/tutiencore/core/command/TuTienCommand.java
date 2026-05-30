@@ -20,11 +20,17 @@ import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public class TuTienCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+public class TuTienCommand implements CommandExecutor, TabCompleter {
 
     private final TuLuyenManager tuLuyenManager;
     private final ZoneManager zoneManager;
@@ -261,5 +267,61 @@ public class TuTienCommand implements CommandExecutor {
         }
 
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (alias.equalsIgnoreCase("tuluyen")) {
+            return Collections.emptyList();
+        }
+
+        if (args.length == 1) {
+            List<String> options = new ArrayList<>(Arrays.asList("tuluyen", "flysword"));
+            if (sender.hasPermission("tutiencore.admin")) {
+                options.addAll(Arrays.asList("reload", "wand", "create", "zonecenter", "admin"));
+            }
+            return filter(options, args[0]);
+        }
+
+        if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("flysword") || args[0].equalsIgnoreCase("fly-sword")) {
+                return filter(Arrays.asList("info", "evolve", "upgrade"), args[1]);
+            }
+            if (sender.hasPermission("tutiencore.admin") && args[0].equalsIgnoreCase("admin")) {
+                return filter(List.of("tuvi"), args[1]);
+            }
+            if (sender.hasPermission("tutiencore.admin")
+                    && (args[0].equalsIgnoreCase("create") || args[0].equalsIgnoreCase("zonecenter"))) {
+                return Collections.emptyList();
+            }
+        }
+
+        if (sender.hasPermission("tutiencore.admin")
+                && args.length == 3
+                && args[0].equalsIgnoreCase("admin")
+                && args[1].equalsIgnoreCase("tuvi")) {
+            return filter(Arrays.asList("give", "add", "remove", "set", "check", "reset", "resetall"), args[2]);
+        }
+
+        if (sender.hasPermission("tutiencore.admin")
+                && args.length == 4
+                && args[0].equalsIgnoreCase("admin")
+                && args[1].equalsIgnoreCase("tuvi")
+                && !args[2].equalsIgnoreCase("resetall")) {
+            return null;
+        }
+
+        return Collections.emptyList();
+    }
+
+    private List<String> filter(List<String> options, String token) {
+        String lower = token == null ? "" : token.toLowerCase();
+        List<String> result = new ArrayList<>();
+        for (String option : options) {
+            if (option.toLowerCase().startsWith(lower)) {
+                result.add(option);
+            }
+        }
+        return result;
     }
 }

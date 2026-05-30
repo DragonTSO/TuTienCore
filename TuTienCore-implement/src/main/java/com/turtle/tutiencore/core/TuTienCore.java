@@ -138,9 +138,11 @@ public class TuTienCore {
                 infusionManager, afkKickManager, deathTipManager, regionRespawnManager, equipmentMenuManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
+            plugin.getCommand("ttc").setTabCompleter(commandHandler);
         }
         if (plugin.getCommand("tuluyen") != null) {
             plugin.getCommand("tuluyen").setExecutor(commandHandler);
+            plugin.getCommand("tuluyen").setTabCompleter(commandHandler);
         }
 
         // Register /canhgioi command
