@@ -45,6 +45,56 @@ gui:
       - "&9&lNăng lượng"
       - "&8- &9✦ Mana tối đa: &f%stat_MAX_MANA%"
       - "&8- &b✧ Hồi mana: &f%stat_MANA_REGENERATION%"
+  fly-sword:
+    enabled: true
+    slot: 49
+    material: NETHER_STAR
+    name: "&b&lKiếm Bay"
+    lore:
+      - "&7Cấp hiện tại: &e%level%"
+      - "&7Model hiện tại: &f%model%"
+      - "&7Model cấp sau: &b%next_model%"
+      - ""
+      - "&7Linh thạch: &e%vault_cost%"
+      - "&7Cổ thạch: &d%playerpoints_cost%"
+      - "&7Nguyên liệu: &f%materials%"
+      - ""
+      - "&eClick để mở tiến hoá."
+  fly-sword-evolution:
+    title: "&8Tiến Hoá Kiếm Bay"
+    size: 27
+    info:
+      slot: 11
+      material: BOOK
+      name: "&bThông Tin Kiếm Bay"
+      lore:
+        - "&7Cấp hiện tại: &e%level%"
+        - "&7Model hiện tại: &f%model%"
+        - "&7Sau tiến hoá: &b%next_model%"
+        - ""
+        - "&7Linh thạch cần: &e%vault_cost%"
+        - "&7Cổ thạch cần: &d%playerpoints_cost%"
+        - "&7Nguyên liệu cần:"
+        - "&f%materials%"
+    confirm:
+      slot: 15
+      material: EMERALD
+      name: "&a&lTiến Hoá"
+      lore:
+        - "&7Sau tiến hoá: &b%next_model%"
+        - ""
+        - "&7Chi phí:"
+        - "&8- &e%vault_cost% &7Linh thạch"
+        - "&8- &d%playerpoints_cost% &7Cổ thạch"
+        - "&8- &f%materials%"
+        - ""
+        - "&aClick để xác nhận."
+    back:
+      slot: 22
+      material: ARROW
+      name: "&eQuay lại"
+      lore:
+        - "&7Trở về menu trang bị."
   upgrade-title: "&8Tiến Hoá Offhand"
   upgrade-size: 27
   upgrade-slots:

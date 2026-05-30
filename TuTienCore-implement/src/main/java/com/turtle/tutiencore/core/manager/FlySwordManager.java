@@ -96,6 +96,11 @@ public class FlySwordManager implements Listener {
         }
     }
 
+    public String replaceEvolutionPlaceholders(Player player, String line) {
+        int level = getLevel(player.getUniqueId());
+        return applyEvolutionPlaceholders(line, level, getModelId(player), nextEvolution(level));
+    }
+
     public boolean evolve(Player player) {
         if (!evolutionEnabled) {
             player.sendMessage(message("disabled", "&cTiến hoá kiếm bay đang tắt."));
