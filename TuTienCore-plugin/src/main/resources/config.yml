@@ -362,6 +362,9 @@ fly-sword:
   # HEAD = use player head/eye as anchor, then lower the model with y-offset.
   # FEET = use player feet as anchor.
   anchor: HEAD
+  # true = mount the fly sword entity as a passenger on the player head.
+  # When enabled with anchor HEAD, y-offset is ignored by Minecraft passenger positioning.
+  mount-to-player: true
   # HEAD + -1.62 moves the model from head down near player feet.
   y-offset: -1.62
   scale: 0.95
