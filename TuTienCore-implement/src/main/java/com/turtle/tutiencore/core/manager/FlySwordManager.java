@@ -14,7 +14,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -50,7 +49,6 @@ public class FlySwordManager implements Listener {
     private boolean enabled;
     private String modelId;
     private String anchor;
-    private boolean mountToPlayer;
     private double yOffset;
     private double scale;
     private boolean followPitch;
@@ -77,7 +75,6 @@ public class FlySwordManager implements Listener {
         enabled = plugin.getConfig().getBoolean("fly-sword.enabled", true);
         modelId = plugin.getConfig().getString("fly-sword.model", "kiembay");
         anchor = plugin.getConfig().getString("fly-sword.anchor", "HEAD");
-        mountToPlayer = plugin.getConfig().getBoolean("fly-sword.mount-to-player", true);
         yOffset = plugin.getConfig().getDouble("fly-sword.y-offset", -0.05);
         scale = plugin.getConfig().getDouble("fly-sword.scale", 1.5);
         followPitch = plugin.getConfig().getBoolean("fly-sword.follow-pitch", false);
@@ -361,42 +358,13 @@ public class FlySwordManager implements Listener {
         followTask.runTaskTimer(plugin, 1L, 1L);
     }
 
-    @EventHandler
-    public void onDismount(EntityDismountEvent event) {
-        if (!(event.getEntity() instanceof ArmorStand stand) || !(event.getDismounted() instanceof Player player)) {
-            return;
-        }
-        if (flyingPlayers.get(player.getUniqueId()) != stand) {
-            return;
-        }
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (player.isOnline() && player.isFlying() && !stand.isDead() && !shouldHideWhileSpectator(player)) {
-                updateSwordPosition(player, stand, player.getLocation());
-            }
-        });
-    }
-
     private void updateSwordPosition(Player player, ArmorStand stand, Location baseLocation) {
-        if (mountToPlayer && useHeadAnchor()) {
-            mountSword(player, stand, baseLocation);
-            return;
+        if (stand.getVehicle() != null) {
+            stand.leaveVehicle();
         }
         Location loc = swordLocation(player, baseLocation);
         stand.teleport(loc);
         stand.setRotation(loc.getYaw(), loc.getPitch());
-        stand.setVelocity(player.getVelocity());
-    }
-
-    private void mountSword(Player player, ArmorStand stand, Location baseLocation) {
-        if (stand.getVehicle() != player) {
-            if (stand.getVehicle() != null) {
-                stand.leaveVehicle();
-            }
-            player.addPassenger(stand);
-        }
-        float yaw = baseLocation.getYaw();
-        float pitch = followPitch ? baseLocation.getPitch() : 0.0F;
-        stand.setRotation(yaw, pitch);
         stand.setVelocity(player.getVelocity());
     }
 
