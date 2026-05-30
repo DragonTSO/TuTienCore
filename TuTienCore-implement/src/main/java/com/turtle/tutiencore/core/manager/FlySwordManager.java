@@ -16,6 +16,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
@@ -28,9 +30,12 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class FlySwordManager implements Listener {
@@ -49,6 +54,11 @@ public class FlySwordManager implements Listener {
     private String permission;
     private boolean hideWhileSpectator;
     private boolean evolutionEnabled;
+    private boolean autoFlightEnabled;
+    private boolean autoFlightRequirePermission;
+    private boolean autoFlightDisableOutsideWorld;
+    private String autoFlightPermission;
+    private Set<String> autoFlightWorlds = new HashSet<>();
 
     public FlySwordManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -68,10 +78,23 @@ public class FlySwordManager implements Listener {
         permission = plugin.getConfig().getString("fly-sword.permission", "tutiencore.flysword");
         hideWhileSpectator = plugin.getConfig().getBoolean("fly-sword.hide-while-spectator", true);
         evolutionEnabled = plugin.getConfig().getBoolean("fly-sword.evolution.enabled", true);
+        autoFlightEnabled = plugin.getConfig().getBoolean("fly-sword.auto-flight.enabled", true);
+        autoFlightRequirePermission = plugin.getConfig().getBoolean("fly-sword.auto-flight.require-permission", false);
+        autoFlightPermission = plugin.getConfig().getString("fly-sword.auto-flight.permission", permission);
+        autoFlightDisableOutsideWorld = plugin.getConfig().getBoolean("fly-sword.auto-flight.disable-outside-world", true);
+        autoFlightWorlds = new HashSet<>();
+        for (String world : plugin.getConfig().getStringList("fly-sword.auto-flight.worlds")) {
+            if (world != null && !world.isBlank()) {
+                autoFlightWorlds.add(world.trim().toLowerCase(Locale.ROOT));
+            }
+        }
 
         if (!enabled) {
             cleanupAll();
         } else {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                applyAutoFlight(player);
+            }
             restartOnlineFlyingPlayers();
         }
     }
@@ -190,10 +213,16 @@ public class FlySwordManager implements Listener {
     }
 
     @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> applyAutoFlight(event.getPlayer()), 2L);
+    }
+
+    @EventHandler
     public void onChangedWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
         stop(player, false);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            applyAutoFlight(player);
             if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
                 start(player);
             }
@@ -223,10 +252,16 @@ public class FlySwordManager implements Listener {
         }
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            applyAutoFlight(player);
             if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
                 start(player);
             }
         }, 2L);
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> applyAutoFlight(event.getPlayer()), 2L);
     }
 
     @EventHandler
@@ -328,6 +363,27 @@ public class FlySwordManager implements Listener {
 
     private boolean shouldHideWhileSpectator(Player player) {
         return hideWhileSpectator && player != null && player.getGameMode() == GameMode.SPECTATOR;
+    }
+
+    private void applyAutoFlight(Player player) {
+        if (player == null || !player.isOnline() || !autoFlightEnabled) return;
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
+        boolean allowedWorld = isAutoFlightWorld(player);
+        boolean allowedPermission = !autoFlightRequirePermission || player.hasPermission(autoFlightPermission);
+        if (allowedWorld && allowedPermission) {
+            player.setAllowFlight(true);
+        } else if (autoFlightDisableOutsideWorld) {
+            player.setFlying(false);
+            player.setAllowFlight(false);
+            stop(player, false);
+        }
+    }
+
+    private boolean isAutoFlightWorld(Player player) {
+        if (player == null || player.getWorld() == null) return false;
+        if (autoFlightWorlds.isEmpty()) return true;
+        String world = player.getWorld().getName().toLowerCase(Locale.ROOT);
+        return autoFlightWorlds.contains(world) || autoFlightWorlds.contains("*");
     }
 
     private void loadData() {

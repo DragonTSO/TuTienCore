@@ -364,6 +364,16 @@ fly-sword:
   require-permission: false
   permission: "tutiencore.flysword"
   hide-while-spectator: true
+  # Tự bật quyền bay khi player vào world được phép, không cần gõ /fly lại.
+  auto-flight:
+    enabled: true
+    # Để [] hoặc ["*"] nếu muốn mọi world đều tự bật bay.
+    worlds:
+      - SuperiorWorld
+    require-permission: false
+    permission: "tutiencore.flysword"
+    # Rời world không nằm trong list thì tắt allowFlight để tránh bay lạc world.
+    disable-outside-world: true
   evolution:
     enabled: true
     default-level: 1
