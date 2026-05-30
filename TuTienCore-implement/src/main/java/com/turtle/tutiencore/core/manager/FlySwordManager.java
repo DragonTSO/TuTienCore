@@ -44,6 +44,7 @@ public class FlySwordManager implements Listener {
     private final Map<UUID, ArmorStand> flyingPlayers = new HashMap<>();
     private final Map<UUID, com.ticxo.modelengine.api.model.ActiveModel> flySwordModels = new HashMap<>();
     private final Map<UUID, String> flySwordAnimations = new HashMap<>();
+    private final Map<UUID, Location> lastFlySwordLocations = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
@@ -254,7 +255,6 @@ public class FlySwordManager implements Listener {
         }
         if (stand != null && player.isFlying() && !stand.isDead() && to != null) {
             updateSwordPosition(player, stand, to);
-            updateSwordAnimation(player, isPlayerMoving(player));
         }
     }
 
@@ -325,6 +325,7 @@ public class FlySwordManager implements Listener {
             modeledEntity.addModel(activeModel, true);
             flyingPlayers.put(player.getUniqueId(), stand);
             flySwordModels.put(player.getUniqueId(), activeModel);
+            lastFlySwordLocations.put(player.getUniqueId(), player.getLocation().clone());
             updateSwordAnimation(player, false);
             updateSwordPosition(player, stand, player.getLocation());
         } catch (Exception e) {
@@ -337,6 +338,7 @@ public class FlySwordManager implements Listener {
         ArmorStand stand = flyingPlayers.remove(player.getUniqueId());
         flySwordModels.remove(player.getUniqueId());
         flySwordAnimations.remove(player.getUniqueId());
+        lastFlySwordLocations.remove(player.getUniqueId());
         if (stand == null) return;
 
         try {
@@ -388,7 +390,13 @@ public class FlySwordManager implements Listener {
         if (player == null) {
             return false;
         }
-        return player.getVelocity().lengthSquared() > movingVelocityThreshold * movingVelocityThreshold;
+        UUID uuid = player.getUniqueId();
+        Location current = player.getLocation();
+        Location previous = lastFlySwordLocations.put(uuid, current.clone());
+        if (previous == null || previous.getWorld() == null || current.getWorld() == null || !previous.getWorld().equals(current.getWorld())) {
+            return false;
+        }
+        return previous.distanceSquared(current) > movingVelocityThreshold * movingVelocityThreshold;
     }
 
     private void updateSwordAnimation(Player player, boolean moving) {
@@ -408,6 +416,10 @@ public class FlySwordManager implements Listener {
             return;
         }
         try {
+            String previous = flySwordAnimations.get(uuid);
+            if (previous != null && !previous.equals(animation)) {
+                model.getAnimationHandler().forceStopAnimation(previous);
+            }
             model.getAnimationHandler().playAnimation(animation, 0.15, 0.15, 1.0, true);
             flySwordAnimations.put(uuid, animation);
         } catch (Exception ex) {

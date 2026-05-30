@@ -371,7 +371,7 @@ fly-sword:
     enabled: true
     idle: "idle"
     moving: "run"
-    # Player velocity above this value will switch the model to moving animation.
+    # Player movement distance per tick above this value switches the model to moving animation.
     moving-velocity-threshold: 0.015
   require-permission: false
   permission: "tutiencore.flysword"
