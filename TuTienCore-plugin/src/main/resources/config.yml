@@ -367,6 +367,12 @@ fly-sword:
   scale: 0.95
   # false = sword follows yaw only, not camera pitch up/down.
   follow-pitch: false
+  animation:
+    enabled: true
+    idle: "idle"
+    moving: "run"
+    # Player velocity above this value will switch the model to moving animation.
+    moving-velocity-threshold: 0.015
   require-permission: false
   permission: "tutiencore.flysword"
   hide-while-spectator: true

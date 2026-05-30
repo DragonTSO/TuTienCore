@@ -42,6 +42,8 @@ public class FlySwordManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, ArmorStand> flyingPlayers = new HashMap<>();
+    private final Map<UUID, com.ticxo.modelengine.api.model.ActiveModel> flySwordModels = new HashMap<>();
+    private final Map<UUID, String> flySwordAnimations = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
@@ -52,6 +54,10 @@ public class FlySwordManager implements Listener {
     private double yOffset;
     private double scale;
     private boolean followPitch;
+    private boolean animationEnabled;
+    private String idleAnimation;
+    private String movingAnimation;
+    private double movingVelocityThreshold;
     private boolean requirePermission;
     private String permission;
     private boolean hideWhileSpectator;
@@ -78,6 +84,10 @@ public class FlySwordManager implements Listener {
         yOffset = plugin.getConfig().getDouble("fly-sword.y-offset", -0.05);
         scale = plugin.getConfig().getDouble("fly-sword.scale", 1.5);
         followPitch = plugin.getConfig().getBoolean("fly-sword.follow-pitch", false);
+        animationEnabled = plugin.getConfig().getBoolean("fly-sword.animation.enabled", true);
+        idleAnimation = plugin.getConfig().getString("fly-sword.animation.idle", "idle");
+        movingAnimation = plugin.getConfig().getString("fly-sword.animation.moving", "run");
+        movingVelocityThreshold = Math.max(0.0D, plugin.getConfig().getDouble("fly-sword.animation.moving-velocity-threshold", 0.015D));
         requirePermission = plugin.getConfig().getBoolean("fly-sword.require-permission", false);
         permission = plugin.getConfig().getString("fly-sword.permission", "tutiencore.flysword");
         hideWhileSpectator = plugin.getConfig().getBoolean("fly-sword.hide-while-spectator", true);
@@ -244,6 +254,7 @@ public class FlySwordManager implements Listener {
         }
         if (stand != null && player.isFlying() && !stand.isDead() && to != null) {
             updateSwordPosition(player, stand, to);
+            updateSwordAnimation(player, isPlayerMoving(player));
         }
     }
 
@@ -313,6 +324,8 @@ public class FlySwordManager implements Listener {
                     com.ticxo.modelengine.api.ModelEngineAPI.createModeledEntity(stand);
             modeledEntity.addModel(activeModel, true);
             flyingPlayers.put(player.getUniqueId(), stand);
+            flySwordModels.put(player.getUniqueId(), activeModel);
+            updateSwordAnimation(player, false);
             updateSwordPosition(player, stand, player.getLocation());
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to spawn fly sword model '" + playerModelId + "': " + e.getMessage());
@@ -322,6 +335,8 @@ public class FlySwordManager implements Listener {
     private void stop(Player player, boolean keepFlying) {
         if (player == null) return;
         ArmorStand stand = flyingPlayers.remove(player.getUniqueId());
+        flySwordModels.remove(player.getUniqueId());
+        flySwordAnimations.remove(player.getUniqueId());
         if (stand == null) return;
 
         try {
@@ -352,6 +367,7 @@ public class FlySwordManager implements Listener {
                         continue;
                     }
                     updateSwordPosition(player, stand, player.getLocation());
+                    updateSwordAnimation(player, isPlayerMoving(player));
                 }
             }
         };
@@ -366,6 +382,37 @@ public class FlySwordManager implements Listener {
         stand.teleport(loc);
         stand.setRotation(loc.getYaw(), loc.getPitch());
         stand.setVelocity(player.getVelocity());
+    }
+
+    private boolean isPlayerMoving(Player player) {
+        if (player == null) {
+            return false;
+        }
+        return player.getVelocity().lengthSquared() > movingVelocityThreshold * movingVelocityThreshold;
+    }
+
+    private void updateSwordAnimation(Player player, boolean moving) {
+        if (!animationEnabled || player == null) {
+            return;
+        }
+        String animation = moving ? movingAnimation : idleAnimation;
+        if (animation == null || animation.isBlank()) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        if (animation.equals(flySwordAnimations.get(uuid))) {
+            return;
+        }
+        com.ticxo.modelengine.api.model.ActiveModel model = flySwordModels.get(uuid);
+        if (model == null) {
+            return;
+        }
+        try {
+            model.getAnimationHandler().playAnimation(animation, 0.15, 0.15, 1.0, true);
+            flySwordAnimations.put(uuid, animation);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Failed to play fly sword animation '" + animation + "': " + ex.getMessage());
+        }
     }
 
     private Location swordLocation(Player player, Location baseLocation) {
