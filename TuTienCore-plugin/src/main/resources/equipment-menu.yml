@@ -1,23 +1,23 @@
 enabled: true
 
 messages:
-  only-player: "&cChỉ player mới dùng được lệnh này."
-  invalid-item: "&cItem này không đúng type yêu cầu."
-  equipped: "&aĐã trang bị &f%slot%&a."
-  unequipped: "&eĐã tháo &f%slot%&e."
-  no-offhand-item: "&cHãy cầm item MMOItems ở offhand."
-  no-upgrade: "&cItem offhand này chưa có cấu hình tiến hoá."
-  upgrade-ready: "&aCó thể tiến hoá item này."
-  upgrade-success: "&aĐã tiến hoá item offhand!"
-  upgrade-requirement-failed: "&cChưa đủ điều kiện tiến hoá:"
-  not-enough-money: "&cKhông đủ &e%cost% &clinh thạch."
-  failure-money: "&8- &7Cần &e%cost% &7linh thạch."
-  failure-level-unavailable: "&8- &7Không đọc được cấp TuTienLevel."
-  failure-level: "&8- &7Cấp hiện tại &e%current% &7< yêu cầu &a%required%&7."
-  failure-realm: "&8- &7Cảnh giới hiện tại &e%current% &7< yêu cầu &b%required%&7."
+  only-player: "&cChá»‰ player má»›i dÃ¹ng Ä‘Æ°á»£c lá»‡nh nÃ y."
+  invalid-item: "&cItem nÃ y khÃ´ng Ä‘Ãºng type yÃªu cáº§u."
+  equipped: "&aÄÃ£ trang bá»‹ &f%slot%&a."
+  unequipped: "&eÄÃ£ thÃ¡o &f%slot%&e."
+  no-offhand-item: "&cHÃ£y cáº§m item MMOItems á»Ÿ offhand."
+  no-upgrade: "&cItem offhand nÃ y chÆ°a cÃ³ cáº¥u hÃ¬nh tiáº¿n hoÃ¡."
+  upgrade-ready: "&aCÃ³ thá»ƒ tiáº¿n hoÃ¡ item nÃ y."
+  upgrade-success: "&aÄÃ£ tiáº¿n hoÃ¡ item offhand!"
+  upgrade-requirement-failed: "&cChÆ°a Ä‘á»§ Ä‘iá»u kiá»‡n tiáº¿n hoÃ¡:"
+  not-enough-money: "&cKhÃ´ng Ä‘á»§ &e%cost% &clinh tháº¡ch."
+  failure-money: "&8- &7Cáº§n &e%cost% &7linh tháº¡ch."
+  failure-level-unavailable: "&8- &7KhÃ´ng Ä‘á»c Ä‘Æ°á»£c cáº¥p TuTienLevel."
+  failure-level: "&8- &7Cáº¥p hiá»‡n táº¡i &e%current% &7< yÃªu cáº§u &a%required%&7."
+  failure-realm: "&8- &7Cáº£nh giá»›i hiá»‡n táº¡i &e%current% &7< yÃªu cáº§u &b%required%&7."
 
 gui:
-  title: "&8Trang Bị"
+  title: "&8Trang Bá»‹"
   size: 54
   filler:
     material: BLACK_STAINED_GLASS_PANE
@@ -25,80 +25,28 @@ gui:
   info-slot: 4
   info-item:
     material: PLAYER_HEAD
-    name: "&6Thông Tin Bản Thân"
+    name: "&6ThÃ´ng Tin Báº£n ThÃ¢n"
     lore:
-      - "&7Người chơi: &f%player%"
-      - "&7Cảnh giới: &f%realm%"
+      - "&7NgÆ°á»i chÆ¡i: &f%player%"
+      - "&7Cáº£nh giá»›i: &f%realm%"
       - "&7Tu vi: &e%tuvi%"
       - ""
-      - "&8Chỉ số chiến đấu:"
-      - " &c⚔ &fSát thương: &f%stat_ATTACK_DAMAGE%"
-      - " &e✦ &fTốc đánh: &f%stat_ATTACK_SPEED%"
-      - " &b⌖ &fChí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
-      - " &d✹ &fSát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
+      - "&8Chá»‰ sá»‘ chiáº¿n Ä‘áº¥u:"
+      - " &câš” &fSÃ¡t thÆ°Æ¡ng: &f%stat_ATTACK_DAMAGE%"
+      - " &eâœ¦ &fTá»‘c Ä‘Ã¡nh: &f%stat_ATTACK_SPEED%"
+      - " &bâŒ– &fChÃ­ máº¡ng: &f%stat_CRITICAL_STRIKE_CHANCE%"
+      - " &dâœ¹ &fSÃ¡t thÆ°Æ¡ng chÃ­ máº¡ng: &f%stat_CRITICAL_STRIKE_POWER%"
       - ""
-      - "&8Chỉ số sức khoẻ:"
-      - " &a❤ &fMáu tối đa: &f%stat_MAX_HEALTH%"
-      - " &3⛨ &fPhòng thủ: &f%stat_DEFENSE%"
-      - " &2❖ &fGiảm sát thương: &f%stat_DAMAGE_REDUCTION%"
+      - "&8Chá»‰ sá»‘ sá»©c khoáº»:"
+      - " &aâ¤ &fMÃ¡u tá»‘i Ä‘a: &f%stat_MAX_HEALTH%"
+      - " &3â›¨ &fPhÃ²ng thá»§: &f%stat_DEFENSE%"
+      - " &2â– &fGiáº£m sÃ¡t thÆ°Æ¡ng: &f%stat_DAMAGE_REDUCTION%"
       - ""
-      - "&8Chỉ số linh lực:"
-      - " &9✦ &fLinh lực tối đa: &f%stat_MAX_MANA%"
-      - " &b✧ &fHồi linh lực: &f%stat_MANA_REGENERATION%"
+      - "&8Chá»‰ sá»‘ linh lá»±c:"
+      - " &9âœ¦ &fLinh lá»±c tá»‘i Ä‘a: &f%stat_MAX_MANA%"
+      - " &bâœ§ &fHá»“i linh lá»±c: &f%stat_MANA_REGENERATION%"
 
-  fly-sword:
-    enabled: true
-    slot: 49
-    material: NETHER_STAR
-    name: "&b&lKiếm Bay"
-    lore:
-      - "&7Cấp hiện tại: &e%level%"
-      - "&7Model hiện tại: &f%model%"
-      - "&7Model cấp sau: &b%next_model%"
-      - ""
-      - "&7Linh thạch: &e%vault_cost%"
-      - "&7Cổ thạch: &d%playerpoints_cost%"
-      - "&7Nguyên liệu: &f%materials%"
-      - ""
-      - "&eClick để mở tiến hoá."
-
-  fly-sword-evolution:
-    title: "&8Tiến Hoá Kiếm Bay"
-    size: 27
-    info:
-      slot: 11
-      material: BOOK
-      name: "&bThông Tin Kiếm Bay"
-      lore:
-        - "&7Cấp hiện tại: &e%level%"
-        - "&7Model hiện tại: &f%model%"
-        - "&7Sau tiến hoá: &b%next_model%"
-        - ""
-        - "&7Linh thạch cần: &e%vault_cost%"
-        - "&7Cổ thạch cần: &d%playerpoints_cost%"
-        - "&7Nguyên liệu cần:"
-        - "&f%materials%"
-    confirm:
-      slot: 15
-      material: EMERALD
-      name: "&a&lTiến Hoá"
-      lore:
-        - "&7Sau tiến hoá: &b%next_model%"
-        - ""
-        - "&7Chi phí:"
-        - "&8- &e%vault_cost% &7Linh thạch"
-        - "&8- &d%playerpoints_cost% &7Cổ thạch"
-        - "&8- &f%materials%"
-        - ""
-        - "&aClick để xác nhận."
-    back:
-      slot: 22
-      material: ARROW
-      name: "&eQuay lại"
-      lore:
-        - "&7Trở về menu trang bị."
-
-  upgrade-title: "&8Tiến Hoá Offhand"
+  upgrade-title: "&8Tiáº¿n HoÃ¡ Offhand"
   upgrade-size: 27
   upgrade-slots:
     source: 11
@@ -108,23 +56,23 @@ gui:
     material: EMERALD
     name: "&e%to_name%"
     lore:
-      - "&7Item nhận qua command cấu hình."
+      - "&7Item nháº­n qua command cáº¥u hÃ¬nh."
       - ""
-      - "&7Linh thạch: &e%cost%"
-      - "&7Cấp yêu cầu: &a%required_level%"
-      - "&7Cảnh giới: &b%required_realm%"
+      - "&7Linh tháº¡ch: &e%cost%"
+      - "&7Cáº¥p yÃªu cáº§u: &a%required_level%"
+      - "&7Cáº£nh giá»›i: &b%required_realm%"
   upgrade-confirm:
     material: EMERALD
-    name: "&aTiến Hoá"
+    name: "&aTiáº¿n HoÃ¡"
     lore:
-      - "&7Item hiện tại: &f%from_name%"
-      - "&7Sau tiến hoá: &e%to_name%"
+      - "&7Item hiá»‡n táº¡i: &f%from_name%"
+      - "&7Sau tiáº¿n hoÃ¡: &e%to_name%"
       - ""
-      - "&7Linh thạch: &e%cost%"
-      - "&7Cấp yêu cầu: &a%required_level%"
-      - "&7Cảnh giới: &b%required_realm%"
+      - "&7Linh tháº¡ch: &e%cost%"
+      - "&7Cáº¥p yÃªu cáº§u: &a%required_level%"
+      - "&7Cáº£nh giá»›i: &b%required_realm%"
       - ""
-      - "&aClick để xác nhận."
+      - "&aClick Ä‘á»ƒ xÃ¡c nháº­n."
 
 slots:
   accessory:
@@ -133,10 +81,10 @@ slots:
       - ACCESSORY
     empty:
       material: AMETHYST_SHARD
-      name: "&dTrang Sức"
+      name: "&dTrang Sá»©c"
       lore:
-        - "&7Đặt item MMOItems type &dACCESSORY"
-        - "&7vào đây để nhận chỉ số."
+        - "&7Äáº·t item MMOItems type &dACCESSORY"
+        - "&7vÃ o Ä‘Ã¢y Ä‘á»ƒ nháº­n chá»‰ sá»‘."
     stats:
       ATTACK_DAMAGE: 5
       MAX_HEALTH: 20
@@ -146,10 +94,10 @@ slots:
       - DAN_DUOC
     empty:
       material: HONEY_BOTTLE
-      name: "&6Đan Dược"
+      name: "&6Äan DÆ°á»£c"
       lore:
-        - "&7Đặt item MMOItems type &6DAN_DUOC"
-        - "&7vào đây để nhận chỉ số."
+        - "&7Äáº·t item MMOItems type &6DAN_DUOC"
+        - "&7vÃ o Ä‘Ã¢y Ä‘á»ƒ nháº­n chá»‰ sá»‘."
     stats:
       MAX_HEALTH: 10
       MAX_MANA: 15
@@ -164,10 +112,10 @@ offhand:
     name: ""
     lore:
       - ""
-      - "&e  Chuột phải &7để mở thông tin/trang bị."
-      - "&e  Chuột trái &7để mở nâng cấp."
+      - "&e  Chuá»™t pháº£i &7Ä‘á»ƒ má»Ÿ thÃ´ng tin/trang bá»‹."
+      - "&e  Chuá»™t trÃ¡i &7Ä‘á»ƒ má»Ÿ nÃ¢ng cáº¥p."
       - ""
-      - "&c  Không thể tháo khỏi tay phụ."
+      - "&c  KhÃ´ng thá»ƒ thÃ¡o khá»i tay phá»¥."
   info-item-types:
     - OFF_CATALYST
   info-items:

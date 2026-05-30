@@ -98,7 +98,7 @@ public class TuTienCore {
         this.afkKickManager = new AfkKickManager(plugin);
         this.deathTipManager = new DeathTipManager(plugin);
         this.regionRespawnManager = new RegionRespawnManager(plugin, zoneManager);
-        this.equipmentMenuManager = new EquipmentMenuManager(plugin, realmManager, flySwordManager);
+        this.equipmentMenuManager = new EquipmentMenuManager(plugin, realmManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);

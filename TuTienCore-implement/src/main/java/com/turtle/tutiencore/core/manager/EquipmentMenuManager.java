@@ -67,7 +67,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
-    private final FlySwordManager flySwordManager;
     private final File configFile;
     private final File dataFile;
     private final NamespacedKey actionKey;
@@ -78,10 +77,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final Map<String, EquipSlot> slots = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack>> equipped = new HashMap<>();
 
-    public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager, FlySwordManager flySwordManager) {
+    public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
-        this.flySwordManager = flySwordManager;
         this.configFile = new File(plugin.getDataFolder(), "equipment-menu.yml");
         this.dataFile = new File(plugin.getDataFolder(), "equipment-data.yml");
         this.actionKey = new NamespacedKey(plugin, "equipment_action");
@@ -139,12 +137,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     public void openEquipment(Player player) {
         ensureBoundOffhand(player);
         loadPlayer(player.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.size", 54), color(config.getString("gui.title", "&8Trang Bị Tu Tiên")));
+        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.size", 54), color(config.getString("gui.title", "&8Trang Bá»‹ Tu TiÃªn")));
         fill(inventory);
         inventory.setItem(config.getInt("gui.info-slot", 4), infoItem(player));
-        if (config.getBoolean("gui.fly-sword.enabled", true)) {
-            inventory.setItem(config.getInt("gui.fly-sword.slot", 49), flySwordButton(player));
-        }
         Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
         for (EquipSlot slot : slots.values()) {
             inventory.setItem(slot.guiSlot(), playerItems.getOrDefault(slot.id(), emptySlotItem(slot)));
@@ -152,29 +147,18 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         player.openInventory(inventory);
     }
 
-    private void openFlySwordEvolution(Player player) {
-        Inventory inventory = Bukkit.createInventory(player,
-                config.getInt("gui.fly-sword-evolution.size", 27),
-                color(config.getString("gui.fly-sword-evolution.title", "&8Tiến Hoá Kiếm Bay")));
-        fill(inventory);
-        inventory.setItem(config.getInt("gui.fly-sword-evolution.info.slot", 11), flySwordEvolutionInfo(player));
-        inventory.setItem(config.getInt("gui.fly-sword-evolution.confirm.slot", 15), flySwordEvolutionConfirm(player));
-        inventory.setItem(config.getInt("gui.fly-sword-evolution.back.slot", 22), flySwordEvolutionBack());
-        player.openInventory(inventory);
-    }
-
     private void openUpgrade(Player player) {
         ensureBoundOffhand(player);
         ItemStack offhand = player.getInventory().getItemInOffHand();
         UpgradeRule rule = findUpgrade(offhand);
-        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.upgrade-size", 27), color(config.getString("gui.upgrade-title", "&8Tiến Hoá Offhand")));
+        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.upgrade-size", 27), color(config.getString("gui.upgrade-title", "&8Tiáº¿n HoÃ¡ Offhand")));
         fill(inventory);
         inventory.setItem(config.getInt("gui.upgrade-slots.source", 11), offhand == null ? new ItemStack(Material.AIR) : offhand.clone());
         if (rule != null) {
             inventory.setItem(config.getInt("gui.upgrade-slots.result", 15), previewItem(player, rule));
             inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), confirmItem(player, offhand, rule));
         } else {
-            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), named(Material.BARRIER, "&cKhông thể tiến hoá", List.of(message("no-upgrade"))));
+            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), named(Material.BARRIER, "&cKhÃ´ng thá»ƒ tiáº¿n hoÃ¡", List.of(message("no-upgrade"))));
         }
         player.openInventory(inventory);
     }
@@ -227,12 +211,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return;
         }
         String title = event.getView().getTitle();
-        if (title.equals(color(config.getString("gui.title", "&8Trang Bị Tu Tiên")))) {
+        if (title.equals(color(config.getString("gui.title", "&8Trang Bá»‹ Tu TiÃªn")))) {
             handleEquipmentClick(event, player);
-        } else if (title.equals(color(config.getString("gui.upgrade-title", "&8Tiến Hoá Offhand")))) {
+        } else if (title.equals(color(config.getString("gui.upgrade-title", "&8Tiáº¿n HoÃ¡ Offhand")))) {
             handleUpgradeClick(event, player);
-        } else if (title.equals(color(config.getString("gui.fly-sword-evolution.title", "&8Tiến Hoá Kiếm Bay")))) {
-            handleFlySwordEvolutionClick(event, player);
         }
     }
 
@@ -247,11 +229,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private void handleEquipmentClick(InventoryClickEvent event, Player player) {
         int raw = event.getRawSlot();
         if (raw < 0 || raw >= event.getInventory().getSize()) return;
-        if (config.getBoolean("gui.fly-sword.enabled", true) && raw == config.getInt("gui.fly-sword.slot", 49)) {
-            event.setCancelled(true);
-            openFlySwordEvolution(player);
-            return;
-        }
         EquipSlot slot = slotAt(raw);
         if (slot == null) {
             event.setCancelled(true);
@@ -324,21 +301,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         player.sendMessage(message("upgrade-success"));
         player.closeInventory();
         Bukkit.getScheduler().runTask(plugin, () -> ensureBoundOffhand(player));
-    }
-
-    private void handleFlySwordEvolutionClick(InventoryClickEvent event, Player player) {
-        event.setCancelled(true);
-        int raw = event.getRawSlot();
-        if (raw == config.getInt("gui.fly-sword-evolution.confirm.slot", 15)) {
-            flySwordManager.evolve(player);
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (player.isOnline()) {
-                    openFlySwordEvolution(player);
-                }
-            });
-        } else if (raw == config.getInt("gui.fly-sword-evolution.back.slot", 22)) {
-            openEquipment(player);
-        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -423,7 +385,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (item == null || item.getType().isAir()) {
             item = named(
                     Material.matchMaterial(config.getString("offhand.bound-item.fallback-material", "NETHER_STAR")),
-                    config.getString("offhand.bound-item.name", "&dHộ Mệnh Tiên Hoàn"),
+                    config.getString("offhand.bound-item.name", "&dHá»™ Má»‡nh TiÃªn HoÃ n"),
                     config.getStringList("offhand.bound-item.lore")
             );
         }
@@ -752,7 +714,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Material material = Material.matchMaterial(config.getString("gui.info-item.material", "NETHER_STAR"));
         ItemStack item = named(
                 material,
-                config.getString("gui.info-item.name", "&6Thông Tin Người Chơi"),
+                config.getString("gui.info-item.name", "&6ThÃ´ng Tin NgÆ°á»i ChÆ¡i"),
                 replaceInfo(config.getStringList("gui.info-item.lore"), player)
         );
         if (material == Material.PLAYER_HEAD && item.getItemMeta() instanceof SkullMeta skullMeta) {
@@ -760,44 +722,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             item.setItemMeta(skullMeta);
         }
         return item;
-    }
-
-    private ItemStack flySwordButton(Player player) {
-        return named(
-                Material.matchMaterial(config.getString("gui.fly-sword.material", "NETHER_STAR")),
-                flySwordManager.replaceEvolutionPlaceholders(player, config.getString("gui.fly-sword.name", "&bKiếm Bay")),
-                config.getStringList("gui.fly-sword.lore").stream()
-                        .map(line -> flySwordManager.replaceEvolutionPlaceholders(player, line))
-                        .toList()
-        );
-    }
-
-    private ItemStack flySwordEvolutionInfo(Player player) {
-        return named(
-                Material.matchMaterial(config.getString("gui.fly-sword-evolution.info.material", "BOOK")),
-                flySwordManager.replaceEvolutionPlaceholders(player, config.getString("gui.fly-sword-evolution.info.name", "&bThông Tin Kiếm Bay")),
-                config.getStringList("gui.fly-sword-evolution.info.lore").stream()
-                        .map(line -> flySwordManager.replaceEvolutionPlaceholders(player, line))
-                        .toList()
-        );
-    }
-
-    private ItemStack flySwordEvolutionConfirm(Player player) {
-        return named(
-                Material.matchMaterial(config.getString("gui.fly-sword-evolution.confirm.material", "EMERALD")),
-                flySwordManager.replaceEvolutionPlaceholders(player, config.getString("gui.fly-sword-evolution.confirm.name", "&aTiến Hoá")),
-                config.getStringList("gui.fly-sword-evolution.confirm.lore").stream()
-                        .map(line -> flySwordManager.replaceEvolutionPlaceholders(player, line))
-                        .toList()
-        );
-    }
-
-    private ItemStack flySwordEvolutionBack() {
-        return named(
-                Material.matchMaterial(config.getString("gui.fly-sword-evolution.back.material", "ARROW")),
-                config.getString("gui.fly-sword-evolution.back.name", "&eQuay lại"),
-                config.getStringList("gui.fly-sword-evolution.back.lore")
-        );
     }
 
     private List<String> replaceInfo(List<String> lines, Player player) {
@@ -854,7 +778,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         String toName = displayName(createMmoItem(player, rule.toType(), rule.toId()), rule.toType() + ":" + rule.toId());
         ItemStack item = named(
                 Material.matchMaterial(config.getString("gui.upgrade-confirm.material", "EMERALD")),
-                config.getString("gui.upgrade-confirm.name", "&aTiến Hoá"),
+                config.getString("gui.upgrade-confirm.name", "&aTiáº¿n HoÃ¡"),
                 config.getStringList("gui.upgrade-confirm.lore").stream()
                         .map(line -> replaceUpgradePlaceholders(line, rule, fromName, toName))
                         .toList()
@@ -878,7 +802,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                             .toList()
             );
         }
-        return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nhận qua command cấu hình."));
+        return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nháº­n qua command cáº¥u hÃ¬nh."));
     }
 
     private String replaceUpgradePlaceholders(String line, UpgradeRule rule, String fromName, String toName) {
@@ -890,9 +814,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 .replace("%to_id%", rule.toId())
                 .replace("%to_name%", toName)
                 .replace("%cost%", formatNumber(rule.cost()))
-                .replace("%required_level%", rule.requiredLevel() <= 0 ? "Không yêu cầu" : String.valueOf(rule.requiredLevel()))
-                .replace("%required_realm%", rule.requiredRealm() <= 0 ? "Không yêu cầu" : formatRealmRequirement(rule))
-                .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "Không yêu cầu" : rule.requiredSubRealm().getDisplayName());
+                .replace("%required_level%", rule.requiredLevel() <= 0 ? "KhÃ´ng yÃªu cáº§u" : String.valueOf(rule.requiredLevel()))
+                .replace("%required_realm%", rule.requiredRealm() <= 0 ? "KhÃ´ng yÃªu cáº§u" : formatRealmRequirement(rule))
+                .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "KhÃ´ng yÃªu cáº§u" : rule.requiredSubRealm().getDisplayName());
     }
 
     private String displayName(ItemStack item, String fallback) {
@@ -1007,7 +931,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private String formatRealm(int realmId, SubRealm subRealm) {
-        if (realmId <= 0) return "Không yêu cầu";
+        if (realmId <= 0) return "KhÃ´ng yÃªu cáº§u";
         Realm realm = realmManager.getRealm(realmId);
         String display = realm == null ? String.valueOf(realmId) : realm.getDisplayNameTranslated();
         if (subRealm != null) {
