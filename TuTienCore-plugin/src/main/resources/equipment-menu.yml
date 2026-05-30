@@ -17,7 +17,7 @@ messages:
   failure-realm: "&8- &7Cảnh giới hiện tại &e%current% &7< yêu cầu &b%required%&7."
 
 gui:
-  title: "&8Trang Bị Tu Tiên"
+  title: "&8Trang Bị"
   size: 54
   filler:
     material: BLACK_STAINED_GLASS_PANE
@@ -31,20 +31,21 @@ gui:
       - "&7Cảnh giới: &f%realm%"
       - "&7Tu vi: &e%tuvi%"
       - ""
-      - "&6&lChỉ số chiến đấu"
-      - "&8- &c⚔ Sát thương: &f%stat_ATTACK_DAMAGE%"
-      - "&8- &e✦ Tốc đánh: &f%stat_ATTACK_SPEED%"
-      - "&8- &b⌖ Chí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
-      - "&8- &d✹ Sát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
+      - "&8Chỉ số chiến đấu:"
+      - " &c⚔ &fSát thương: &f%stat_ATTACK_DAMAGE%"
+      - " &e✦ &fTốc đánh: &f%stat_ATTACK_SPEED%"
+      - " &b⌖ &fChí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
+      - " &d✹ &fSát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
       - ""
-      - "&a&lSinh tồn"
-      - "&8- &a❤ Máu tối đa: &f%stat_MAX_HEALTH%"
-      - "&8- &3⛨ Phòng thủ: &f%stat_DEFENSE%"
-      - "&8- &2❖ Giảm sát thương: &f%stat_DAMAGE_REDUCTION%"
+      - "&8Chỉ số sức khoẻ:"
+      - " &a❤ &fMáu tối đa: &f%stat_MAX_HEALTH%"
+      - " &3⛨ &fPhòng thủ: &f%stat_DEFENSE%"
+      - " &2❖ &fGiảm sát thương: &f%stat_DAMAGE_REDUCTION%"
       - ""
-      - "&9&lNăng lượng"
-      - "&8- &9✦ Mana tối đa: &f%stat_MAX_MANA%"
-      - "&8- &b✧ Hồi mana: &f%stat_MANA_REGENERATION%"
+      - "&8Chỉ số linh lực:"
+      - " &9✦ &fLinh lực tối đa: &f%stat_MAX_MANA%"
+      - " &b✧ &fHồi linh lực: &f%stat_MANA_REGENERATION%"
+
   fly-sword:
     enabled: true
     slot: 49
@@ -60,6 +61,7 @@ gui:
       - "&7Nguyên liệu: &f%materials%"
       - ""
       - "&eClick để mở tiến hoá."
+
   fly-sword-evolution:
     title: "&8Tiến Hoá Kiếm Bay"
     size: 27
@@ -95,6 +97,7 @@ gui:
       name: "&eQuay lại"
       lore:
         - "&7Trở về menu trang bị."
+
   upgrade-title: "&8Tiến Hoá Offhand"
   upgrade-size: 27
   upgrade-slots:
@@ -156,36 +159,34 @@ offhand:
     enabled: true
     replace-existing: true
     type: OFF_CATALYST
-    id: HA_MACH_HO_MENH_TIEN_HOAN
+    id: PHAM_LINH_TIEN_HOAN
     fallback-material: NETHER_STAR
-    name: "&dHạ Mạch Hộ Mệnh Tiên Hoàn"
+    name: ""
     lore:
       - ""
-      - "&7Vật phẩm tay phụ của hệ thống."
+      - "&e  Chuột phải &7để mở thông tin/trang bị."
+      - "&e  Chuột trái &7để mở nâng cấp."
       - ""
-      - "&eChuột phải &7để mở thông tin/trang bị."
-      - "&eChuột trái &7để mở nâng cấp."
-      - ""
-      - "&cKhông thể tháo khỏi tay phụ."
+      - "&c  Không thể tháo khỏi tay phụ."
   info-item-types:
     - OFF_CATALYST
   info-items:
     - type: OFF_CATALYST
-      id: HA_MACH_HO_MENH_TIEN_HOAN
+      id: PHAM_LINH_TIEN_HOAN
   upgrades:
-    ha_mach_ho_menh_tien_hoan:
+    1:
       from-type: OFF_CATALYST
-      from-id: HA_MACH_HO_MENH_TIEN_HOAN
+      from-id: PHAM_LINH_TIEN_HOAN
       to-type: OFF_CATALYST
-      to-id: HA_MACH_HO_MENH_TIEN_HOAN_2
+      to-id: HA_MACH_TIEN_HOAN
+      take-source: true
       cost: 100000
       required-level: 10
       required-realm: 5
       required-sub-realm: ""
-      take-source: true
       commands:
-        - "mi give OFF_CATALYST %player% HA_MACH_HO_MENH_TIEN_HOAN_2 1"
-    dan_duoc_1:
+        - "mi give OFF_CATALYST %player% HA_MACH_TIEN_HOAN 1"
+    2:
       from-type: DAN_DUOC
       from-id: DAN_DUOC_1
       to-type: DAN_DUOC
