@@ -48,8 +48,10 @@ public class FlySwordManager implements Listener {
 
     private boolean enabled;
     private String modelId;
+    private String anchor;
     private double yOffset;
     private double scale;
+    private boolean followPitch;
     private boolean requirePermission;
     private String permission;
     private boolean hideWhileSpectator;
@@ -72,8 +74,10 @@ public class FlySwordManager implements Listener {
     public void loadConfig() {
         enabled = plugin.getConfig().getBoolean("fly-sword.enabled", true);
         modelId = plugin.getConfig().getString("fly-sword.model", "kiembay");
+        anchor = plugin.getConfig().getString("fly-sword.anchor", "HEAD");
         yOffset = plugin.getConfig().getDouble("fly-sword.y-offset", -0.05);
         scale = plugin.getConfig().getDouble("fly-sword.scale", 1.5);
+        followPitch = plugin.getConfig().getBoolean("fly-sword.follow-pitch", false);
         requirePermission = plugin.getConfig().getBoolean("fly-sword.require-permission", false);
         permission = plugin.getConfig().getString("fly-sword.permission", "tutiencore.flysword");
         hideWhileSpectator = plugin.getConfig().getBoolean("fly-sword.hide-while-spectator", true);
@@ -283,7 +287,7 @@ public class FlySwordManager implements Listener {
         if (shouldHideWhileSpectator(player)) return;
 
         try {
-            Location loc = player.getLocation().add(0, yOffset, 0);
+            Location loc = swordLocation(player, player.getLocation());
             ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
             stand.setVisible(false);
             stand.setGravity(false);
@@ -295,6 +299,7 @@ public class FlySwordManager implements Listener {
             lockEquipment(stand);
             setDurationIfPresent(stand, "setInterpolationDuration", 0);
             setDurationIfPresent(stand, "setTeleportDuration", 0);
+            teleportSword(player, stand, player.getLocation());
 
             com.ticxo.modelengine.api.model.ActiveModel activeModel =
                     com.ticxo.modelengine.api.ModelEngineAPI.createActiveModel(playerModelId);
@@ -354,11 +359,26 @@ public class FlySwordManager implements Listener {
     }
 
     private void teleportSword(Player player, ArmorStand stand, Location baseLocation) {
-        Location loc = baseLocation.clone().add(0, yOffset, 0);
-        loc.setPitch(0.0F);
+        Location loc = swordLocation(player, baseLocation);
         stand.teleport(loc);
-        stand.setRotation(loc.getYaw(), 0.0F);
+        stand.setRotation(loc.getYaw(), loc.getPitch());
         stand.setVelocity(player.getVelocity());
+    }
+
+    private Location swordLocation(Player player, Location baseLocation) {
+        Location anchorLocation = useHeadAnchor()
+                ? player.getEyeLocation()
+                : baseLocation.clone();
+        float yaw = baseLocation.getYaw();
+        float pitch = followPitch ? baseLocation.getPitch() : 0.0F;
+        Location loc = anchorLocation.clone().add(0, yOffset, 0);
+        loc.setYaw(yaw);
+        loc.setPitch(pitch);
+        return loc;
+    }
+
+    private boolean useHeadAnchor() {
+        return anchor == null || !anchor.equalsIgnoreCase("FEET");
     }
 
     private boolean shouldHideWhileSpectator(Player player) {

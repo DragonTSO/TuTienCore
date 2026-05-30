@@ -1,23 +1,23 @@
 enabled: true
 
 messages:
-  only-player: "&cChá»‰ player má»›i dÃ¹ng Ä‘Æ°á»£c lá»‡nh nÃ y."
-  invalid-item: "&cItem nÃ y khÃ´ng Ä‘Ãºng type yÃªu cáº§u."
-  equipped: "&aÄÃ£ trang bá»‹ &f%slot%&a."
-  unequipped: "&eÄÃ£ thÃ¡o &f%slot%&e."
-  no-offhand-item: "&cHÃ£y cáº§m item MMOItems á»Ÿ offhand."
-  no-upgrade: "&cItem offhand nÃ y chÆ°a cÃ³ cáº¥u hÃ¬nh tiáº¿n hoÃ¡."
-  upgrade-ready: "&aCÃ³ thá»ƒ tiáº¿n hoÃ¡ item nÃ y."
-  upgrade-success: "&aÄÃ£ tiáº¿n hoÃ¡ item offhand!"
-  upgrade-requirement-failed: "&cChÆ°a Ä‘á»§ Ä‘iá»u kiá»‡n tiáº¿n hoÃ¡:"
-  not-enough-money: "&cKhÃ´ng Ä‘á»§ &e%cost% &clinh tháº¡ch."
-  failure-money: "&8- &7Cáº§n &e%cost% &7linh tháº¡ch."
-  failure-level-unavailable: "&8- &7KhÃ´ng Ä‘á»c Ä‘Æ°á»£c cáº¥p TuTienLevel."
-  failure-level: "&8- &7Cáº¥p hiá»‡n táº¡i &e%current% &7< yÃªu cáº§u &a%required%&7."
-  failure-realm: "&8- &7Cáº£nh giá»›i hiá»‡n táº¡i &e%current% &7< yÃªu cáº§u &b%required%&7."
+  only-player: "&cChi player moi dung duoc lenh nay."
+  invalid-item: "&cItem nay khong dung type yeu cau."
+  equipped: "&aDa trang bi &f%slot%&a."
+  unequipped: "&eDa thao &f%slot%&e."
+  no-offhand-item: "&cHay cam item MMOItems o offhand."
+  no-upgrade: "&cItem offhand nay chua co cau hinh tien hoa."
+  upgrade-ready: "&aCo the tien hoa item nay."
+  upgrade-success: "&aDa tien hoa item offhand!"
+  upgrade-requirement-failed: "&cChua du dieu kien tien hoa:"
+  not-enough-money: "&cKhong du &e%cost% &clinh thach."
+  failure-money: "&8- &7Can &e%cost% &7linh thach."
+  failure-level-unavailable: "&8- &7Khong doc duoc cap TuTienLevel."
+  failure-level: "&8- &7Cap hien tai &e%current% &7< yeu cau &a%required%&7."
+  failure-realm: "&8- &7Canh gioi hien tai &e%current% &7< yeu cau &b%required%&7."
 
 gui:
-  title: "&8Trang Bá»‹"
+  title: "&8Trang Bi"
   size: 54
   filler:
     material: BLACK_STAINED_GLASS_PANE
@@ -25,28 +25,28 @@ gui:
   info-slot: 4
   info-item:
     material: PLAYER_HEAD
-    name: "&6ThÃ´ng Tin Báº£n ThÃ¢n"
+    name: "&6Thong Tin Ban Than"
     lore:
-      - "&7NgÆ°á»i chÆ¡i: &f%player%"
-      - "&7Cáº£nh giá»›i: &f%realm%"
+      - "&7Nguoi choi: &f%player%"
+      - "&7Canh gioi: &f%realm%"
       - "&7Tu vi: &e%tuvi%"
       - ""
-      - "&8Chá»‰ sá»‘ chiáº¿n Ä‘áº¥u:"
-      - " &câš” &fSÃ¡t thÆ°Æ¡ng: &f%stat_ATTACK_DAMAGE%"
-      - " &eâœ¦ &fTá»‘c Ä‘Ã¡nh: &f%stat_ATTACK_SPEED%"
-      - " &bâŒ– &fChÃ­ máº¡ng: &f%stat_CRITICAL_STRIKE_CHANCE%"
-      - " &dâœ¹ &fSÃ¡t thÆ°Æ¡ng chÃ­ máº¡ng: &f%stat_CRITICAL_STRIKE_POWER%"
+      - "&8Chi so chien dau:"
+      - " &c- &fSat thuong: &f%stat_ATTACK_DAMAGE%"
+      - " &e- &fToc danh: &f%stat_ATTACK_SPEED%"
+      - " &b- &fChi mang: &f%stat_CRITICAL_STRIKE_CHANCE%"
+      - " &d- &fSat thuong chi mang: &f%stat_CRITICAL_STRIKE_POWER%"
       - ""
-      - "&8Chá»‰ sá»‘ sá»©c khoáº»:"
-      - " &aâ¤ &fMÃ¡u tá»‘i Ä‘a: &f%stat_MAX_HEALTH%"
-      - " &3â›¨ &fPhÃ²ng thá»§: &f%stat_DEFENSE%"
-      - " &2â– &fGiáº£m sÃ¡t thÆ°Æ¡ng: &f%stat_DAMAGE_REDUCTION%"
+      - "&8Chi so suc khoe:"
+      - " &a- &fMau toi da: &f%stat_MAX_HEALTH%"
+      - " &3- &fPhong thu: &f%stat_DEFENSE%"
+      - " &2- &fGiam sat thuong: &f%stat_DAMAGE_REDUCTION%"
       - ""
-      - "&8Chá»‰ sá»‘ linh lá»±c:"
-      - " &9âœ¦ &fLinh lá»±c tá»‘i Ä‘a: &f%stat_MAX_MANA%"
-      - " &bâœ§ &fHá»“i linh lá»±c: &f%stat_MANA_REGENERATION%"
+      - "&8Chi so linh luc:"
+      - " &9- &fLinh luc toi da: &f%stat_MAX_MANA%"
+      - " &b- &fHoi linh luc: &f%stat_MANA_REGENERATION%"
 
-  upgrade-title: "&8Tiáº¿n HoÃ¡ Offhand"
+  upgrade-title: "&8Tien Hoa Offhand"
   upgrade-size: 27
   upgrade-slots:
     source: 11
@@ -56,23 +56,23 @@ gui:
     material: EMERALD
     name: "&e%to_name%"
     lore:
-      - "&7Item nháº­n qua command cáº¥u hÃ¬nh."
+      - "&7Item nhan qua command cau hinh."
       - ""
-      - "&7Linh tháº¡ch: &e%cost%"
-      - "&7Cáº¥p yÃªu cáº§u: &a%required_level%"
-      - "&7Cáº£nh giá»›i: &b%required_realm%"
+      - "&7Linh thach: &e%cost%"
+      - "&7Cap yeu cau: &a%required_level%"
+      - "&7Canh gioi: &b%required_realm%"
   upgrade-confirm:
     material: EMERALD
-    name: "&aTiáº¿n HoÃ¡"
+    name: "&aTien Hoa"
     lore:
-      - "&7Item hiá»‡n táº¡i: &f%from_name%"
-      - "&7Sau tiáº¿n hoÃ¡: &e%to_name%"
+      - "&7Item hien tai: &f%from_name%"
+      - "&7Sau tien hoa: &e%to_name%"
       - ""
-      - "&7Linh tháº¡ch: &e%cost%"
-      - "&7Cáº¥p yÃªu cáº§u: &a%required_level%"
-      - "&7Cáº£nh giá»›i: &b%required_realm%"
+      - "&7Linh thach: &e%cost%"
+      - "&7Cap yeu cau: &a%required_level%"
+      - "&7Canh gioi: &b%required_realm%"
       - ""
-      - "&aClick Ä‘á»ƒ xÃ¡c nháº­n."
+      - "&aClick de xac nhan."
 
 slots:
   accessory:
@@ -81,10 +81,10 @@ slots:
       - ACCESSORY
     empty:
       material: AMETHYST_SHARD
-      name: "&dTrang Sá»©c"
+      name: "&dTrang Suc"
       lore:
-        - "&7Äáº·t item MMOItems type &dACCESSORY"
-        - "&7vÃ o Ä‘Ã¢y Ä‘á»ƒ nháº­n chá»‰ sá»‘."
+        - "&7Dat item MMOItems type &dACCESSORY"
+        - "&7vao day de nhan chi so."
     stats:
       ATTACK_DAMAGE: 5
       MAX_HEALTH: 20
@@ -94,10 +94,10 @@ slots:
       - DAN_DUOC
     empty:
       material: HONEY_BOTTLE
-      name: "&6Äan DÆ°á»£c"
+      name: "&6Dan Duoc"
       lore:
-        - "&7Äáº·t item MMOItems type &6DAN_DUOC"
-        - "&7vÃ o Ä‘Ã¢y Ä‘á»ƒ nháº­n chá»‰ sá»‘."
+        - "&7Dat item MMOItems type &6DAN_DUOC"
+        - "&7vao day de nhan chi so."
     stats:
       MAX_HEALTH: 10
       MAX_MANA: 15
@@ -112,10 +112,10 @@ offhand:
     name: ""
     lore:
       - ""
-      - "&e  Chuá»™t pháº£i &7Ä‘á»ƒ má»Ÿ thÃ´ng tin/trang bá»‹."
-      - "&e  Chuá»™t trÃ¡i &7Ä‘á»ƒ má»Ÿ nÃ¢ng cáº¥p."
+      - "&e  Chuot phai &7de mo thong tin/trang bi."
+      - "&e  Chuot trai &7de mo nang cap."
       - ""
-      - "&c  KhÃ´ng thá»ƒ thÃ¡o khá»i tay phá»¥."
+      - "&c  Khong the thao khoi tay phu."
   info-item-types:
     - OFF_CATALYST
   info-items:

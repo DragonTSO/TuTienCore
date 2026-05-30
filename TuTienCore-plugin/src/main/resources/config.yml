@@ -359,8 +359,14 @@ tuluyen-model: "be_tutien_tier1"
 fly-sword:
   enabled: true
   model: "kiembay"
-  y-offset: -0.05
+  # HEAD = use player head/eye as anchor, then lower the model with y-offset.
+  # FEET = use player feet as anchor.
+  anchor: HEAD
+  # HEAD + -1.62 moves the model from head down near player feet.
+  y-offset: -1.62
   scale: 0.95
+  # false = sword follows yaw only, not camera pitch up/down.
+  follow-pitch: false
   require-permission: false
   permission: "tutiencore.flysword"
   hide-while-spectator: true
