@@ -306,7 +306,7 @@ public class TuLuyenManager implements Listener {
     }
 
     /**
-     * Get the highest Tu Vi bonus percentage from player permissions.
+     * Get the total Tu Vi bonus percentage from player permissions.
      * Permission format: tutiencore.tuvi.bonus.<percent>
      * 
      * Examples:
@@ -314,7 +314,8 @@ public class TuLuyenManager implements Listener {
      *   tutiencore.tuvi.bonus.50  → +50%
      *   tutiencore.tuvi.bonus.100 → +100% (double)
      * 
-     * If player has multiple bonus perms, the highest value is used.
+     * If tu-luyen.permission-bonus.stack is enabled, all valid values are added together.
+     * Otherwise, only the highest value is used.
      * 
      * LuckPerms setup:
      *   /lp group vip permission set tutiencore.tuvi.bonus.20
@@ -331,20 +332,31 @@ public class TuLuyenManager implements Listener {
             }
         }
 
-        return resolveHighestTuViBonus(permissions);
+        return resolveTuViBonus(permissions, isTuViPermissionBonusStacked());
     }
 
     static double resolveHighestTuViBonus(Collection<String> permissions) {
-        double maxBonus = 0;
+        return resolveTuViBonus(permissions, false);
+    }
+
+    static double resolveTuViBonus(Collection<String> permissions, boolean stack) {
+        double totalBonus = 0.0;
+        double highestBonus = 0.0;
 
         for (String name : permissions) {
-            double val = parseTuViBonusPermission(name);
-            if (val > maxBonus) {
-                maxBonus = val;
+            double value = parseTuViBonusPermission(name);
+            if (stack) {
+                totalBonus += value;
+            } else {
+                highestBonus = Math.max(highestBonus, value);
             }
         }
 
-        return maxBonus;
+        return stack ? totalBonus : highestBonus;
+    }
+
+    private boolean isTuViPermissionBonusStacked() {
+        return plugin.getConfig().getBoolean("tu-luyen.permission-bonus.stack", true);
     }
 
     static double parseTuViBonusPermission(String permission) {

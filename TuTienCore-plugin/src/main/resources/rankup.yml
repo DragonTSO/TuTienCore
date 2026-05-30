@@ -1,0 +1,203 @@
+rankup:
+  enabled: true
+  require-sequential: true
+  # true = VIP2 len VIP3 se giu buff VIP2 va cong them buff VIP3.
+  # false = chi giu buff cua rank moi nhat.
+  stack-bonuses: true
+  # Alias cu de tuong thich config da tao truoc do.
+  preserve-current-rank-perks: true
+
+  playerpoints:
+    enabled: true
+    currency-name: "Cổ thạch"
+
+  luckperms:
+    enabled: true
+    required: true
+    set-group-command: "lp user {player} parent set {group}"
+    permission-command: "lp user {player} permission set {permission} true"
+    permission-unset-command: "lp user {player} permission unset {permission}"
+
+  messages:
+    only-player: "&cChỉ player mới dùng được lệnh này."
+    disabled: "&cRankup đang tắt."
+    no-permission: "&cBạn không có quyền dùng /rankup."
+    usage: "&e/rankup [vip1-vip10]"
+    rank-not-found: "&cKhông tìm thấy rank: &e{rank}"
+    already-or-lower: "&cBạn đã đạt rank này hoặc cao hơn rồi."
+    max-rank: "&cBạn đã đạt rank tối đa."
+    must-rankup-next: "&cBạn phải nâng lần lượt. Rank kế tiếp của bạn là &e{next}&c."
+    playerpoints-missing: "&cKhông tìm thấy PlayerPoints."
+    luckperms-missing: "&cKhông tìm thấy LuckPerms để set group."
+    not-enough-points: "&cBạn cần &e{cost} {currency}&c. Hiện có: &e{balance}&c."
+    take-points-failed: "&cKhông thể trừ {currency}, vui lòng thử lại."
+    success:
+      - "&6&lRANKUP &8» &aBạn đã lên &f{rank}&a!"
+      - "&7Đã trừ: &e{cost} {currency}"
+      - "&7Chế độ buff: &f{bonus_mode}"
+      - "&7Buff Tu Vi: &a+{total_tuvi}%"
+      - "&7Khí vận Luyện Khí: &d+{total_forge_luck}"
+      - "&7Bonus tiền MythicMobs: &6+{total_mythic_money}%"
+
+ranks:
+  vip0:
+    order: 0
+    group: default
+    permission: "tutiencore.vip.0"
+    display-name: "&7VIP 0"
+    cost: 0
+    bonuses:
+      tuvi: 0
+      forge-luck: 0
+      mythic-money: 0
+    permissions: []
+
+  vip1:
+    order: 1
+    group: vip1
+    permission: "tutiencore.vip.1"
+    display-name: "&fVIP 1"
+    cost: 50
+    bonuses:
+      tuvi: 10
+      forge-luck: 0.25
+      mythic-money: 5
+    permissions:
+      - "tutiencore.tuvi.bonus.10"
+      - "tutienforge.luck.vip1"
+      - "tutiencore.mythicmoney.bonus.5"
+
+  vip2:
+    order: 2
+    group: vip2
+    permission: "tutiencore.vip.2"
+    display-name: "&aVIP 2"
+    cost: 50
+    bonuses:
+      tuvi: 30
+      forge-luck: 0.5
+      mythic-money: 10
+    permissions:
+      - "tutiencore.tuvi.bonus.30"
+      - "tutienforge.luck.vip2"
+      - "tutiencore.mythicmoney.bonus.10"
+
+  vip3:
+    order: 3
+    group: vip3
+    permission: "tutiencore.vip.3"
+    display-name: "&aVIP 3"
+    cost: 100
+    bonuses:
+      tuvi: 50
+      forge-luck: 0.75
+      mythic-money: 20
+    permissions:
+      - "tutiencore.tuvi.bonus.50"
+      - "tutienforge.luck.vip3"
+      - "tutiencore.mythicmoney.bonus.20"
+
+  vip4:
+    order: 4
+    group: vip4
+    permission: "tutiencore.vip.4"
+    display-name: "&bVIP 4"
+    cost: 300
+    bonuses:
+      tuvi: 80
+      forge-luck: 1
+      mythic-money: 30
+    permissions:
+      - "tutiencore.tuvi.bonus.80"
+      - "tutienforge.luck.vip4"
+      - "tutiencore.mythicmoney.bonus.30"
+
+  vip5:
+    order: 5
+    group: vip5
+    permission: "tutiencore.vip.5"
+    display-name: "&3VIP 5"
+    cost: 500
+    bonuses:
+      tuvi: 100
+      forge-luck: 1.5
+      mythic-money: 50
+    permissions:
+      - "tutiencore.tuvi.bonus.100"
+      - "tutienforge.luck.vip5"
+      - "tutiencore.mythicmoney.bonus.50"
+
+  vip6:
+    order: 6
+    group: vip6
+    permission: "tutiencore.vip.6"
+    display-name: "&dVIP 6"
+    cost: 1000
+    bonuses:
+      tuvi: 120
+      forge-luck: 2
+      mythic-money: 70
+    permissions:
+      - "tutiencore.tuvi.bonus.120"
+      - "tutienforge.luck.vip6"
+      - "tutiencore.mythicmoney.bonus.70"
+
+  vip7:
+    order: 7
+    group: vip7
+    permission: "tutiencore.vip.7"
+    display-name: "&5VIP 7"
+    cost: 3000
+    bonuses:
+      tuvi: 150
+      forge-luck: 3
+      mythic-money: 100
+    permissions:
+      - "tutiencore.tuvi.bonus.150"
+      - "tutienforge.luck.vip7"
+      - "tutiencore.mythicmoney.bonus.100"
+
+  vip8:
+    order: 8
+    group: vip8
+    permission: "tutiencore.vip.8"
+    display-name: "&cVIP 8"
+    cost: 5000
+    bonuses:
+      tuvi: 200
+      forge-luck: 5
+      mythic-money: 150
+    permissions:
+      - "tutiencore.tuvi.bonus.200"
+      - "tutienforge.luck.vip8"
+      - "tutiencore.mythicmoney.bonus.150"
+
+  vip9:
+    order: 9
+    group: vip9
+    permission: "tutiencore.vip.9"
+    display-name: "&cVIP 9"
+    cost: 15000
+    bonuses:
+      tuvi: 300
+      forge-luck: 7
+      mythic-money: 250
+    permissions:
+      - "tutiencore.tuvi.bonus.300"
+      - "tutienforge.luck.vip9"
+      - "tutiencore.mythicmoney.bonus.250"
+
+  vip10:
+    order: 10
+    group: vip10
+    permission: "tutiencore.vip.10"
+    display-name: "&6VIP 10"
+    cost: 25000
+    bonuses:
+      tuvi: 500
+      forge-luck: 10
+      mythic-money: 400
+    permissions:
+      - "tutiencore.tuvi.bonus.500"
+      - "tutienforge.luck.vip10"
+      - "tutiencore.mythicmoney.bonus.400"

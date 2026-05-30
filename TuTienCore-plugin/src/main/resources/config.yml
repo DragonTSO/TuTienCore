@@ -31,6 +31,15 @@ action-bar:
     # De [] neu muon hien moi nguon EXP TuTienLevel (api, command, ...).
     source-prefixes:
       - "MythicMob:"
+  # Hien Linh Thach vua nhan tu MythicMobs money drop ben canh action bar.
+  money-gain:
+    enabled: false
+    # Thoi gian hien sau moi lan nhan money (ticks).
+    duration-ticks: 40
+    # {money} la tong money cuoi cung sau bonus rank.
+    # Placeholder: {money}, {money_formatted}, {base_money}, {base_money_formatted},
+    # {bonus_money}, {bonus_money_formatted}, {bonus_percent}, {source}, {mob}
+    format: " &8| &6+{money_formatted} Linh Thạch"
 
 # Configurable command aliases.
 # Set aliases: [] to disable aliases for a command.
@@ -45,6 +54,36 @@ commands:
     aliases: [realm]
   tuvi:
     aliases: []
+
+mythicmobs-money-bonus:
+  enabled: true
+  # Ap dung cho money drop native cua MythicMobs, vi du: "- money 100-300 1".
+  # Permission dang: tutiencore.mythicmoney.bonus.<phan_tram>
+  permission-prefix: "tutiencore.mythicmoney.bonus."
+  # true = cong tat ca permission bonus tien cua player.
+  # false = chi lay permission bonus cao nhat.
+  stack: true
+  debug: false
+
+# Hologram fade khi kill quai, giong popup EXP cua TuTienLevel.
+# Text hien tai dung money sau khi da cong bonus rank/VIP.
+kill-reward-hologram:
+  enabled: true
+  y-offset: 1.35
+  x-offset: 0.0
+  z-offset: 0.0
+  random-xz-radius: 0.25
+  rise: 0.8
+  duration-ticks: 35
+  start-opacity: 255
+  end-opacity: 0
+  shadow: true
+  see-through: true
+  line-width: 160
+  money:
+    enabled: true
+    # Placeholder: %money%, %money_formatted%, %base_money%, %bonus_money%, %bonus_percent%, %mob%, %player%
+    text: "&6+%money_formatted% Linh Thạch"
 
 player-hologram:
   enabled: true
@@ -97,6 +136,10 @@ tu-luyen:
   max-distance: 10.0
   # Diem Tu Vi nhan duoc moi lan.
   points-per-interval: 10
+  # true = cong tat ca permission tutiencore.tuvi.bonus.* cua player.
+  # false = chi lay permission bonus cao nhat.
+  permission-bonus:
+    stack: true
   # Command de cho diem Tu Vi, su dung %player% cho ten, va %points% cho so luong
   give-command: "eco give %player% %points%"
   # Ti le Thien Loi ao danh xuong khi nhan Tu Vi. Neu trung, diem Tu Vi lan do duoc nhan multiplier.
@@ -239,12 +282,20 @@ afk-kick:
 #     tutiencore.tuvi.bonus.50   → +50% Tu Vi (10 diem → 15 diem)
 #     tutiencore.tuvi.bonus.100  → +100% Tu Vi (10 diem → 20 diem)
 #
-#   Neu player co nhieu bonus perm → lay gia tri CAO NHAT.
+#   Mac dinh tu-luyen.permission-bonus.stack: true se CONG DON tat ca gia tri hop le.
+#   VD: co tutiencore.tuvi.bonus.30 va tutiencore.tuvi.bonus.50 → +80% Tu Vi.
+#   Neu stack: false thi chi lay permission cao nhat → +50% Tu Vi.
 #
 #   LuckPerms setup:
 #     /lp group vip permission set tutiencore.tuvi.bonus.20
 #     /lp group svip permission set tutiencore.tuvi.bonus.50
 #     /lp group mvp permission set tutiencore.tuvi.bonus.100
+#
+# MythicMobs Money Bonus:
+#   tutiencore.mythicmoney.bonus.<phan_tram>
+#   Ap dung cho drop MythicMobs dang "- money 100-300 1".
+#   VD: mob drop 300, player co tutiencore.mythicmoney.bonus.20 -> nhan them 60.
+#   mythicmobs-money-bonus.stack: true se cong don nhieu permission, false chi lay cao nhat.
 
 # ==========================================
 # PLACEHOLDERS

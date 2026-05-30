@@ -43,13 +43,22 @@ class TuLuyenLightningBonusTest {
     }
 
     @Test
-    void resolvesHighestTuViBonusPermission() {
-        double bonus = TuLuyenManager.resolveHighestTuViBonus(List.of(
-                "tutiencore.tuvi.bonus.20",
-                "tutiencore.tuvi.bonus.100",
+    void resolvesTotalTuViBonusPermission() {
+        double bonus = TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.tuvi.bonus.30",
                 "tutiencore.tuvi.bonus.50"
-        ));
+        ), true);
 
-        assertEquals(100.0, bonus);
+        assertEquals(80.0, bonus);
+    }
+
+    @Test
+    void resolvesHighestTuViBonusPermissionWhenStackingIsDisabled() {
+        double bonus = TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.tuvi.bonus.30",
+                "tutiencore.tuvi.bonus.50"
+        ), false);
+
+        assertEquals(50.0, bonus);
     }
 }

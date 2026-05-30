@@ -5,6 +5,7 @@ import com.turtle.tutiencore.core.command.CanhGioiCommand;
 import com.turtle.tutiencore.core.command.CommandAliasManager;
 import com.turtle.tutiencore.core.command.DotPhaCommand;
 import com.turtle.tutiencore.core.command.NhapThanCommand;
+import com.turtle.tutiencore.core.command.RankupCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
@@ -15,12 +16,14 @@ import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
 import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.hook.LinhDuocDropRateHook;
+import com.turtle.tutiencore.core.hook.MythicMobsMoneyBonusHook;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.EquipmentMenuManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
+import com.turtle.tutiencore.core.manager.KillRewardHologramManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
@@ -34,6 +37,8 @@ import com.turtle.tutiencore.core.task.TuLuyenParticleTask;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
 
 import lombok.Getter;
 
@@ -64,6 +69,8 @@ public class TuTienCore {
     private MMOItemsRealmRequirementHook mmoItemsRealmRequirementHook;
     private MMOItemsMaxHealthPercentHook mmoItemsMaxHealthPercentHook;
     private LinhDuocDropRateHook linhDuocDropRateHook;
+    private MythicMobsMoneyBonusHook mythicMobsMoneyBonusHook;
+    private KillRewardHologramManager killRewardHologramManager;
     private CommandAliasManager commandAliasManager;
     
     private SphereParticleTask sphereParticleTask;
@@ -75,6 +82,9 @@ public class TuTienCore {
 
     public void onEnable() {
         plugin.getLogger().info("Loading TuTienCore managers...");
+        if (!new File(plugin.getDataFolder(), "rankup.yml").exists()) {
+            plugin.saveResource("rankup.yml", false);
+        }
         
         this.configManager = new ConfigManager(plugin);
         
@@ -119,6 +129,9 @@ public class TuTienCore {
         this.mmoItemsMaxHealthPercentHook.register();
         this.linhDuocDropRateHook = new LinhDuocDropRateHook(plugin);
         this.linhDuocDropRateHook.register();
+        this.killRewardHologramManager = new KillRewardHologramManager(plugin);
+        this.mythicMobsMoneyBonusHook = new MythicMobsMoneyBonusHook(plugin, actionBarManager, killRewardHologramManager);
+        this.mythicMobsMoneyBonusHook.register();
 
         this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
         this.sphereParticleTask.start();
@@ -166,6 +179,11 @@ public class TuTienCore {
         }
         if (plugin.getCommand("trangbi") != null) {
             plugin.getCommand("trangbi").setExecutor(equipmentMenuManager);
+        }
+        RankupCommand rankupCommand = new RankupCommand(plugin);
+        if (plugin.getCommand("rankup") != null) {
+            plugin.getCommand("rankup").setExecutor(rankupCommand);
+            plugin.getCommand("rankup").setTabCompleter(rankupCommand);
         }
         reloadCommandAliases();
 
@@ -216,6 +234,9 @@ public class TuTienCore {
         }
         if (actionBarManager != null) {
             actionBarManager.stop();
+        }
+        if (killRewardHologramManager != null) {
+            killRewardHologramManager.removeAll();
         }
         if (afkKickManager != null) {
             afkKickManager.stop();

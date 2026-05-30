@@ -24,6 +24,19 @@ class ActionBarManagerTest {
     }
 
     @Test
+    void appliesMoneyGainPlaceholders() {
+        assertEquals(
+                " +360 LS (goc 300, bonus 60, 20%) from SoiHoang",
+                ActionBarManager.applyMoneyGainPlaceholders(
+                        " +{money_formatted} LS (goc {base_money_formatted}, bonus {bonus_money_formatted}, {bonus_percent}%) from {mob}",
+                        300L,
+                        360L,
+                        60L,
+                        "MythicMob:SoiHoang")
+        );
+    }
+
+    @Test
     void filtersExpGainSourcesByPrefix() {
         assertTrue(ActionBarManager.isSourceAllowed("MythicMob:Zombie", List.of("MythicMob:")));
         assertFalse(ActionBarManager.isSourceAllowed("command", List.of("MythicMob:")));

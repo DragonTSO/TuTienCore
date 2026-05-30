@@ -3,7 +3,7 @@ version: '${project.version}'
 main: com.turtle.tutiencore.TuTienCorePlugin
 api-version: '1.21'
 depend: [TurtleCore, ProtocolLib, packetevents]
-softdepend: [PlaceholderAPI, Vault, PlayerPoints, ModelEngine, MythicMobs, MMOCore, FancyHolograms, WorldGuard, SuperiorSkyblock2, TurtleIsland, TuTienLevel]
+softdepend: [PlaceholderAPI, Vault, PlayerPoints, LuckPerms, ModelEngine, MythicMobs, MMOCore, FancyHolograms, WorldGuard, SuperiorSkyblock2, TurtleIsland, TuTienLevel]
 loadbefore: [BetterteamsAddon, MMOItems]
 description: Tu Tien sitting mechanic and particles
 
@@ -35,6 +35,10 @@ commands:
     description: Mo menu trang bi Tu Tien
     usage: /trangbi
     permission: tutiencore.use
+  rankup:
+    description: Nang cap VIP rank bang Co thach
+    usage: /rankup [rank]
+    permission: tutiencore.rankup
 
 permissions:
   tutiencore.use:
@@ -43,6 +47,9 @@ permissions:
   tutiencore.admin:
     description: Admin permission for TuTienCore
     default: op
+  tutiencore.rankup:
+    description: Allows using /rankup
+    default: true
   tutiencore.nhapthan.give:
     description: Allows granting Nhap Than to players
     default: op
@@ -69,4 +76,19 @@ permissions:
     default: false
   tutiencore.vip.5:
     description: TuTienCore VIP rank 5
+    default: false
+  tutiencore.vip.6:
+    description: TuTienCore VIP rank 6
+    default: false
+  tutiencore.vip.7:
+    description: TuTienCore VIP rank 7
+    default: false
+  tutiencore.vip.8:
+    description: TuTienCore VIP rank 8
+    default: false
+  tutiencore.vip.9:
+    description: TuTienCore VIP rank 9
+    default: false
+  tutiencore.vip.10:
+    description: TuTienCore VIP rank 10
     default: false

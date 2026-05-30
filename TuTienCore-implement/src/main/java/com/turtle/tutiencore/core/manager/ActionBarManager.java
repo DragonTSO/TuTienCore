@@ -30,12 +30,16 @@ public class ActionBarManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, ExpGainToast> expGainToasts = new HashMap<>();
+    private final Map<UUID, MoneyGainToast> moneyGainToasts = new HashMap<>();
     private BukkitTask task;
     private boolean expGainEnabled;
     private String expGainFormat;
     private long expGainDurationTicks;
     private List<String> expGainSourcePrefixes;
     private boolean expGainListenerRegistered;
+    private boolean moneyGainEnabled;
+    private String moneyGainFormat;
+    private long moneyGainDurationTicks;
 
     public ActionBarManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -76,6 +80,7 @@ public class ActionBarManager implements Listener {
             }
             String text = applyBuiltInPlaceholders(format, player.getHealth(), player.getMaxHealth());
             text = text + renderExpGain(player);
+            text = text + renderMoneyGain(player);
             if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
                 text = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, text);
             }
@@ -92,6 +97,10 @@ public class ActionBarManager implements Listener {
         } else {
             expGainSourcePrefixes = List.of("MythicMob:");
         }
+
+        moneyGainEnabled = plugin.getConfig().getBoolean("action-bar.money-gain.enabled", true);
+        moneyGainFormat = plugin.getConfig().getString("action-bar.money-gain.format", " &8| &6+{money_formatted} Linh Thạch");
+        moneyGainDurationTicks = Math.max(1L, plugin.getConfig().getLong("action-bar.money-gain.duration-ticks", 40L));
     }
 
     private void registerTuTienLevelExpListener() {
@@ -136,6 +145,25 @@ public class ActionBarManager implements Listener {
         expGainToasts.put(player.getUniqueId(), new ExpGainToast(amount, source, expiresAtMillis));
     }
 
+    public void showMoneyGain(Player player, long baseMoney, long finalMoney, String source) {
+        if (!moneyGainEnabled || player == null || finalMoney <= 0L) {
+            return;
+        }
+
+        long safeBaseMoney = Math.max(0L, baseMoney);
+        long safeFinalMoney = Math.max(0L, finalMoney);
+        long bonusMoney = Math.max(0L, safeFinalMoney - safeBaseMoney);
+        long expiresAtMillis = System.currentTimeMillis() + (moneyGainDurationTicks * 50L);
+        MoneyGainToast current = moneyGainToasts.get(player.getUniqueId());
+        if (current != null && current.expiresAtMillis() > System.currentTimeMillis()) {
+            safeBaseMoney += current.baseMoney();
+            safeFinalMoney += current.finalMoney();
+            bonusMoney += current.bonusMoney();
+        }
+        moneyGainToasts.put(player.getUniqueId(), new MoneyGainToast(safeBaseMoney, safeFinalMoney, bonusMoney,
+                source == null ? "" : source, expiresAtMillis));
+    }
+
     private String renderExpGain(Player player) {
         if (!expGainEnabled || player == null || expGainFormat == null || expGainFormat.isBlank()) {
             return "";
@@ -150,6 +178,22 @@ public class ActionBarManager implements Listener {
             return "";
         }
         return applyExpGainPlaceholders(expGainFormat, toast.amount(), toast.source());
+    }
+
+    private String renderMoneyGain(Player player) {
+        if (!moneyGainEnabled || player == null || moneyGainFormat == null || moneyGainFormat.isBlank()) {
+            return "";
+        }
+
+        MoneyGainToast toast = moneyGainToasts.get(player.getUniqueId());
+        if (toast == null) {
+            return "";
+        }
+        if (toast.expiresAtMillis() <= System.currentTimeMillis()) {
+            moneyGainToasts.remove(player.getUniqueId());
+            return "";
+        }
+        return applyMoneyGainPlaceholders(moneyGainFormat, toast.baseMoney(), toast.finalMoney(), toast.bonusMoney(), toast.source());
     }
 
     private static Player invokePlayer(Event event, String methodName) {
@@ -195,6 +239,24 @@ public class ActionBarManager implements Listener {
                 .replace("{mob}", extractMobName(safeSource));
     }
 
+    static String applyMoneyGainPlaceholders(String text, long baseMoney, long finalMoney, long bonusMoney, String source) {
+        String safeSource = source == null ? "" : source;
+        long safeBaseMoney = Math.max(0L, baseMoney);
+        long safeFinalMoney = Math.max(0L, finalMoney);
+        long safeBonusMoney = Math.max(0L, bonusMoney);
+        double bonusPercent = safeBaseMoney > 0L ? (safeBonusMoney * 100.0D / safeBaseMoney) : 0.0D;
+        return text
+                .replace("{money}", String.valueOf(safeFinalMoney))
+                .replace("{money_formatted}", formatWholeNumber(safeFinalMoney))
+                .replace("{base_money}", String.valueOf(safeBaseMoney))
+                .replace("{base_money_formatted}", formatWholeNumber(safeBaseMoney))
+                .replace("{bonus_money}", String.valueOf(safeBonusMoney))
+                .replace("{bonus_money_formatted}", formatWholeNumber(safeBonusMoney))
+                .replace("{bonus_percent}", formatDecimalNumber(bonusPercent))
+                .replace("{source}", safeSource)
+                .replace("{mob}", extractMobName(safeSource));
+    }
+
     static boolean isSourceAllowed(String source, List<String> prefixes) {
         if (prefixes == null || prefixes.isEmpty()) {
             return true;
@@ -226,6 +288,13 @@ public class ActionBarManager implements Listener {
         return String.format(Locale.US, "%,d", value);
     }
 
+    private static String formatDecimalNumber(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.0001D) {
+            return String.valueOf((long) Math.rint(value));
+        }
+        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
     private static String extractMobName(String source) {
         int separator = source.indexOf(':');
         if (separator < 0 || separator + 1 >= source.length()) {
@@ -235,5 +304,8 @@ public class ActionBarManager implements Listener {
     }
 
     private record ExpGainToast(long amount, String source, long expiresAtMillis) {
+    }
+
+    private record MoneyGainToast(long baseMoney, long finalMoney, long bonusMoney, String source, long expiresAtMillis) {
     }
 }

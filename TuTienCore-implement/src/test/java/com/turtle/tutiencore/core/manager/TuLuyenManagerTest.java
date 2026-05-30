@@ -17,12 +17,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TuLuyenManagerTest {
 
     @Test
-    void resolvesHighestTuViBonusPermission() {
-        assertEquals(100.0, TuLuyenManager.resolveHighestTuViBonus(List.of(
-                "tutiencore.tuvi.bonus.20",
-                "tutiencore.tuvi.bonus.100",
+    void resolvesStackedTuViBonusPermission() {
+        assertEquals(80.0, TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.tuvi.bonus.30",
+                "tutiencore.tuvi.bonus.50",
                 "other.permission"
-        )));
+        ), true));
+    }
+
+    @Test
+    void resolvesHighestTuViBonusPermissionWhenStackingIsDisabled() {
+        assertEquals(50.0, TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.tuvi.bonus.30",
+                "tutiencore.tuvi.bonus.50",
+                "other.permission"
+        ), false));
     }
 
     @Test
