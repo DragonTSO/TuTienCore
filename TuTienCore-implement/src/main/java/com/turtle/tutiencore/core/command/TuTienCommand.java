@@ -8,6 +8,7 @@ import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.EquipmentMenuManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
+import com.turtle.tutiencore.core.manager.HotbarCommandItemManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.RegionRespawnManager;
@@ -45,13 +46,15 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
     private final DeathTipManager deathTipManager;
     private final RegionRespawnManager regionRespawnManager;
     private final EquipmentMenuManager equipmentMenuManager;
+    private final HotbarCommandItemManager hotbarCommandItemManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
             PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
             InfusionManager infusionManager, AfkKickManager afkKickManager, DeathTipManager deathTipManager,
-            RegionRespawnManager regionRespawnManager, EquipmentMenuManager equipmentMenuManager, Runnable commandAliasReloader) {
+            RegionRespawnManager regionRespawnManager, EquipmentMenuManager equipmentMenuManager,
+            HotbarCommandItemManager hotbarCommandItemManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -65,6 +68,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         this.deathTipManager = deathTipManager;
         this.regionRespawnManager = regionRespawnManager;
         this.equipmentMenuManager = equipmentMenuManager;
+        this.hotbarCommandItemManager = hotbarCommandItemManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -134,6 +138,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             deathTipManager.reload();
             regionRespawnManager.reload();
             equipmentMenuManager.reload();
+            hotbarCommandItemManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }

@@ -406,6 +406,53 @@ class-colors:
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
 tuluyen-model: "be_tutien_tier1"
 
+# Item khóa trên hotbar: bấm phím slot để chạy command, không thể drop/kéo/đổi tay.
+hotbar-command-items:
+  enabled: true
+  # true = nếu slot đã có item khác thì trả item đó vào túi rồi đặt item khóa.
+  replace-existing: true
+  restore-delay-ticks: 2
+  trigger:
+    on-select: true
+    # true = bấm phím chỉ chạy lệnh, không chuyển tay sang item khóa.
+    cancel-select: true
+    cooldown-ticks: 10
+  messages:
+    no-permission: "&cBạn không có quyền dùng nút này."
+  items:
+    skill-upgrade:
+      enabled: true
+      # Slot hotbar 1-9. Slot 8 = phím 8.
+      slot: 8
+      material: NETHER_STAR
+      custom-model-data: 0
+      hide-attributes: true
+      name: "&b&lNâng Cấp Skill"
+      lore:
+        - "&7Bấm phím &e8 &7để mở nâng cấp skill."
+        - "&7Lệnh: &f%command%"
+        - ""
+        - "&cKhông thể vứt hoặc di chuyển."
+      command: "nangcapskill"
+      as-console: false
+      permission: ""
+    equipment:
+      enabled: true
+      # Slot 9 = phím 9.
+      slot: 9
+      material: COMPASS
+      custom-model-data: 0
+      hide-attributes: true
+      name: "&6&lTrang Bị"
+      lore:
+        - "&7Bấm phím &e9 &7để mở menu trang bị."
+        - "&7Lệnh: &f%command%"
+        - ""
+        - "&cKhông thể vứt hoặc di chuyển."
+      command: "trangbi"
+      as-console: false
+      permission: "tutiencore.use"
+
 # ModelEngine kiếm bay hiển thị dưới chân khi người chơi đang fly
 fly-sword:
   enabled: true
