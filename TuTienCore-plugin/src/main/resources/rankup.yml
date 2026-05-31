@@ -7,6 +7,26 @@ rankup:
   # Alias cu de tuong thich config da tao truoc do.
   preserve-current-rank-perks: true
 
+  broadcast:
+    enabled: true
+    # true = lay format mac dinh tu plugins/TurtleBroadcast/config.yml neu file ton tai.
+    use-turtlebroadcast-format: true
+    # De trong se tu dung plugins/TurtleBroadcast/config.yml.
+    # Co the set duong dan rieng, vi du: "TurtleBroadcast/config.yml" hoac duong dan absolute.
+    turtlebroadcast-config: ""
+    # -1 = dung line-delay-ticks cua TurtleBroadcast/default.
+    line-delay-ticks: -1
+    # De rong tung dong thi se dung format cua TurtleBroadcast.
+    # Format ho tro {message}, {line-icon}, {first-line-icon}, {chained-line-icon}.
+    format:
+      first-line-icon: ""
+      chained-line-icon: ""
+      first-line: ""
+      chained-line: ""
+    messages:
+      - "&6&lRANKUP &8» &f{player} &ađã nâng lên {rank}&a!"
+      - "&7Tu Vi: &a+{total_tuvi}% &8| &7Khí vận: &d+{total_forge_luck} &8| &7Tiền quái: &6+{total_mythic_money}%"
+
   playerpoints:
     enabled: true
     currency-name: "Cổ thạch"

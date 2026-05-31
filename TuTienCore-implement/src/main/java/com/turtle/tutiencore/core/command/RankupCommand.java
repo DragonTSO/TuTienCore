@@ -22,8 +22,13 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RankupCommand implements CommandExecutor, TabCompleter {
+
+    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern MINI_HEX_PATTERN = Pattern.compile("<#([A-Fa-f0-9]{6})>");
 
     private final JavaPlugin plugin;
 
@@ -120,6 +125,19 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                 Placeholder.of("balance", String.valueOf(Math.max(0, balance - cost))),
                 Placeholder.of("currency", currency),
                 Placeholder.of("bonus_mode", stackBonuses ? "Cộng dồn" : "Chỉ rank hiện tại"),
+                Placeholder.of("total_tuvi", formatNumber(totals.tuvi())),
+                Placeholder.of("total_forge_luck", formatNumber(totals.forgeLuck())),
+                Placeholder.of("total_mythic_money", formatNumber(totals.mythicMoney())));
+        broadcastRankup(config,
+                Placeholder.of("player", player.getName()),
+                Placeholder.of("player_display", player.getDisplayName()),
+                Placeholder.of("rank", target.displayName()),
+                Placeholder.of("rank_id", target.id()),
+                Placeholder.of("group", target.group()),
+                Placeholder.of("cost", String.valueOf(cost)),
+                Placeholder.of("balance", String.valueOf(Math.max(0, balance - cost))),
+                Placeholder.of("currency", currency),
+                Placeholder.of("bonus_mode", stackBonuses ? "Cá»™ng dá»“n" : "Chá»‰ rank hiá»‡n táº¡i"),
                 Placeholder.of("total_tuvi", formatNumber(totals.tuvi())),
                 Placeholder.of("total_forge_luck", formatNumber(totals.forgeLuck())),
                 Placeholder.of("total_mythic_money", formatNumber(totals.mythicMoney())));
@@ -422,8 +440,133 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void broadcastRankup(YamlConfiguration config, Placeholder... placeholders) {
+        if (!config.getBoolean("rankup.broadcast.enabled", true)) {
+            return;
+        }
+
+        List<String> lines = config.getStringList("rankup.broadcast.messages");
+        if (lines.isEmpty()) {
+            String single = config.getString("rankup.broadcast.message", "");
+            if (!single.isBlank()) {
+                lines = List.of(single);
+            }
+        }
+        if (lines.isEmpty()) {
+            lines = List.of("&6&lRANKUP &8» &f{player} &ađã nâng lên {rank}&a!");
+        }
+
+        BroadcastFormat format = loadBroadcastFormat(config);
+        for (int index = 0; index < lines.size(); index++) {
+            String rawLine = applyPlaceholders(lines.get(index), placeholders);
+            String formatted = color(applyBroadcastFormat(rawLine, index, format));
+            long delay = Math.max(0L, format.lineDelayTicks()) * index;
+            if (delay <= 0L) {
+                broadcastLine(formatted);
+                continue;
+            }
+            Bukkit.getScheduler().runTaskLater(plugin, () -> broadcastLine(formatted), delay);
+        }
+    }
+
+    private BroadcastFormat loadBroadcastFormat(YamlConfiguration config) {
+        BroadcastFormat format = new BroadcastFormat(
+                "\uA45A",
+                "\uA45C",
+                "&#6CF6FF{first-line-icon} &f{message}",
+                "&#6CF6FF{chained-line-icon} &f{message}",
+                20L
+        );
+
+        if (config.getBoolean("rankup.broadcast.use-turtlebroadcast-format", true)) {
+            File turtleBroadcastConfig = resolveTurtleBroadcastConfig(config);
+            if (turtleBroadcastConfig.exists()) {
+                YamlConfiguration turtleConfig = YamlConfiguration.loadConfiguration(turtleBroadcastConfig);
+                format = new BroadcastFormat(
+                        turtleConfig.getString("format.first-line-icon", format.firstLineIcon()),
+                        turtleConfig.getString("format.chained-line-icon", format.chainedLineIcon()),
+                        turtleConfig.getString("format.first-line", format.firstLine()),
+                        turtleConfig.getString("format.chained-line", format.chainedLine()),
+                        Math.max(0L, turtleConfig.getLong("format.line-delay-ticks", format.lineDelayTicks()))
+                );
+            }
+        }
+
+        return new BroadcastFormat(
+                optionalString(config, "rankup.broadcast.format.first-line-icon", format.firstLineIcon()),
+                optionalString(config, "rankup.broadcast.format.chained-line-icon", format.chainedLineIcon()),
+                optionalString(config, "rankup.broadcast.format.first-line", format.firstLine()),
+                optionalString(config, "rankup.broadcast.format.chained-line", format.chainedLine()),
+                config.getLong("rankup.broadcast.line-delay-ticks", -1L) >= 0L
+                        ? config.getLong("rankup.broadcast.line-delay-ticks")
+                        : format.lineDelayTicks()
+        );
+    }
+
+    private File resolveTurtleBroadcastConfig(YamlConfiguration config) {
+        String configured = config.getString("rankup.broadcast.turtlebroadcast-config", "");
+        if (configured != null && !configured.isBlank()) {
+            File file = new File(configured);
+            if (file.isAbsolute()) {
+                return file;
+            }
+            return new File(plugin.getDataFolder().getParentFile(), configured);
+        }
+        return new File(new File(plugin.getDataFolder().getParentFile(), "TurtleBroadcast"), "config.yml");
+    }
+
+    private String optionalString(YamlConfiguration config, String path, String fallback) {
+        String value = config.getString(path, "");
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String applyBroadcastFormat(String rawLine, int lineIndex, BroadcastFormat format) {
+        boolean chained = lineIndex > 0;
+        String lineIcon = chained ? format.chainedLineIcon() : format.firstLineIcon();
+        String template = chained ? format.chainedLine() : format.firstLine();
+        return template
+                .replace("{line-icon}", lineIcon)
+                .replace("{first-line-icon}", format.firstLineIcon())
+                .replace("{chained-line-icon}", format.chainedLineIcon())
+                .replace("{message}", rawLine);
+    }
+
+    private void broadcastLine(String line) {
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.sendMessage(line);
+        }
+        Bukkit.getConsoleSender().sendMessage(line);
+    }
+
+    private String applyPlaceholders(String message, Placeholder... placeholders) {
+        String parsed = message == null ? "" : message;
+        for (Placeholder placeholder : placeholders) {
+            parsed = parsed.replace("{" + placeholder.key() + "}", placeholder.value());
+        }
+        return parsed;
+    }
+
     private String color(String text) {
-        return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
+        return ChatColor.translateAlternateColorCodes('&', translateHexColors(text == null ? "" : text));
+    }
+
+    private String translateHexColors(String text) {
+        return translateHexPattern(translateHexPattern(text, MINI_HEX_PATTERN), HEX_PATTERN);
+    }
+
+    private String translateHexPattern(String text, Pattern pattern) {
+        Matcher matcher = pattern.matcher(text);
+        StringBuilder builder = new StringBuilder();
+        while (matcher.find()) {
+            String hex = matcher.group(1);
+            StringBuilder replacement = new StringBuilder("&x");
+            for (char character : hex.toCharArray()) {
+                replacement.append('&').append(character);
+            }
+            matcher.appendReplacement(builder, replacement.toString());
+        }
+        matcher.appendTail(builder);
+        return builder.toString();
     }
 
     private String formatNumber(double value) {
@@ -445,5 +588,9 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
     }
 
     private record Totals(double tuvi, double forgeLuck, double mythicMoney) {
+    }
+
+    private record BroadcastFormat(String firstLineIcon, String chainedLineIcon,
+                                   String firstLine, String chainedLine, long lineDelayTicks) {
     }
 }
