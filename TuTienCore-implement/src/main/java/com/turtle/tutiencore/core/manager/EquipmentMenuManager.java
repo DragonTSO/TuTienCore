@@ -12,7 +12,12 @@ import io.lumine.mythic.lib.api.stat.modifier.StatModifier;
 import io.lumine.mythic.lib.player.modifier.ModifierType;
 import net.Indyuce.mmoitems.MMOItems;
 import net.Indyuce.mmoitems.api.Type;
+import net.Indyuce.mmoitems.api.item.mmoitem.LiveMMOItem;
 import net.Indyuce.mmoitems.api.player.PlayerData;
+import net.Indyuce.mmoitems.stat.data.DoubleData;
+import net.Indyuce.mmoitems.stat.data.type.StatData;
+import net.Indyuce.mmoitems.stat.type.DoubleStat;
+import net.Indyuce.mmoitems.stat.type.ItemStat;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -560,13 +565,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         try {
             MMOPlayerData mmoData = MMOPlayerData.get(player.getUniqueId());
             if (mmoData == null || mmoData.getStatMap() == null) return;
-            Set<String> stats = new HashSet<>();
-            for (EquipSlot slot : slots.values()) {
-                stats.addAll(slot.stats().keySet());
-            }
-            for (String stat : stats) {
-                StatInstance instance = mmoData.getStatMap().getInstance(stat);
-                if (instance != null) instance.remove(MOD_PREFIX + stat);
+            for (StatInstance instance : mmoData.getStatMap().getInstances()) {
+                if (instance != null) {
+                    instance.removeIf(key -> key.startsWith(MOD_PREFIX));
+                }
             }
         } catch (Throwable ignored) {
         }
@@ -577,9 +579,51 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Map<String, ItemStack> playerItems = equipped.getOrDefault(uuid, Map.of());
         for (EquipSlot slot : slots.values()) {
             if (!playerItems.containsKey(slot.id())) continue;
-            slot.stats().forEach((stat, value) -> total.merge(stat, value, Double::sum));
+            itemStats(playerItems.get(slot.id())).forEach((stat, value) -> total.merge(stat, value, Double::sum));
+            if (slot.useConfigStats()) {
+                slot.stats().forEach((stat, value) -> total.merge(stat, value, Double::sum));
+            }
         }
         return total;
+    }
+
+    private Map<String, Double> itemStats(ItemStack item) {
+        Map<String, Double> stats = new LinkedHashMap<>();
+        if (item == null || item.getType().isAir()) return stats;
+
+        try {
+            LiveMMOItem liveItem = new LiveMMOItem(item);
+            for (ItemStat stat : liveItem.getStats()) {
+                if (!(stat instanceof DoubleStat)) continue;
+                StatData data = liveItem.getData(stat);
+                if (!(data instanceof DoubleData doubleData)) continue;
+                double value = doubleData.getValue();
+                if (value != 0D) {
+                    stats.merge(normalize(stat.getId()), value, Double::sum);
+                }
+            }
+            return stats;
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            for (String tag : nbt.getTags()) {
+                if (tag == null || !tag.startsWith("MMOITEMS_")) continue;
+                if (tag.equals("MMOITEMS_ITEM_TYPE")
+                        || tag.equals("MMOITEMS_ITEM_ID")
+                        || tag.equals("MMOITEMS_TYPE")
+                        || tag.equals("MMOITEMS_ID")) {
+                    continue;
+                }
+                double value = nbt.getDouble(tag);
+                if (value != 0D) {
+                    stats.merge(normalize(tag.substring("MMOITEMS_".length())), value, Double::sum);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return stats;
     }
 
     private void loadSlots() {
@@ -599,7 +643,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     stats.put(normalize(stat), statsSection.getDouble(stat, 0.0D));
                 }
             }
-            slots.put(id, new EquipSlot(id, config.getInt(path + ".slot"), acceptedTypes, stats));
+            slots.put(id, new EquipSlot(id, config.getInt(path + ".slot"), acceptedTypes,
+                    config.getBoolean(path + ".use-config-stats", false), stats));
         }
     }
 
@@ -792,7 +837,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private ItemStack previewItem(Player player, UpgradeRule rule) {
-        String toName = displayName(createMmoItem(player, rule.toType(), rule.toId()), rule.toType() + ":" + rule.toId());
+        ItemStack result = createMmoItem(player, rule.toType(), rule.toId());
+        String toName = displayName(result, rule.toType() + ":" + rule.toId());
+        if (result != null && !result.getType().isAir()) {
+            ItemStack preview = result.clone();
+            preview.setAmount(1);
+            appendPreviewLore(preview, rule, toName);
+            return preview;
+        }
         if (config != null) {
             return named(
                     Material.matchMaterial(config.getString("gui.upgrade-preview.material", "EMERALD")),
@@ -803,6 +855,30 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             );
         }
         return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nháº­n qua command cáº¥u hÃ¬nh."));
+    }
+
+    private void appendPreviewLore(ItemStack item, UpgradeRule rule, String toName) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        List<String> appendLines = config.getStringList("gui.upgrade-preview.append-lore");
+        if (appendLines.isEmpty()) {
+            appendLines = List.of(
+                    "",
+                    "&7Linh thach: &e%cost%",
+                    "&7Cap yeu cau: &a%required_level%",
+                    "&7Canh gioi: &b%required_realm%"
+            );
+        }
+
+        List<String> lore = meta.hasLore() && meta.getLore() != null
+                ? new ArrayList<>(meta.getLore())
+                : new ArrayList<>();
+        for (String line : appendLines) {
+            lore.add(color(replaceUpgradePlaceholders(line, rule, "", toName)));
+        }
+        meta.setLore(lore);
+        item.setItemMeta(meta);
     }
 
     private String replaceUpgradePlaceholders(String line, UpgradeRule rule, String fromName, String toName) {
@@ -1041,7 +1117,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
-    private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, Map<String, Double> stats) {
+    private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, boolean useConfigStats, Map<String, Double> stats) {
         boolean accepts(String type) {
             return type != null && acceptedTypes.contains(type);
         }

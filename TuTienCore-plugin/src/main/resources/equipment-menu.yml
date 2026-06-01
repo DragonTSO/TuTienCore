@@ -55,6 +55,11 @@ gui:
   upgrade-preview:
     material: EMERALD
     name: "&e%to_name%"
+    append-lore:
+      - ""
+      - "&7Linh thach: &e%cost%"
+      - "&7Cap yeu cau: &a%required_level%"
+      - "&7Canh gioi: &b%required_realm%"
     lore:
       - "&7Item nhan qua command cau hinh."
       - ""
@@ -77,6 +82,9 @@ gui:
 slots:
   accessory:
     slot: 20
+    # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
+    # true = cong them stats config ben duoi neu ban muon bonus rieng.
+    use-config-stats: false
     accepted-types:
       - ACCESSORY
     empty:
@@ -85,11 +93,11 @@ slots:
       lore:
         - "&7Dat item MMOItems type &dACCESSORY"
         - "&7vao day de nhan chi so."
-    stats:
-      ATTACK_DAMAGE: 5
-      MAX_HEALTH: 20
   dan_duoc:
     slot: 24
+    # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
+    # true = cong them stats config ben duoi neu ban muon bonus rieng.
+    use-config-stats: false
     accepted-types:
       - DAN_DUOC
     empty:
@@ -98,9 +106,6 @@ slots:
       lore:
         - "&7Dat item MMOItems type &6DAN_DUOC"
         - "&7vao day de nhan chi so."
-    stats:
-      MAX_HEALTH: 10
-      MAX_MANA: 15
 
 offhand:
   bound-item:
