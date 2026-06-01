@@ -282,7 +282,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return;
         }
         if (rule.cost() > 0 && !withdrawMoney(player, rule.cost())) {
-            player.sendMessage(message("not-enough-money").replace("%cost%", formatNumber(rule.cost())));
+            player.sendMessage(message("not-enough-money").replace("%cost%", formatMoney(rule.cost())));
             return;
         }
         if (rule.takeSource()) {
@@ -678,7 +678,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     fromId,
                     normalize(config.getString(path + ".to-type", "")),
                     normalize(config.getString(path + ".to-id", "")),
-                    config.getDouble(path + ".cost", 0D),
+                    parseMoneyAmount(config.get(path + ".cost"), 0D),
                     config.getInt(path + ".required-level", 0),
                     config.getInt(path + ".required-realm", 0),
                     parseSubRealm(config.getString(path + ".required-sub-realm", "")),
@@ -813,7 +813,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 .replace("%to_type%", rule.toType())
                 .replace("%to_id%", rule.toId())
                 .replace("%to_name%", toName)
-                .replace("%cost%", formatNumber(rule.cost()))
+                .replace("%cost%", formatMoney(rule.cost()))
                 .replace("%required_level%", rule.requiredLevel() <= 0 ? "KhÃ´ng yÃªu cáº§u" : String.valueOf(rule.requiredLevel()))
                 .replace("%required_realm%", rule.requiredRealm() <= 0 ? "KhÃ´ng yÃªu cáº§u" : formatRealmRequirement(rule))
                 .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "KhÃ´ng yÃªu cáº§u" : rule.requiredSubRealm().getDisplayName());
@@ -840,7 +840,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private List<String> upgradeFailures(Player player, UpgradeRule rule) {
         List<String> failures = new ArrayList<>();
         if (rule.cost() > 0 && !hasMoney(player, rule.cost())) {
-            failures.add(message("failure-money").replace("%cost%", formatNumber(rule.cost())));
+            failures.add(message("failure-money").replace("%cost%", formatMoney(rule.cost())));
         }
 
         int currentLevel = getTuTienLevel(player);
@@ -978,8 +978,67 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
     }
 
+    private double parseMoneyAmount(Object value, double fallback) {
+        if (value instanceof Number number) {
+            return Math.max(0D, number.doubleValue());
+        }
+        if (value == null) {
+            return fallback;
+        }
+
+        String raw = String.valueOf(value)
+                .trim()
+                .replace("_", "")
+                .replace(" ", "")
+                .replace(",", "");
+        if (raw.isBlank()) {
+            return fallback;
+        }
+
+        double multiplier = 1D;
+        char suffix = Character.toLowerCase(raw.charAt(raw.length() - 1));
+        if (suffix == 'k' || suffix == 'm' || suffix == 'b' || suffix == 't') {
+            raw = raw.substring(0, raw.length() - 1);
+            multiplier = switch (suffix) {
+                case 'k' -> 1_000D;
+                case 'm' -> 1_000_000D;
+                case 'b' -> 1_000_000_000D;
+                case 't' -> 1_000_000_000_000D;
+                default -> 1D;
+            };
+        }
+
+        try {
+            return Math.max(0D, Double.parseDouble(raw) * multiplier);
+        } catch (NumberFormatException ignored) {
+            plugin.getLogger().warning("Invalid offhand upgrade money cost: " + value);
+            return fallback;
+        }
+    }
+
     private String formatNumber(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.format(Locale.US, "%.2f", value);
+    }
+
+    private String formatMoney(double value) {
+        double absolute = Math.abs(value);
+        if (absolute >= 1_000_000_000_000D) {
+            return trimDecimal(value / 1_000_000_000_000D) + "T";
+        }
+        if (absolute >= 1_000_000_000D) {
+            return trimDecimal(value / 1_000_000_000D) + "B";
+        }
+        if (absolute >= 1_000_000D) {
+            return trimDecimal(value / 1_000_000D) + "M";
+        }
+        if (absolute >= 1_000D) {
+            return trimDecimal(value / 1_000D) + "K";
+        }
+        return formatNumber(value);
+    }
+
+    private String trimDecimal(double value) {
+        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, Map<String, Double> stats) {

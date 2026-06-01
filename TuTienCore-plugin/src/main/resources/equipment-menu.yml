@@ -128,6 +128,7 @@ offhand:
       to-type: OFF_CATALYST
       to-id: HA_MACH_TIEN_HOAN
       take-source: true
+      # Ho tro so rut gon: 1k, 1m, 1.01m, 1b, 1t.
       cost: 100000
       required-level: 10
       required-realm: 5
@@ -139,6 +140,7 @@ offhand:
       from-id: DAN_DUOC_1
       to-type: DAN_DUOC
       to-id: DAN_DUOC_2
+      # Ho tro so rut gon: 1k, 1m, 1.01m, 1b, 1t.
       cost: 0
       required-level: 0
       required-realm: 0
