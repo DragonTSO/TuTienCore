@@ -1,8 +1,14 @@
 enabled: true
 
+duration:
+  # Luu thoi gian con lai xuong equipment-data.yml moi bao nhieu giay.
+  save-interval-seconds: 30
+
 messages:
   only-player: "&cChi player moi dung duoc lenh nay."
   invalid-item: "&cItem nay khong dung type yeu cau."
+  expired-item: "&cItem nay da het thoi gian hieu luc."
+  duration-expired: "&e%slot% &cda het thoi gian hieu luc."
   equipped: "&aDa trang bi &f%slot%&a."
   unequipped: "&eDa thao &f%slot%&e."
   no-offhand-item: "&cHay cam item MMOItems o offhand."
@@ -106,6 +112,19 @@ slots:
       lore:
         - "&7Dat item MMOItems type &6DAN_DUOC"
         - "&7vao day de nhan chi so."
+    duration:
+      enabled: true
+      # Uu tien lay stat MMOItems nay tren item. Don vi: giay.
+      stat: DAN_DUOC_DURATION
+      # Neu item khong co stat DAN_DUOC_DURATION thi dung default nay.
+      # Ho tro: 30s, 5m, 2h, 1d, hoac ghep nhu 1h30m.
+      default: 1h
+      # true = ghi lore thoi gian vao chinh item; thao ra se giu thoi gian con lai.
+      write-to-item-lore: true
+      consume-when-expired: true
+      lore:
+        - ""
+        - "&7Hieu luc: &e%remaining% &8/ &f%duration%"
 
 offhand:
   bound-item:

@@ -69,6 +69,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private static final String MOD_PREFIX = "tutien_equipment_";
     private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
+    private static final String DURATION_STAT_ID = "DAN_DUOC_DURATION";
+    private static final Pattern DURATION_PART = Pattern.compile("(\\d+(?:\\.\\d+)?)(d|day|days|h|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?", Pattern.CASE_INSENSITIVE);
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
@@ -76,11 +78,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final File dataFile;
     private final NamespacedKey actionKey;
     private final NamespacedKey boundOffhandKey;
+    private final NamespacedKey durationRemainingKey;
+    private final NamespacedKey ancientDurationSecondsKey;
 
     private FileConfiguration config;
     private FileConfiguration data;
     private final Map<String, EquipSlot> slots = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack>> equipped = new HashMap<>();
+    private int durationSaveCounter;
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -89,8 +94,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         this.dataFile = new File(plugin.getDataFolder(), "equipment-data.yml");
         this.actionKey = new NamespacedKey(plugin, "equipment_action");
         this.boundOffhandKey = new NamespacedKey(plugin, "equipment_bound_offhand");
+        this.durationRemainingKey = new NamespacedKey(plugin, "equipment_duration_remaining_seconds");
+        this.ancientDurationSecondsKey = new NamespacedKey("tutienancient", "dan_duoc_duration_seconds");
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickTimedEquipment, 20L, 20L);
     }
 
     public void reload() {
@@ -147,7 +155,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         inventory.setItem(config.getInt("gui.info-slot", 4), infoItem(player));
         Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
         for (EquipSlot slot : slots.values()) {
-            inventory.setItem(slot.guiSlot(), playerItems.getOrDefault(slot.id(), emptySlotItem(slot)));
+            ItemStack equippedItem = playerItems.get(slot.id());
+            inventory.setItem(slot.guiSlot(), equippedItem == null ? emptySlotItem(slot) : displayEquippedItem(slot, equippedItem));
         }
         player.openInventory(inventory);
     }
@@ -258,6 +267,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             }
             ItemStack one = cursor.clone();
             one.setAmount(1);
+            if (!prepareTimedItemForEquip(slot, one)) {
+                player.sendMessage(message("expired-item"));
+                return;
+            }
             ItemStack old = playerItems.put(slot.id(), one);
             cursor.setAmount(cursor.getAmount() - 1);
             event.setCursor(cursor.getAmount() <= 0 ? null : cursor);
@@ -574,6 +587,192 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
     }
 
+    private void tickTimedEquipment() {
+        if (!config.getBoolean("enabled", true)) return;
+
+        boolean hasDirtyData = false;
+        boolean saveNow = false;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            loadPlayer(player.getUniqueId());
+            Map<String, ItemStack> playerItems = equipped.get(player.getUniqueId());
+            if (playerItems == null || playerItems.isEmpty()) continue;
+
+            boolean playerChanged = false;
+            boolean statsChanged = false;
+            for (EquipSlot slot : slots.values()) {
+                DurationSettings duration = slot.duration();
+                if (!duration.enabled()) continue;
+
+                ItemStack item = playerItems.get(slot.id());
+                if (item == null || item.getType().isAir()) continue;
+
+                long remaining = remainingDurationSeconds(item);
+                if (remaining < 0) {
+                    if (!prepareTimedItemForEquip(slot, item)) {
+                        playerItems.remove(slot.id());
+                        playerChanged = true;
+                        statsChanged = true;
+                        saveNow = true;
+                        continue;
+                    }
+                    remaining = remainingDurationSeconds(item);
+                }
+                if (remaining < 0) {
+                    continue;
+                }
+                if (remaining <= 0) {
+                    expireTimedItem(player, slot, item, playerItems);
+                    playerChanged = true;
+                    statsChanged = true;
+                    saveNow = true;
+                    continue;
+                }
+
+                remaining--;
+                if (remaining <= 0) {
+                    setRemainingDurationSeconds(item, 0);
+                    expireTimedItem(player, slot, item, playerItems);
+                    playerChanged = true;
+                    statsChanged = true;
+                    saveNow = true;
+                    continue;
+                }
+
+                setRemainingDurationSeconds(item, remaining);
+                updateDurationItemLore(slot, item);
+                refreshOpenEquipmentSlot(player, slot);
+                playerChanged = true;
+            }
+
+            if (statsChanged) {
+                applyStats(player);
+            }
+            if (playerChanged) {
+                savePlayer(player.getUniqueId());
+                hasDirtyData = true;
+            }
+        }
+
+        if (!hasDirtyData) return;
+        durationSaveCounter++;
+        int saveInterval = Math.max(1, config.getInt("duration.save-interval-seconds", 30));
+        if (saveNow || durationSaveCounter >= saveInterval) {
+            durationSaveCounter = 0;
+            saveDataFile();
+        }
+    }
+
+    private void expireTimedItem(Player player, EquipSlot slot, ItemStack item, Map<String, ItemStack> playerItems) {
+        playerItems.remove(slot.id());
+        setRemainingDurationSeconds(item, 0);
+        updateDurationItemLore(slot, item);
+        if (!slot.duration().consumeWhenExpired()) {
+            giveOrDrop(player, item);
+        }
+        refreshOpenEquipmentSlot(player, slot);
+        player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7F, 1.4F);
+        player.sendMessage(message("duration-expired").replace("%slot%", slot.id()));
+    }
+
+    private boolean prepareTimedItemForEquip(EquipSlot slot, ItemStack item) {
+        if (slot == null || !slot.duration().enabled() || item == null || item.getType().isAir()) {
+            return true;
+        }
+
+        long current = remainingDurationSeconds(item);
+        if (current == 0) {
+            return false;
+        }
+        if (current > 0) {
+            updateDurationItemLore(slot, item);
+            return true;
+        }
+
+        long duration = initialDurationSeconds(slot, item);
+        if (duration <= 0) {
+            return true;
+        }
+        setRemainingDurationSeconds(item, duration);
+        updateDurationItemLore(slot, item);
+        return true;
+    }
+
+    private long initialDurationSeconds(EquipSlot slot, ItemStack item) {
+        long fromAncient = persistentDurationSeconds(item, ancientDurationSecondsKey);
+        if (fromAncient > 0L) {
+            return fromAncient;
+        }
+        long fromMmoItems = mmoDurationSeconds(slot, item);
+        return fromMmoItems > 0 ? fromMmoItems : slot.duration().defaultSeconds();
+    }
+
+    private long persistentDurationSeconds(ItemStack item, NamespacedKey key) {
+        if (item == null || item.getType().isAir() || key == null || !item.hasItemMeta()) return 0L;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return 0L;
+        try {
+            Long longValue = meta.getPersistentDataContainer().get(key, PersistentDataType.LONG);
+            if (longValue != null && longValue > 0L) return longValue;
+            Integer intValue = meta.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
+            if (intValue != null && intValue > 0) return intValue.longValue();
+            Double doubleValue = meta.getPersistentDataContainer().get(key, PersistentDataType.DOUBLE);
+            if (doubleValue != null && doubleValue > 0D) return Math.max(1L, Math.round(doubleValue));
+            String stringValue = meta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
+            long parsed = parseDurationSeconds(stringValue, 0L);
+            return Math.max(0L, parsed);
+        } catch (IllegalArgumentException ignored) {
+            return 0L;
+        }
+    }
+
+    private long mmoDurationSeconds(EquipSlot slot, ItemStack item) {
+        if (item == null || item.getType().isAir()) return 0;
+        String statId = normalize(slot.duration().statId());
+        if (statId.isBlank()) statId = DURATION_STAT_ID;
+
+        try {
+            LiveMMOItem liveItem = new LiveMMOItem(item);
+            for (ItemStat stat : liveItem.getStats()) {
+                if (!normalize(stat.getId()).equals(statId)) continue;
+                StatData data = liveItem.getData(stat);
+                if (data instanceof DoubleData doubleData) {
+                    return Math.max(0L, Math.round(doubleData.getValue()));
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            for (String key : List.of(statId, "MMOITEMS_" + statId)) {
+                double numeric = nbt.getDouble(key);
+                if (numeric > 0D) return Math.max(0L, Math.round(numeric));
+                long parsed = parseDurationSeconds(nbt.getString(key), 0L);
+                if (parsed > 0L) return parsed;
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0L;
+    }
+
+    private long remainingDurationSeconds(ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return -1L;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || !meta.getPersistentDataContainer().has(durationRemainingKey, PersistentDataType.LONG)) {
+            return -1L;
+        }
+        Long remaining = meta.getPersistentDataContainer().get(durationRemainingKey, PersistentDataType.LONG);
+        return remaining == null ? -1L : Math.max(0L, remaining);
+    }
+
+    private void setRemainingDurationSeconds(ItemStack item, long seconds) {
+        if (item == null || item.getType().isAir()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        meta.getPersistentDataContainer().set(durationRemainingKey, PersistentDataType.LONG, Math.max(0L, seconds));
+        item.setItemMeta(meta);
+    }
+
     private Map<String, Double> totalStats(UUID uuid) {
         Map<String, Double> total = new LinkedHashMap<>();
         Map<String, ItemStack> playerItems = equipped.getOrDefault(uuid, Map.of());
@@ -595,11 +794,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             LiveMMOItem liveItem = new LiveMMOItem(item);
             for (ItemStat stat : liveItem.getStats()) {
                 if (!(stat instanceof DoubleStat)) continue;
+                String statId = normalize(stat.getId());
+                if (isEquipmentDurationStat(statId)) continue;
                 StatData data = liveItem.getData(stat);
                 if (!(data instanceof DoubleData doubleData)) continue;
                 double value = doubleData.getValue();
                 if (value != 0D) {
-                    stats.merge(normalize(stat.getId()), value, Double::sum);
+                    stats.merge(statId, value, Double::sum);
                 }
             }
             return stats;
@@ -616,14 +817,27 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                         || tag.equals("MMOITEMS_ID")) {
                     continue;
                 }
+                String statId = normalize(tag.substring("MMOITEMS_".length()));
+                if (isEquipmentDurationStat(statId)) continue;
                 double value = nbt.getDouble(tag);
                 if (value != 0D) {
-                    stats.merge(normalize(tag.substring("MMOITEMS_".length())), value, Double::sum);
+                    stats.merge(statId, value, Double::sum);
                 }
             }
         } catch (Throwable ignored) {
         }
         return stats;
+    }
+
+    private boolean isEquipmentDurationStat(String statId) {
+        String normalized = normalize(statId);
+        if (normalized.equals(DURATION_STAT_ID)) return true;
+        for (EquipSlot slot : slots.values()) {
+            if (slot.duration().enabled() && normalized.equals(normalize(slot.duration().statId()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void loadSlots() {
@@ -644,8 +858,19 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 }
             }
             slots.put(id, new EquipSlot(id, config.getInt(path + ".slot"), acceptedTypes,
-                    config.getBoolean(path + ".use-config-stats", false), stats));
+                    config.getBoolean(path + ".use-config-stats", false), stats, loadDurationSettings(path + ".duration")));
         }
+    }
+
+    private DurationSettings loadDurationSettings(String path) {
+        return new DurationSettings(
+                config.getBoolean(path + ".enabled", false),
+                normalize(config.getString(path + ".stat", DURATION_STAT_ID)),
+                parseDurationSeconds(config.get(path + ".default"), 0L),
+                config.getBoolean(path + ".write-to-item-lore", true),
+                config.getBoolean(path + ".consume-when-expired", true),
+                config.getStringList(path + ".lore")
+        );
     }
 
     private void loadPlayer(UUID uuid) {
@@ -654,7 +879,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (String slotId : slots.keySet()) {
             ItemStack item = data.getItemStack(uuid + "." + slotId);
             if (item != null && item.getType() != Material.AIR) {
-                playerItems.put(slotId, item);
+                EquipSlot slot = slots.get(slotId);
+                if (slot == null || prepareTimedItemForEquip(slot, item)) {
+                    playerItems.put(slotId, item);
+                }
             }
         }
         equipped.put(uuid, playerItems);
@@ -816,6 +1044,108 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 config.getString(path + ".name", "&7" + slot.id()),
                 config.getStringList(path + ".lore")
         );
+    }
+
+    private ItemStack displayEquippedItem(EquipSlot slot, ItemStack item) {
+        if (item == null || item.getType().isAir()) return emptySlotItem(slot);
+        ItemStack display = item.clone();
+        appendDurationLore(slot, display);
+        return display;
+    }
+
+    private void appendDurationLore(EquipSlot slot, ItemStack item) {
+        if (slot == null || !slot.duration().enabled() || item == null || item.getType().isAir()) return;
+        long remaining = remainingDurationSeconds(item);
+        if (remaining < 0L) {
+            remaining = initialDurationSeconds(slot, item);
+        }
+        if (remaining <= 0L) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        List<String> lore = meta.hasLore() && meta.getLore() != null
+                ? new ArrayList<>(meta.getLore())
+                : new ArrayList<>();
+        lore = stripDurationLore(slot, lore);
+        long duration = initialDurationSeconds(slot, item);
+        for (String line : slot.duration().lore()) {
+            lore.add(color(replaceDurationPlaceholders(line, remaining, duration)));
+        }
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+    }
+
+    private void updateDurationItemLore(EquipSlot slot, ItemStack item) {
+        if (slot == null || !slot.duration().enabled() || !slot.duration().writeToItemLore()) return;
+        appendDurationLore(slot, item);
+    }
+
+    private List<String> stripDurationLore(EquipSlot slot, List<String> lore) {
+        List<String> stripped = new ArrayList<>();
+        for (String line : lore) {
+            if (isDurationLoreLine(slot, line)) {
+                if (!stripped.isEmpty() && isBlankLoreLine(stripped.get(stripped.size() - 1))) {
+                    stripped.remove(stripped.size() - 1);
+                }
+                continue;
+            }
+            stripped.add(line);
+        }
+        return stripped;
+    }
+
+    private boolean isDurationLoreLine(EquipSlot slot, String line) {
+        String normalizedLine = normalizeLoreLine(line);
+        if (normalizedLine.isBlank()) return false;
+        if (normalizedLine.contains("hieu luc")) {
+            return true;
+        }
+        for (String template : slot.duration().lore()) {
+            if (matchesDurationTemplate(normalizedLine, template)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesDurationTemplate(String normalizedLine, String template) {
+        String normalizedTemplate = normalizeLoreLine(template);
+        if (normalizedTemplate.isBlank()) return false;
+        String marker = "{duration_value}";
+        String withMarker = normalizedTemplate
+                .replace("%remaining%", marker)
+                .replace("%duration%", marker)
+                .replace("%total%", marker);
+        if (!withMarker.contains(marker)) {
+            return normalizedLine.equals(withMarker);
+        }
+
+        int cursor = 0;
+        for (String part : withMarker.split(Pattern.quote(marker), -1)) {
+            if (part.isBlank()) continue;
+            int found = normalizedLine.indexOf(part, cursor);
+            if (found < 0) return false;
+            cursor = found + part.length();
+        }
+        return true;
+    }
+
+    private String replaceDurationPlaceholders(String line, long remainingSeconds, long totalSeconds) {
+        return line
+                .replace("%remaining%", formatDuration(remainingSeconds))
+                .replace("%duration%", formatDuration(totalSeconds))
+                .replace("%total%", formatDuration(totalSeconds));
+    }
+
+    private void refreshOpenEquipmentSlot(Player player, EquipSlot slot) {
+        if (player == null || slot == null) return;
+        if (!player.getOpenInventory().getTitle().equals(color(config.getString("gui.title", "&8Trang Bi Tu Tien")))) {
+            return;
+        }
+        Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
+        ItemStack item = playerItems.get(slot.id());
+        player.getOpenInventory().getTopInventory().setItem(slot.guiSlot(), item == null ? emptySlotItem(slot) : displayEquippedItem(slot, item));
     }
 
     private ItemStack confirmItem(Player player, ItemStack source, UpgradeRule rule) {
@@ -1092,6 +1422,58 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
     }
 
+    private long parseDurationSeconds(Object value, long fallback) {
+        if (value instanceof Number number) {
+            return Math.max(0L, Math.round(number.doubleValue()));
+        }
+        if (value == null) {
+            return fallback;
+        }
+
+        String raw = String.valueOf(value).trim().toLowerCase(Locale.ROOT).replace("_", "").replace(",", ".");
+        if (raw.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return Math.max(0L, Math.round(Double.parseDouble(raw)));
+        } catch (NumberFormatException ignored) {
+        }
+
+        Matcher matcher = DURATION_PART.matcher(raw);
+        double seconds = 0D;
+        boolean matched = false;
+        while (matcher.find()) {
+            matched = true;
+            double amount = Double.parseDouble(matcher.group(1));
+            String unit = matcher.group(2) == null ? "s" : matcher.group(2).toLowerCase(Locale.ROOT);
+            seconds += amount * switch (unit) {
+                case "d", "day", "days" -> 86_400D;
+                case "h", "hour", "hours" -> 3_600D;
+                case "m", "min", "mins", "minute", "minutes" -> 60D;
+                default -> 1D;
+            };
+        }
+        return matched ? Math.max(0L, Math.round(seconds)) : fallback;
+    }
+
+    private String formatDuration(long seconds) {
+        long remaining = Math.max(0L, seconds);
+        long days = remaining / 86_400L;
+        remaining %= 86_400L;
+        long hours = remaining / 3_600L;
+        remaining %= 3_600L;
+        long minutes = remaining / 60L;
+        long secs = remaining % 60L;
+
+        List<String> parts = new ArrayList<>();
+        if (days > 0) parts.add(days + "d");
+        if (hours > 0) parts.add(hours + "h");
+        if (minutes > 0) parts.add(minutes + "m");
+        if (secs > 0 || parts.isEmpty()) parts.add(secs + "s");
+        return String.join(" ", parts);
+    }
+
     private String formatNumber(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.format(Locale.US, "%.2f", value);
     }
@@ -1117,10 +1499,19 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
-    private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, boolean useConfigStats, Map<String, Double> stats) {
+    private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, boolean useConfigStats, Map<String, Double> stats, DurationSettings duration) {
         boolean accepts(String type) {
             return type != null && acceptedTypes.contains(type);
         }
+    }
+
+    private record DurationSettings(
+            boolean enabled,
+            String statId,
+            long defaultSeconds,
+            boolean writeToItemLore,
+            boolean consumeWhenExpired,
+            List<String> lore) {
     }
 
     private record UpgradeRule(
