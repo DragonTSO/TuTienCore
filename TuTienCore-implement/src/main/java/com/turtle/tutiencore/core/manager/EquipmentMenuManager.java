@@ -72,15 +72,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private static final String CONSUMABLE_MOD_PREFIX = "tutien_consumable_";
     private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
     private static final String DURATION_STAT_ID = "DAN_DUOC_DURATION";
-    private static final String CONSUMABLE_STAT_ID = "DAN_DUOC_CONSUMABLE";
     public static final String DAN_DUOC_TU_VI_BONUS_STAT = "DAN_DUOC_TUVI_BONUS";
     public static final String DAN_DUOC_MYTHIC_MONEY_BONUS_STAT = "DAN_DUOC_MYTHIC_MONEY_BONUS";
     public static final String DAN_DUOC_FORGE_LUCK_BONUS_STAT = "DAN_DUOC_FORGE_LUCK_BONUS";
     private static final Set<String> SYSTEM_STAT_IDS = Set.of(
             DAN_DUOC_TU_VI_BONUS_STAT,
             DAN_DUOC_MYTHIC_MONEY_BONUS_STAT,
-            DAN_DUOC_FORGE_LUCK_BONUS_STAT,
-            CONSUMABLE_STAT_ID
+            DAN_DUOC_FORGE_LUCK_BONUS_STAT
     );
     private static final Pattern DURATION_PART = Pattern.compile("(\\d+(?:\\.\\d+)?)(d|day|days|h|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?", Pattern.CASE_INSENSITIVE);
 
@@ -1062,13 +1060,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (type == null) return false;
         List<String> acceptedTypes = config.getStringList("consumable.accepted-types");
         if (acceptedTypes.isEmpty()) {
-            acceptedTypes = List.of("DAN_DUOC");
+            acceptedTypes = List.of("DAN_DUOC_CONSUMABLE");
         }
         boolean accepted = acceptedTypes.stream().map(this::normalize).anyMatch(type::equals);
-        if (!accepted) return false;
+        if (accepted) return true;
 
-        String flagStat = normalizeStatId(config.getString("consumable.flag-stat", CONSUMABLE_STAT_ID));
-        if (flagStat.isBlank()) flagStat = CONSUMABLE_STAT_ID;
+        String flagStat = normalizeStatId(config.getString("consumable.flag-stat", ""));
+        if (flagStat.isBlank()) return false;
         return itemStatValue(item, flagStat) > 0.0D;
     }
 

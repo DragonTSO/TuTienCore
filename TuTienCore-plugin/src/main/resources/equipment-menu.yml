@@ -7,9 +7,10 @@ duration:
 consumable:
   enabled: true
   accepted-types:
-    - DAN_DUOC
-  # Item DAN_DUOC nao co stat nay > 0 se duoc right-click de dung mot lan.
-  flag-stat: DAN_DUOC_CONSUMABLE
+    - DAN_DUOC_CONSUMABLE
+  # De trong = chi check theo MMOItems type. Neu muon ho tro flag stat cu,
+  # dien stat id vao day va item phai co stat do > 0.
+  flag-stat: ""
   duration-stat: DAN_DUOC_DURATION
   default-duration: 5m
   consume-amount: 1
