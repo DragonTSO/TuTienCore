@@ -150,7 +150,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     public void openEquipment(Player player) {
         ensureBoundOffhand(player);
         loadPlayer(player.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.size", 54), color(config.getString("gui.title", "&8Trang Bá»‹ Tu TiÃªn")));
+        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.size", 54), color(config.getString("gui.title", "&8Trang Bị Tu Tiên")));
         fill(inventory);
         inventory.setItem(config.getInt("gui.info-slot", 4), infoItem(player));
         Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
@@ -165,14 +165,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ensureBoundOffhand(player);
         ItemStack offhand = player.getInventory().getItemInOffHand();
         UpgradeRule rule = findUpgrade(offhand);
-        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.upgrade-size", 27), color(config.getString("gui.upgrade-title", "&8Tiáº¿n HoÃ¡ Offhand")));
+        Inventory inventory = Bukkit.createInventory(player, config.getInt("gui.upgrade-size", 27), color(config.getString("gui.upgrade-title", "&8Tiến Hoá Offhand")));
         fill(inventory);
         inventory.setItem(config.getInt("gui.upgrade-slots.source", 11), offhand == null ? new ItemStack(Material.AIR) : offhand.clone());
         if (rule != null) {
             inventory.setItem(config.getInt("gui.upgrade-slots.result", 15), previewItem(player, rule));
             inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), confirmItem(player, offhand, rule));
         } else {
-            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), named(Material.BARRIER, "&cKhÃ´ng thá»ƒ tiáº¿n hoÃ¡", List.of(message("no-upgrade"))));
+            inventory.setItem(config.getInt("gui.upgrade-slots.confirm", 13), named(Material.BARRIER, "&cKhông thể tiến hoá", List.of(message("no-upgrade"))));
         }
         player.openInventory(inventory);
     }
@@ -225,9 +225,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return;
         }
         String title = event.getView().getTitle();
-        if (title.equals(color(config.getString("gui.title", "&8Trang Bá»‹ Tu TiÃªn")))) {
+        if (title.equals(color(config.getString("gui.title", "&8Trang Bị Tu Tiên")))) {
             handleEquipmentClick(event, player);
-        } else if (title.equals(color(config.getString("gui.upgrade-title", "&8Tiáº¿n HoÃ¡ Offhand")))) {
+        } else if (title.equals(color(config.getString("gui.upgrade-title", "&8Tiến Hoá Offhand")))) {
             handleUpgradeClick(event, player);
         }
     }
@@ -299,14 +299,22 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             failures.forEach(player::sendMessage);
             return;
         }
+        ItemStack resultItem = createUpgradeResultItem(player, rule);
+        if (resultItem == null || resultItem.getType().isAir()) {
+            player.sendMessage(message("upgrade-create-failed", "&cKhông tạo được item tiến hoá. Hãy kiểm tra to-type/to-id."));
+            return;
+        }
         if (rule.cost() > 0 && !withdrawMoney(player, rule.cost())) {
             player.sendMessage(message("not-enough-money").replace("%cost%", formatMoney(rule.cost())));
             return;
         }
         if (rule.takeSource()) {
-            player.getInventory().setItemInOffHand(null);
+            player.getInventory().setItemInOffHand(resultItem);
+            scheduleBoundOffhandLoreAppend(player, 4L);
+        } else {
+            giveOrDrop(player, resultItem);
         }
-        for (String command : rule.commands()) {
+        for (String command : executableUpgradeCommands(rule.commands())) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command
                     .replace("%player%", player.getName())
                     .replace("%uuid%", player.getUniqueId().toString())
@@ -403,7 +411,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (item == null || item.getType().isAir()) {
             item = named(
                     Material.matchMaterial(config.getString("offhand.bound-item.fallback-material", "NETHER_STAR")),
-                    config.getString("offhand.bound-item.name", "&dHá»™ Má»‡nh TiÃªn HoÃ n"),
+                    config.getString("offhand.bound-item.name", "&dHộ Mệnh Tiên Hoàn"),
                     config.getStringList("offhand.bound-item.lore")
             );
         }
@@ -421,6 +429,19 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             plugin.getLogger().warning("Could not create bound offhand MMOItem " + typeId + ":" + itemId + ": " + throwable.getMessage());
             return null;
         }
+    }
+
+    private ItemStack createUpgradeResultItem(Player player, UpgradeRule rule) {
+        ItemStack item = createMmoItem(player, rule.toType(), rule.toId());
+        if (item == null || item.getType().isAir()) {
+            return null;
+        }
+
+        ItemStack result = item.clone();
+        result.setAmount(1);
+        markBoundOffhand(result);
+        refreshBoundOffhandLore(player, result);
+        return result;
     }
 
     private void refreshBoundOffhandLore(Player player, ItemStack item) {
@@ -987,7 +1008,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Material material = Material.matchMaterial(config.getString("gui.info-item.material", "NETHER_STAR"));
         ItemStack item = named(
                 material,
-                config.getString("gui.info-item.name", "&6ThÃ´ng Tin NgÆ°á»i ChÆ¡i"),
+                config.getString("gui.info-item.name", "&6Thông Tin Người Chơi"),
                 replaceInfo(config.getStringList("gui.info-item.lore"), player)
         );
         if (material == Material.PLAYER_HEAD && item.getItemMeta() instanceof SkullMeta skullMeta) {
@@ -1153,7 +1174,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         String toName = displayName(createMmoItem(player, rule.toType(), rule.toId()), rule.toType() + ":" + rule.toId());
         ItemStack item = named(
                 Material.matchMaterial(config.getString("gui.upgrade-confirm.material", "EMERALD")),
-                config.getString("gui.upgrade-confirm.name", "&aTiáº¿n HoÃ¡"),
+                config.getString("gui.upgrade-confirm.name", "&aTiến Hoá"),
                 config.getStringList("gui.upgrade-confirm.lore").stream()
                         .map(line -> replaceUpgradePlaceholders(line, rule, fromName, toName))
                         .toList()
@@ -1184,7 +1205,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                             .toList()
             );
         }
-        return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nháº­n qua command cáº¥u hÃ¬nh."));
+        return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nhận qua command cấu hình."));
     }
 
     private void appendPreviewLore(ItemStack item, UpgradeRule rule, String toName) {
@@ -1220,9 +1241,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 .replace("%to_id%", rule.toId())
                 .replace("%to_name%", toName)
                 .replace("%cost%", formatMoney(rule.cost()))
-                .replace("%required_level%", rule.requiredLevel() <= 0 ? "KhÃ´ng yÃªu cáº§u" : String.valueOf(rule.requiredLevel()))
-                .replace("%required_realm%", rule.requiredRealm() <= 0 ? "KhÃ´ng yÃªu cáº§u" : formatRealmRequirement(rule))
-                .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "KhÃ´ng yÃªu cáº§u" : rule.requiredSubRealm().getDisplayName());
+                .replace("%required_level%", rule.requiredLevel() <= 0 ? "Không yêu cầu" : String.valueOf(rule.requiredLevel()))
+                .replace("%required_realm%", rule.requiredRealm() <= 0 ? "Không yêu cầu" : formatRealmRequirement(rule))
+                .replace("%required_sub_realm%", rule.requiredSubRealm() == null ? "Không yêu cầu" : rule.requiredSubRealm().getDisplayName());
     }
 
     private String displayName(ItemStack item, String fallback) {
@@ -1337,7 +1358,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private String formatRealm(int realmId, SubRealm subRealm) {
-        if (realmId <= 0) return "KhÃ´ng yÃªu cáº§u";
+        if (realmId <= 0) return "Không yêu cầu";
         Realm realm = realmManager.getRealm(realmId);
         String display = realm == null ? String.valueOf(realmId) : realm.getDisplayNameTranslated();
         if (subRealm != null) {
@@ -1373,7 +1394,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private String message(String key) {
-        return color(config.getString("messages." + key, key));
+        return message(key, key);
+    }
+
+    private String message(String key, String fallback) {
+        return color(config.getString("messages." + key, fallback));
     }
 
     private String color(String text) {
@@ -1497,6 +1522,21 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private String trimDecimal(double value) {
         return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    static List<String> executableUpgradeCommands(List<String> commands) {
+        if (commands == null || commands.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> output = new ArrayList<>();
+        for (String command : commands) {
+            if (command == null || command.isBlank()) {
+                continue;
+            }
+            output.add(command.trim());
+        }
+        return output;
     }
 
     private record EquipSlot(String id, int guiSlot, Set<String> acceptedTypes, boolean useConfigStats, Map<String, Double> stats, DurationSettings duration) {

@@ -1,17 +1,23 @@
-# Cấu hình hệ thống Nhập Thần.
+# Cấu hình hệ thống Lửa Thần.
 # File này được copy ra /plugins/TuTienCore/nhapthan/infusion.yml khi plugin chạy lần đầu.
+# Người chơi phải cầm item Lửa Thần thật ở main-hand/off-hand để nhận buff.
+# Admin cấp item bằng: /luathan give <player> <type> <rarity>
+# Drop thêm khi /tuluyen được roll một lần theo mỗi interval nhận Tu Vi.
+# tu-vi-bonus trong rarities là % Tu Vi cộng thêm theo độ hiếm.
+# tu-vi-bonus trong types là % Tu Vi riêng của từng Lửa, được nhân với multiplier của rarity.
+# material của mỗi Lửa dùng Music Disc riêng; disc thường cho Lửa cơ bản, disc hiếm hơn cho Lửa cấp cao.
 
 gui:
-  title: "&5&lNhập Thần"
+  title: "&6&lLửa Thần"
   border-material: "PURPLE_STAINED_GLASS_PANE"
   item-equipped:
     material: "NETHER_STAR"
-    name: "&dNhập Thần Đang Trang Bị"
+    name: "&6Lửa Thần Đang Cầm"
     lore:
-      - "&7Click vào Nhập Thần trong kho để trang bị."
+      - "&7Cầm Lửa Thần ở main-hand/off-hand để kích hoạt buff."
   item-storage:
     material: "BOOK"
-    name: "&fNhập Thần"
+    name: "&fLửa Thần"
     lore:
       - "&7Click để trang bị."
   item-prev-page:
@@ -31,106 +37,176 @@ gui:
       - "&7Đóng menu."
   item-info:
     material: "BOOK"
-    name: "&dThông tin Nhập Thần"
+    name: "&6Thông tin Lửa Thần"
     lore:
-      - "&7Quản lý Nhập Thần của bạn."
+      - "&7Quản lý Lửa Thần của bạn."
 
 messages:
   no-permission: "&cBạn không có quyền sử dụng lệnh này!"
   player-only: "&cLệnh này chỉ dùng được cho người chơi!"
-  give-usage: "&eSử dụng: /nhapthan give <player> <type> <rarity>"
+  give-usage: "&eSử dụng: /luathan give <player> <type> <rarity>"
   give-player-not-found: "&cKhông tìm thấy người chơi (online, uuid, hoặc tên đã cache)."
-  give-invalid-type: "&cLoại Nhập Thần không hợp lệ: &e{type}"
+  give-invalid-type: "&cLoại Lửa Thần không hợp lệ: &e{type}"
   give-invalid-rarity: "&cĐộ hiếm không hợp lệ: &e{rarity}"
-  give-success: "&aĐã cấp Nhập Thần &e{type} &7({rarity_color}{rarity_display}&7) &acho &e{player}&a."
-  give-failed: "&cCấp Nhập Thần thất bại do lỗi lưu dữ liệu."
-  inventory-full: "&cKho Nhập Thần đã đầy (tối đa 270)."
+  give-success: "&aĐã cấp Lửa Thần &e{type} &7({rarity_color}{rarity_display}&7) &acho &e{player}&a."
+  give-failed: "&cCấp Lửa Thần thất bại."
+  inventory-full: "&cKho Lửa Thần đã đầy (tối đa 270)."
   item-no-longer-available: "&cVật phẩm đã thay đổi. Hãy mở lại menu."
   equip-failed: "&cTrang bị thất bại. Dữ liệu đã được hoàn nguyên."
-  unequip-failed: "&cTháo Nhập Thần thất bại."
+  unequip-failed: "&cTháo Lửa Thần thất bại."
   inventory-recovered-empty: "&eDữ liệu kho không hợp lệ và đã được khôi phục rỗng."
-  feature-disabled: "&cHệ thống Nhập Thần đang tắt do lỗi cấu hình."
+  feature-disabled: "&cHệ thống Lửa Thần đang tắt do lỗi cấu hình."
 
 rarities:
   COMMON:
     display-name: "Phàm Hỏa"
     color: "&7"
     multiplier: 1.0
+    tu-vi-bonus: 2.0
   RARE:
     display-name: "Linh Hỏa"
-    color: "&a"
+    color: "&9"
     multiplier: 1.2
+    tu-vi-bonus: 5.0
   EPIC:
-    display-name: "Địa Hỏa"
+    display-name: "Huyền Hỏa"
     color: "&5"
     multiplier: 1.5
+    tu-vi-bonus: 10.0
   LEGENDARY:
     display-name: "Thiên Hỏa"
     color: "&6"
     multiplier: 1.9
+    tu-vi-bonus: 15.0
   MYTHIC:
-    display-name: "Tiên Hỏa"
+    display-name: "Hồng Mông Thần Hỏa"
     color: "&d"
     multiplier: 2.5
+    tu-vi-bonus: 25.0
 
 types:
   NAM_MINH_LY_HOA:
     display-name: "Nam Minh Ly Hỏa"
-    material: "BLAZE_POWDER"
+    material: "MUSIC_DISC_13"
+    tu-vi-bonus: 4.0
     stats:
       ATTACK_DAMAGE: 6
-      TU_VI_BONUS: 4
+      CRITICAL_STRIKE_CHANCE: 2
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   THAI_DUONG_CHAN_HOA:
     display-name: "Thái Dương Chân Hỏa"
-    material: "FIRE_CHARGE"
+    material: "MUSIC_DISC_CAT"
+    tu-vi-bonus: 0.0
     stats:
       ATTACK_DAMAGE: 8
-      PVE_DAMAGE: 5
+      PVE_DAMAGE: 4
+    tuluyen-drops:
+      enabled: true
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items:
+        - type: "MMOITEMS"
+          mmo-type: "MATERIAL"
+          id: "LINH_DUOC"
+          chance: 5.0
+          amount: 1
   TU_VI_THIEN_HOA:
     display-name: "Tu Vi Thiên Hỏa"
-    material: "GLOWSTONE_DUST"
+    material: "MUSIC_DISC_BLOCKS"
+    tu-vi-bonus: 10.0
     stats:
-      MAX_HEALTH: 10
-      TU_VI_BONUS: 10
+      MAX_MANA: 8
+      MANA_REGENERATION: 5
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   CUU_THIEN_HUYEN_HOA:
     display-name: "Cửu Thiên Huyền Hỏa"
-    material: "END_CRYSTAL"
+    material: "MUSIC_DISC_CHIRP"
+    tu-vi-bonus: 8.0
     stats:
-      ATTACK_DAMAGE: 7
-      TU_VI_BONUS: 8
+      SKILL_CRITICAL_STRIKE_CHANCE: 4
+      SKILL_CRITICAL_STRIKE_POWER: 10
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   U_MINH_QUY_HOA:
     display-name: "U Minh Quỷ Hỏa"
-    material: "WITHER_ROSE"
+    material: "MUSIC_DISC_FAR"
+    tu-vi-bonus: 0.0
     stats:
-      MAX_HEALTH: 12
-      PVE_DAMAGE: 4
+      DAMAGE_REDUCTION: 6
+      MAX_HEALTH: 6
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   THAI_SO_THANH_HOA:
     display-name: "Thái Sơ Thánh Hỏa"
-    material: "TOTEM_OF_UNDYING"
+    material: "MUSIC_DISC_MALL"
+    tu-vi-bonus: 6.0
     stats:
-      MAX_HEALTH: 15
-      TU_VI_BONUS: 6
+      HEALTH_REGENERATION: 5
+      MAX_HEALTH: 10
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   U_LA_BANG_VIEM:
     display-name: "U La Băng Viêm"
-    material: "PACKED_ICE"
+    material: "MUSIC_DISC_OTHERSIDE"
+    tu-vi-bonus: 0.0
     stats:
-      MAX_HEALTH: 9
-      ATTACK_DAMAGE: 6
+      DAMAGE_REDUCTION: 7
+      MOVEMENT_SPEED: 3
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   CUU_TU_LUAN_HOI_VIEM:
     display-name: "Cửu Tự Luân Hồi Viêm"
-    material: "NETHER_STAR"
+    material: "MUSIC_DISC_PIGSTEP"
+    tu-vi-bonus: 7.0
     stats:
-      PVE_DAMAGE: 9
-      TU_VI_BONUS: 7
+      PVE_DAMAGE: 7
+      CRITICAL_STRIKE_POWER: 9
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   BICH_HAI_THANH_THIEN_VIEM:
     display-name: "Bích Hải Thanh Thiên Viêm"
-    material: "HEART_OF_THE_SEA"
+    material: "MUSIC_DISC_RELIC"
+    tu-vi-bonus: 9.0
     stats:
-      MAX_HEALTH: 11
-      TU_VI_BONUS: 9
+      MAX_MANA: 10
+      MANA_REGENERATION: 6
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []
   HONG_LIEN_THUC_COT_VIEM:
     display-name: "Hồng Liên Thực Cốt Viêm"
-    material: "MAGMA_CREAM"
+    material: "MUSIC_DISC_PRECIPICE"
+    tu-vi-bonus: 0.0
     stats:
       ATTACK_DAMAGE: 10
-      PVE_DAMAGE: 6
+      CRITICAL_STRIKE_CHANCE: 3
+    tuluyen-drops:
+      enabled: false
+      rolls-per-interval: 1
+      require-turtleisland-bonus: true
+      items: []

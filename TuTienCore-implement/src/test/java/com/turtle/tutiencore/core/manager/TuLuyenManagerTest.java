@@ -60,6 +60,21 @@ class TuLuyenManagerTest {
     }
 
     @Test
+    void appliesTotalCultivationBonusPlaceholderIncludingInfusion() {
+        assertEquals("&fBonus: &a+35% &8| &5Lua Than +20%",
+                TuLuyenManager.applyRewardPlaceholders(
+                        "&fBonus: &a+{total_bonus}% &8| &5Lua Than +{infusion}%",
+                        10.0,
+                        5.0,
+                        10.0,
+                        3.0,
+                        20.0,
+                        13.8,
+                        false
+                ));
+    }
+
+    @Test
     void createsTuLuyenGainEventWithSupportedSource() {
         Player player = (Player) Proxy.newProxyInstance(
                 Player.class.getClassLoader(),

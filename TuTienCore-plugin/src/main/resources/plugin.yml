@@ -28,8 +28,12 @@ commands:
     usage: /tuvi set/add/take/reset/resetall <player> [amount]
     permission: tutiencore.admin
   nhapthan:
-    description: Mo menu hoac cap Nhap Than
+    description: Mở menu hoặc cấp Nhập Thần cũ
     usage: /nhapthan [give <player> <type> <rarity>]
+    permission: tutiencore.use
+  luathan:
+    description: Cấp Lửa Thần dạng vật phẩm thật
+    usage: /luathan give <player> <type> <rarity>
     permission: tutiencore.use
   trangbi:
     description: Mo menu trang bi Tu Tien
@@ -51,7 +55,10 @@ permissions:
     description: Allows using /rankup
     default: true
   tutiencore.nhapthan.give:
-    description: Allows granting Nhap Than to players
+    description: Allows granting legacy Nhap Than to players
+    default: op
+  tutiencore.luathan.give:
+    description: Allows granting Lua Than item stacks to players
     default: op
   tutiencore.tuluyen.vip:
     description: Allows offline Tu Vi accumulation and claim GUI

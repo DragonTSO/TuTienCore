@@ -177,12 +177,14 @@ tu-luyen:
     update-interval: 20
     text-shadow: true
     see-through: false
+    # Placeholders: {bonus}=quyen+Tien Phu, {infusion}=Lua Than, {total_bonus}=bonus+Lua Than, {all_bonus}=total_bonus+moi truong.
     lines:
       - "&eTrạng thái: &aBế quan tu luyện"
       - ""
       - "&fCơ bản: &b+{base}"
       - ""
-      - "&aBonus: &a+{bonus}%"
+      - "&aBonus: &a+{total_bonus}%"
+      - "&5Lửa Thần: &d+{infusion}%"
       - "&dMôi Trường Tu Luyện: &d+{environment}%"
       - "&6Tu Vi Thực Nhận: &6+{total}"
     team-bonus:
@@ -542,6 +544,23 @@ breakthrough:
   # PlaceholderAPI placeholder dùng làm Thực Lực khi /dotpha đại cảnh giới.
   # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
   thuc-luc-placeholder: ""
+  # Đài Đột Phá: admin đứng tại vị trí muốn dùng rồi chạy /ttc setdotpha.
+  # Nếu world để trống, người chơi sẽ đột phá tại vị trí hiện tại như cũ.
+  arena:
+    lock-movement: true
+    location:
+      world: ""
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+      pitch: 0.0
+  # Khi đột phá Đại Cảnh Giới, người chơi trong bán kính này cũng bị sét đánh.
+  # damage-multiplier là tỉ lệ damage so với người đang đột phá.
+  nearby-lightning:
+    enabled: true
+    radius: 20.0
+    damage-multiplier: 0.25
   # Sound config cho luong dot pha. Dat sound: "NONE" de tat rieng tung sound.
   # Ho tro ca Bukkit Sound enum va custom sound tu resource pack, vd: "minecraft:entity.lightning_bolt.thunder"
   # hoac "yourpack:breakthrough_charge".

@@ -31,6 +31,10 @@ public class NhapThanCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (isLuaThanCommand(command, label)) {
+            return handleLuaThan(sender, args);
+        }
+
         if (args.length >= 1 && args[0].equalsIgnoreCase("give")) {
             return handleGive(sender, args);
         }
@@ -46,6 +50,63 @@ public class NhapThanCommand implements CommandExecutor, TabCompleter {
         }
 
         infusionManager.open(player);
+        return true;
+    }
+
+    private boolean handleLuaThan(CommandSender sender, String[] args) {
+        if (args.length >= 1 && args[0].equalsIgnoreCase("give")) {
+            return handleLuaThanGive(sender, args);
+        }
+
+        sender.sendMessage(infusionManager.message("give-usage"));
+        return true;
+    }
+
+    private boolean handleLuaThanGive(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("tutiencore.luathan.give")) {
+            sender.sendMessage(infusionManager.message("no-permission"));
+            return true;
+        }
+
+        if (args.length != 4) {
+            sender.sendMessage(infusionManager.message("give-usage"));
+            return true;
+        }
+
+        String targetInput = args[1];
+        Player target = Bukkit.getPlayerExact(targetInput);
+        if (target == null) {
+            sender.sendMessage(infusionManager.message("give-player-not-found"));
+            return true;
+        }
+
+        String typeInput = args[2];
+        String rarityInput = args[3];
+        InfusionManager.GiveResult result = infusionManager.giveFlameItem(target, typeInput, rarityInput);
+        switch (result) {
+            case SUCCESS -> {
+                InfusionType type = infusionManager.resolveType(typeInput);
+                InfusionRarity rarity = infusionManager.resolveRarity(rarityInput);
+
+                Map<String, String> placeholders = new HashMap<>();
+                placeholders.put("{player}", target.getName());
+                placeholders.put("{type}", type == null ? typeInput : type.displayName());
+                placeholders.put("{rarity}", rarity == null ? rarityInput : rarity.displayName());
+                placeholders.put("{rarity_display}", rarity == null ? rarityInput : rarity.displayName());
+                placeholders.put("{rarity_color}", rarity == null ? "" : rarity.color());
+                sender.sendMessage(infusionManager.message("give-success", placeholders));
+            }
+            case DISABLED -> sender.sendMessage(infusionManager.message("feature-disabled"));
+            case INVALID_TYPE -> {
+                Map<String, String> placeholders = Map.of("{type}", typeInput);
+                sender.sendMessage(infusionManager.message("give-invalid-type", placeholders));
+            }
+            case INVALID_RARITY -> {
+                Map<String, String> placeholders = Map.of("{rarity}", rarityInput);
+                sender.sendMessage(infusionManager.message("give-invalid-rarity", placeholders));
+            }
+            case INVENTORY_FULL, SAVE_FAILED -> sender.sendMessage(infusionManager.message("give-failed"));
+        }
         return true;
     }
 
@@ -157,6 +218,42 @@ public class NhapThanCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (isLuaThanCommand(command, alias)) {
+            if (args.length == 1) {
+                if (!sender.hasPermission("tutiencore.luathan.give")) {
+                    return Collections.emptyList();
+                }
+                return filterByPrefix(List.of("give"), args[0]);
+            }
+
+            if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
+                if (!sender.hasPermission("tutiencore.luathan.give")) {
+                    return Collections.emptyList();
+                }
+                List<String> names = new ArrayList<>();
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    names.add(player.getName());
+                }
+                return filterByPrefix(names, args[1]);
+            }
+
+            if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
+                if (!sender.hasPermission("tutiencore.luathan.give")) {
+                    return Collections.emptyList();
+                }
+                return filterByPrefix(infusionManager.getTypeSuggestions(), args[2]);
+            }
+
+            if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
+                if (!sender.hasPermission("tutiencore.luathan.give")) {
+                    return Collections.emptyList();
+                }
+                return filterByPrefix(infusionManager.getRaritySuggestions(), args[3]);
+            }
+
+            return Collections.emptyList();
+        }
+
         if (args.length == 1) {
             if (!sender.hasPermission("tutiencore.nhapthan.give")) {
                 return Collections.emptyList();
@@ -201,6 +298,11 @@ public class NhapThanCommand implements CommandExecutor, TabCompleter {
             }
         }
         return output;
+    }
+
+    private boolean isLuaThanCommand(Command command, String label) {
+        String commandName = command == null ? "" : command.getName();
+        return "luathan".equalsIgnoreCase(commandName) || "luathan".equalsIgnoreCase(label);
     }
 
     private record ResolvedTarget(UUID uuid, String displayName) {

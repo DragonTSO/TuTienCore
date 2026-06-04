@@ -28,6 +28,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -54,6 +55,7 @@ public class BreakthroughManager implements Listener {
 
     // Players currently undergoing breakthrough
     private final Map<UUID, BreakthroughSession> activeSessions = new HashMap<>();
+    private final Map<UUID, Location> movementLocks = new HashMap<>();
 
     public BreakthroughManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -83,6 +85,8 @@ public class BreakthroughManager implements Listener {
         BukkitRunnable activeAnimationTask;
         final List<ActiveMob> activeBreakthroughMobs = new ArrayList<>();
         Location startLocation;
+        Location returnLocation;
+        Location lockLocation;
         int currentLevitationLevel;
         volatile boolean completed; // Guard against double-execution
 
@@ -106,6 +110,97 @@ public class BreakthroughManager implements Listener {
      */
     public boolean isInBreakthrough(UUID uuid) {
         return activeSessions.containsKey(uuid);
+    }
+
+    public void setBreakthroughArenaLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return;
+        }
+
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".world", location.getWorld().getName());
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".x", location.getX());
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".y", location.getY());
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".z", location.getZ());
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".yaw", location.getYaw());
+        plugin.getConfig().set(ARENA_LOCATION_PATH + ".pitch", location.getPitch());
+        plugin.saveConfig();
+        plugin.reloadConfig();
+    }
+
+    public Optional<Location> getBreakthroughArenaLocation() {
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection(ARENA_LOCATION_PATH);
+        if (section == null) {
+            return Optional.empty();
+        }
+
+        String worldName = section.getString("world", "").trim();
+        if (worldName.isEmpty()) {
+            return Optional.empty();
+        }
+
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new Location(
+                world,
+                section.getDouble("x"),
+                section.getDouble("y"),
+                section.getDouble("z"),
+                (float) section.getDouble("yaw"),
+                (float) section.getDouble("pitch")
+        ));
+    }
+
+    private void prepareBreakthroughLocation(Player player, BreakthroughSession session) {
+        session.returnLocation = player.getLocation().clone();
+
+        Optional<Location> arenaLocation = getBreakthroughArenaLocation();
+        if (arenaLocation.isPresent()) {
+            Location target = arenaLocation.get().clone();
+            if (player.teleport(target)) {
+                player.sendMessage("§6⚡ Bạn được đưa tới Đài Đột Phá. Hãy tập trung vượt kiếp!");
+            }
+        }
+
+        if (isArenaMovementLockEnabled()) {
+            session.lockLocation = player.getLocation().clone();
+            movementLocks.put(player.getUniqueId(), session.lockLocation.clone());
+            player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+        }
+    }
+
+    private boolean isArenaMovementLockEnabled() {
+        return plugin.getConfig().getBoolean(ARENA_LOCK_MOVEMENT_PATH, true);
+    }
+
+    private void finishBreakthroughLocation(Player player, BreakthroughSession session, long delayTicks) {
+        if (delayTicks <= 0L) {
+            releaseMovementAndReturn(player, session);
+            return;
+        }
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                releaseMovementAndReturn(player, session);
+            }
+        }.runTaskLater(plugin, delayTicks);
+    }
+
+    private void releaseMovementAndReturn(Player player, BreakthroughSession session) {
+        movementLocks.remove(session.playerId);
+        if (player == null || !player.isOnline() || session.returnLocation == null || session.returnLocation.getWorld() == null) {
+            return;
+        }
+
+        player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+        player.teleport(session.returnLocation);
+    }
+
+    private long getSuccessReturnDelayTicks() {
+        return Math.max(1, plugin.getConfig().getInt("breakthrough.model-duration", 5) * 20 + 2L);
     }
 
     // ==========================================
@@ -159,6 +254,7 @@ public class BreakthroughManager implements Listener {
         );
 
         activeSessions.put(uuid, session);
+        prepareBreakthroughLocation(player, session);
 
         // Broadcast start
         String startMsg = "§e§l⚡ " + player.getName() + " §e§lđang vượt §c§lThiên Lôi Kiếp §e§lđể đột phá " 
@@ -231,6 +327,7 @@ public class BreakthroughManager implements Listener {
         );
 
         activeSessions.put(uuid, session);
+        prepareBreakthroughLocation(player, session);
 
         // Local broadcast only
         String startMsg = "§e⚡ " + player.getName() + " §eđang đột phá tầng nhỏ → " + nextSub.getDisplayName() + "!";
@@ -266,6 +363,11 @@ public class BreakthroughManager implements Listener {
     private static final int MAX_LEVITATION_LEVEL = 6;
     // Damage scaling: at max height, damage = baseDmg * this multiplier
     private static final double MAX_HEIGHT_DMG_MULTIPLIER = 2.5;
+    private static final String ARENA_LOCATION_PATH = "breakthrough.arena.location";
+    private static final String ARENA_LOCK_MOVEMENT_PATH = "breakthrough.arena.lock-movement";
+    private static final String NEARBY_LIGHTNING_ENABLED_PATH = "breakthrough.nearby-lightning.enabled";
+    private static final String NEARBY_LIGHTNING_RADIUS_PATH = "breakthrough.nearby-lightning.radius";
+    private static final String NEARBY_LIGHTNING_DAMAGE_MULTIPLIER_PATH = "breakthrough.nearby-lightning.damage-multiplier";
 
     private void startLightningSequence(Player player, BreakthroughSession session) {
         int intervalTicks = realmManager.getLightningIntervalTicks();
@@ -623,6 +725,11 @@ public class BreakthroughManager implements Listener {
         return session.damagePercentPerBolt > 0.0 ? damage : damage * 2.0;
     }
 
+    static double calculateNearbyPlayerDamage(double mainDamage, double multiplier) {
+        double clampedMultiplier = Math.max(0.0, Math.min(1.0, multiplier));
+        return Math.max(0.0, mainDamage) * clampedMultiplier;
+    }
+
     /**
      * Strike a massive lightning storm across the 40x40 area around the player.
      * Creates a dramatic visual: many simultaneous bolts from sky to ground,
@@ -654,6 +761,7 @@ public class BreakthroughManager implements Listener {
         // Calculate height-scaled damage and apply
         double damage = calculateAppliedDamage(player, session);
         player.damage(damage);
+        strikeNearbyPlayers(player, session, damage);
 
         // ── 2) AMBIENT BOLTS — spread across full 40x40 area, visual only ──
         for (int i = 0; i < totalVisualBolts; i++) {
@@ -703,6 +811,46 @@ public class BreakthroughManager implements Listener {
                     "breakthrough.sounds.lightning-rumble",
                     Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.WEATHER,
                     4.0f, 0.4f);
+        }
+    }
+
+    private void strikeNearbyPlayers(Player player, BreakthroughSession session, double mainDamage) {
+        if (!session.isMajor || !plugin.getConfig().getBoolean(NEARBY_LIGHTNING_ENABLED_PATH, true)) {
+            return;
+        }
+
+        double radius = Math.max(0.0, plugin.getConfig().getDouble(NEARBY_LIGHTNING_RADIUS_PATH, LIGHTNING_RADIUS));
+        if (radius <= 0.0) {
+            return;
+        }
+
+        double nearbyDamage = calculateNearbyPlayerDamage(
+                mainDamage,
+                plugin.getConfig().getDouble(NEARBY_LIGHTNING_DAMAGE_MULTIPLIER_PATH, 0.25)
+        );
+        if (nearbyDamage <= 0.0) {
+            return;
+        }
+
+        Location center = session.lockLocation != null ? session.lockLocation : player.getLocation();
+        World world = center.getWorld();
+        if (world == null) {
+            return;
+        }
+
+        double radiusSquared = radius * radius;
+        for (Player nearby : world.getPlayers()) {
+            if (nearby.equals(player) || nearby.isDead()
+                    || nearby.getGameMode() == GameMode.CREATIVE
+                    || nearby.getGameMode() == GameMode.SPECTATOR) {
+                continue;
+            }
+            if (nearby.getLocation().distanceSquared(center) > radiusSquared) {
+                continue;
+            }
+
+            world.strikeLightningEffect(nearby.getLocation());
+            nearby.damage(nearbyDamage);
         }
     }
 
@@ -909,6 +1057,7 @@ public class BreakthroughManager implements Listener {
         }
 
         // Reset weather
+        finishBreakthroughLocation(player, session, getSuccessReturnDelayTicks());
         resetWeather(player);
     }
 
@@ -982,6 +1131,8 @@ public class BreakthroughManager implements Listener {
         }
 
         // Reset weather
+        movementLocks.remove(session.playerId);
+        finishBreakthroughLocation(player, session, 40L);
         resetWeather(player);
     }
 
@@ -1008,6 +1159,9 @@ public class BreakthroughManager implements Listener {
         if (p != null && p.isOnline()) {
             cleanupBreakthroughEffects(p);
             resetWeather(p);
+            releaseMovementAndReturn(p, session);
+        } else {
+            movementLocks.remove(session.playerId);
         }
         // Apply cooldown for major breakthrough
         if (session.isMajor) {
@@ -1431,9 +1585,55 @@ public class BreakthroughManager implements Listener {
         return Math.max(0.0f, Math.min(2.0f, pitch));
     }
 
+    static Location constrainBreakthroughMovement(Location locked, Location to) {
+        return constrainBreakthroughMovement(locked, to, true);
+    }
+
+    private static Location constrainBreakthroughMovement(Location locked, Location to, boolean allowVerticalMotion) {
+        Location fixed = locked.clone();
+        fixed.setY(allowVerticalMotion ? to.getY() : locked.getY());
+        fixed.setYaw(to.getYaw());
+        fixed.setPitch(to.getPitch());
+        return fixed;
+    }
+
+    private boolean isLockedMovementAllowed(Location locked, Location to, boolean allowVerticalMotion) {
+        if (locked.getWorld() == null || to.getWorld() == null || !locked.getWorld().equals(to.getWorld())) {
+            return false;
+        }
+
+        boolean sameHorizontal = Math.abs(locked.getX() - to.getX()) < 0.001
+                && Math.abs(locked.getZ() - to.getZ()) < 0.001;
+        boolean sameVertical = Math.abs(locked.getY() - to.getY()) < 0.001;
+        return sameHorizontal && (allowVerticalMotion || sameVertical);
+    }
+
     // ==========================================
     // EVENT HANDLERS
     // ==========================================
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Location locked = movementLocks.get(event.getPlayer().getUniqueId());
+        Location to = event.getTo();
+        if (locked == null || to == null) {
+            return;
+        }
+
+        BreakthroughSession session = activeSessions.get(event.getPlayer().getUniqueId());
+        boolean allowVerticalMotion = session != null
+                && session.currentLevitationLevel > 0
+                && event.getPlayer().hasPotionEffect(PotionEffectType.LEVITATION);
+
+        if (isLockedMovementAllowed(locked, to, allowVerticalMotion)) {
+            return;
+        }
+
+        Location fixed = constrainBreakthroughMovement(locked, to, allowVerticalMotion);
+        event.setTo(fixed);
+        org.bukkit.util.Vector velocity = event.getPlayer().getVelocity();
+        event.getPlayer().setVelocity(new org.bukkit.util.Vector(0.0, velocity.getY(), 0.0));
+    }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerDeath(PlayerDeathEvent event) {
@@ -1471,7 +1671,12 @@ public class BreakthroughManager implements Listener {
                 session.activeAnimationTask.cancel();
             }
             cleanupActiveBreakthroughMobs(session);
+            Player player = Bukkit.getPlayer(session.playerId);
+            if (player != null && player.isOnline()) {
+                releaseMovementAndReturn(player, session);
+            }
         }
         activeSessions.clear();
+        movementLocks.clear();
     }
 }

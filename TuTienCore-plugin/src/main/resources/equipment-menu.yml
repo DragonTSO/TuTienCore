@@ -16,6 +16,7 @@ messages:
   upgrade-ready: "&aCo the tien hoa item nay."
   upgrade-success: "&aDa tien hoa item offhand!"
   upgrade-requirement-failed: "&cChua du dieu kien tien hoa:"
+  upgrade-create-failed: "&cKhong tao duoc item tien hoa. Hay kiem tra to-type/to-id."
   not-enough-money: "&cKhong du &e%cost% &clinh thach."
   failure-money: "&8- &7Can &e%cost% &7linh thach."
   failure-level-unavailable: "&8- &7Khong doc duoc cap TuTienLevel."
@@ -157,8 +158,7 @@ offhand:
       required-level: 10
       required-realm: 5
       required-sub-realm: ""
-      commands:
-        - "mi give OFF_CATALYST %player% HA_MACH_TIEN_HOAN 1"
+      commands: []
     2:
       from-type: DAN_DUOC
       from-id: DAN_DUOC_1
@@ -170,5 +170,4 @@ offhand:
       required-realm: 0
       required-sub-realm: ""
       take-source: true
-      commands:
-        - "mi give DAN_DUOC %player% DAN_DUOC_2 1"
+      commands: []

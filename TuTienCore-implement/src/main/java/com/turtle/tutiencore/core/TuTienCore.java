@@ -150,7 +150,7 @@ public class TuTienCore {
         }
 
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
-                flySwordManager, realmManager, playerHologramManager, actionBarManager,
+                flySwordManager, realmManager, breakthroughManager, playerHologramManager, actionBarManager,
                 infusionManager, afkKickManager, deathTipManager, regionRespawnManager, equipmentMenuManager,
                 hotbarCommandItemManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
@@ -180,6 +180,10 @@ public class TuTienCore {
         if (plugin.getCommand("nhapthan") != null) {
             plugin.getCommand("nhapthan").setExecutor(nhapThanCommand);
             plugin.getCommand("nhapthan").setTabCompleter(nhapThanCommand);
+        }
+        if (plugin.getCommand("luathan") != null) {
+            plugin.getCommand("luathan").setExecutor(nhapThanCommand);
+            plugin.getCommand("luathan").setTabCompleter(nhapThanCommand);
         }
         if (plugin.getCommand("trangbi") != null) {
             plugin.getCommand("trangbi").setExecutor(equipmentMenuManager);

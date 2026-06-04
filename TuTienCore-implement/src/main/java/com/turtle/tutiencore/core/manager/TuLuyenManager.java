@@ -3,6 +3,7 @@ package com.turtle.tutiencore.core.manager;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
+import com.turtle.tutiencore.core.hook.TurtleIslandHook;
 import com.turtle.tutiencore.core.task.TuLuyenParticleTask;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.event.TuViGainEvent;
@@ -54,6 +55,7 @@ public class TuLuyenManager implements Listener {
     private final TuLuyenParticleTask lineTask;
     private final RealmManager realmManager;
     private final InfusionManager infusionManager;
+    private final TurtleIslandHook turtleIslandHook;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
 
     private final Map<UUID, ArmorStand> tuLuyenPlayers = new HashMap<>();
@@ -69,6 +71,7 @@ public class TuLuyenManager implements Listener {
         this.lineTask = lineTask;
         this.realmManager = realmManager;
         this.infusionManager = infusionManager;
+        this.turtleIslandHook = new TurtleIslandHook();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startTask();
     }
@@ -120,6 +123,9 @@ public class TuLuyenManager implements Listener {
 
                     // Give Points via API, capped at the next breakthrough requirement even after external event edits.
                     TuTien.getApi().addTuVi(player.getUniqueId(), finalAmount);
+                    if (infusionManager != null) {
+                        infusionManager.rollHeldTuluyenDrops(player, reward.turtleIslandEligible);
+                    }
                     if (reward.lightningTriggered) {
                         player.getWorld().strikeLightningEffect(player.getLocation());
                     }
@@ -132,7 +138,7 @@ public class TuLuyenManager implements Listener {
                             msg += " §8┃ §a+" + formatPercent(reward.bonusPercent) + "% bonus";
                         }
                         if (reward.infusionBonusPercent > 0) {
-                            msg += " §8┃ §d+" + formatPercent(reward.infusionBonusPercent) + "% Nhập Thần";
+                            msg += " §8┃ §d+" + formatPercent(reward.infusionBonusPercent) + "% Lửa Thần";
                         }
                         if (reward.lightningTriggered) {
                             msg += " §8┃ §bThiên Lôi x" + formatNumber(configManager.getLightningBonusMultiplier());
@@ -377,6 +383,7 @@ public class TuLuyenManager implements Listener {
         double bonus = permissionBonus + islandBonus;
         double environmentBonus = getEnvironmentBonus(player);
         double infusionBonus = getInfusionTuViBonus(player);
+        boolean islandEligible = rollLightning && isTurtleIslandCultivationEligible(player, islandBonus);
         double totalPoints = basePoints * (1.0 + (bonus + environmentBonus + infusionBonus) / 100.0);
         LightningBonusResult lightning = rollLightning
                 ? applyLightningBonus(totalPoints, configManager.isLightningBonusEnabled(),
@@ -385,7 +392,7 @@ public class TuLuyenManager implements Listener {
                 : new LightningBonusResult(totalPoints, false);
         double cappedPoints = getCappedTuViReward(player, lightning.points());
         return new TuLuyenReward(basePoints, permissionBonus, islandBonus, bonus, environmentBonus,
-                infusionBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0);
+                infusionBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
     }
 
     private double getInfusionTuViBonus(Player player) {
@@ -396,23 +403,11 @@ public class TuLuyenManager implements Listener {
     }
 
     private double getTurtleIslandCultivationBonusPercent(Player player) {
-        Plugin turtleIsland = Bukkit.getPluginManager().getPlugin("TurtleIsland");
-        if (turtleIsland == null || !turtleIsland.isEnabled()) {
-            return 0.0;
-        }
+        return turtleIslandHook.getCultivationBonusPercent(player);
+    }
 
-        try {
-            Object bonus = turtleIsland.getClass()
-                    .getMethod("getCultivationTuViBonusPercent", Player.class)
-                    .invoke(turtleIsland, player);
-            if (bonus instanceof Number number) {
-                return Math.max(0.0, number.doubleValue());
-            }
-        } catch (Throwable ignored) {
-            return 0.0;
-        }
-
-        return 0.0;
+    private boolean isTurtleIslandCultivationEligible(Player player, double islandBonus) {
+        return islandBonus > 0.0 || turtleIslandHook.canReceiveCultivationBonus(player);
     }
 
     static LightningBonusResult applyLightningBonus(double points, boolean enabled, double chancePercent, double multiplier, double rollPercent) {
@@ -642,7 +637,7 @@ public class TuLuyenManager implements Listener {
                 bossBar.addPlayer(player);
             }
             bossBar.setTitle(applyRewardPlaceholders(player, plugin.getConfig().getString("tu-luyen.bossbar.title",
-                    "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Nhập Thần {infusion}% &7= &6{total}"), reward));
+                    "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Lửa Thần {infusion}% &7= &6{total}"), reward));
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
         }
 
@@ -946,10 +941,35 @@ public class TuLuyenManager implements Listener {
         return applyRewardPlaceholders(null, text, reward, translateColors);
     }
 
+    static String applyRewardPlaceholders(String text, double basePoints, double permissionBonusPercent,
+                                          double islandBonusPercent, double environmentBonusPercent,
+                                          double infusionBonusPercent, double totalPoints,
+                                          boolean translateColors) {
+        double bonusPercent = permissionBonusPercent + islandBonusPercent;
+        TuLuyenReward reward = new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent,
+                bonusPercent, environmentBonusPercent, infusionBonusPercent, totalPoints, false,
+                islandBonusPercent > 0.0D, islandBonusPercent > 0.0D);
+        String result = applyRewardPlaceholdersRaw(text, reward);
+        return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
+    }
+
     private String applyRewardPlaceholders(Player player, String text, TuLuyenReward reward, boolean translateColors) {
-        String result = text
+        String result = applyRewardPlaceholdersRaw(text, reward);
+        if (player != null && Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, result);
+        }
+        return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
+    }
+
+    private static String applyRewardPlaceholdersRaw(String text, TuLuyenReward reward) {
+        double totalBonusPercent = reward.bonusPercent + reward.infusionBonusPercent;
+        double allBonusPercent = totalBonusPercent + reward.environmentBonusPercent;
+        return text
                 .replace("{base}", formatNumber(reward.basePoints))
                 .replace("{bonus}", formatPercent(reward.bonusPercent))
+                .replace("{total_bonus}", formatPercent(totalBonusPercent))
+                .replace("{cultivation_bonus}", formatPercent(totalBonusPercent))
+                .replace("{all_bonus}", formatPercent(allBonusPercent))
                 .replace("{permission_bonus}", formatPercent(reward.permissionBonusPercent))
                 .replace("{island_bonus}", formatPercent(reward.islandBonusPercent))
                 .replace("{tien_phu_bonus}", formatPercent(reward.islandBonusPercent))
@@ -957,19 +977,15 @@ public class TuLuyenManager implements Listener {
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
                 .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
                 .replace("{total}", formatNumber(reward.totalPoints));
-        if (player != null && Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, result);
-        }
-        return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
     }
 
     private List<String> getDefaultHologramLines() {
         List<String> lines = new ArrayList<>();
         lines.add("&eTrạng thái: &aĐang bế quan tu luyện");
         lines.add("&fCơ bản: &b{base} Tu Vi");
-        lines.add("&fBonus: &a{bonus}%");
+        lines.add("&fBonus: &a{total_bonus}%");
         lines.add("&fMôi Trường Tu Luyện: &d{environment}%");
-        lines.add("&fNhập Thần: &5{infusion}%");
+        lines.add("&fLửa Thần: &5{infusion}%");
         lines.add("&fTổng Tu Vi Nhận Được: &6{total}");
         return lines;
     }
@@ -990,11 +1006,11 @@ public class TuLuyenManager implements Listener {
         }
     }
 
-    private String formatNumber(double value) {
+    private static String formatNumber(double value) {
         return String.valueOf((int) Math.round(value));
     }
 
-    private String formatPercent(double value) {
+    private static String formatPercent(double value) {
         return formatPercentValue(value);
     }
 
@@ -1033,11 +1049,12 @@ public class TuLuyenManager implements Listener {
         private final double totalPoints;
         private final boolean lightningTriggered;
         private final boolean externalBonusIncluded;
+        private final boolean turtleIslandEligible;
 
         private TuLuyenReward(double basePoints, double permissionBonusPercent, double islandBonusPercent,
                               double bonusPercent, double environmentBonusPercent, double infusionBonusPercent,
                               double totalPoints,
-                              boolean lightningTriggered, boolean externalBonusIncluded) {
+                              boolean lightningTriggered, boolean externalBonusIncluded, boolean turtleIslandEligible) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
             this.islandBonusPercent = islandBonusPercent;
@@ -1047,6 +1064,7 @@ public class TuLuyenManager implements Listener {
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
             this.externalBonusIncluded = externalBonusIncluded;
+            this.turtleIslandEligible = turtleIslandEligible;
         }
     }
 
