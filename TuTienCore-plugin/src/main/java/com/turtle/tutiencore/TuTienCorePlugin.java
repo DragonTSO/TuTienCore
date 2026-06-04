@@ -38,6 +38,10 @@ public class TuTienCorePlugin extends JavaPlugin {
         getLogger().info("TuTienCore disabled successfully.");
     }
 
+    public TuTienCore getCore() {
+        return core;
+    }
+
     private void bootstrapMMOItemsCustomStats() {
         File pluginsDir = getDataFolder().getParentFile();
         if (pluginsDir == null) {

@@ -3,6 +3,7 @@ package com.turtle.tutiencore.core.hook;
 import io.lumine.mythic.bukkit.events.MythicMobLootDropEvent;
 
 import com.turtle.tutiencore.core.manager.ActionBarManager;
+import com.turtle.tutiencore.core.manager.EquipmentMenuManager;
 import com.turtle.tutiencore.core.manager.KillRewardHologramManager;
 
 import org.bukkit.Bukkit;
@@ -24,13 +25,16 @@ public final class MythicMobsMoneyBonusHook implements Listener {
     private final JavaPlugin plugin;
     private final ActionBarManager actionBarManager;
     private final KillRewardHologramManager killRewardHologramManager;
+    private final EquipmentMenuManager equipmentMenuManager;
     private boolean registered;
 
     public MythicMobsMoneyBonusHook(JavaPlugin plugin, ActionBarManager actionBarManager,
-                                    KillRewardHologramManager killRewardHologramManager) {
+                                    KillRewardHologramManager killRewardHologramManager,
+                                    EquipmentMenuManager equipmentMenuManager) {
         this.plugin = plugin;
         this.actionBarManager = actionBarManager;
         this.killRewardHologramManager = killRewardHologramManager;
+        this.equipmentMenuManager = equipmentMenuManager;
     }
 
     public void register() {
@@ -69,7 +73,7 @@ public final class MythicMobsMoneyBonusHook implements Listener {
 
         String prefix = plugin.getConfig().getString("mythicmobs-money-bonus.permission-prefix", DEFAULT_PERMISSION_PREFIX);
         boolean stack = plugin.getConfig().getBoolean("mythicmobs-money-bonus.stack", true);
-        double bonusPercent = resolveMoneyBonus(player.getEffectivePermissions(), prefix, stack);
+        double bonusPercent = resolveMoneyBonus(player.getEffectivePermissions(), prefix, stack) + getEquipmentMoneyBonus(player);
         int bonusMoney = calculateBonusMoney(baseMoney, bonusPercent);
         int finalMoney = Math.max(0, baseMoney + bonusMoney);
         if (bonusMoney > 0) {
@@ -91,6 +95,13 @@ public final class MythicMobsMoneyBonusHook implements Listener {
                     + ", bonus=" + bonusMoney
                     + " (" + bonusPercent + "%)");
         }
+    }
+
+    private double getEquipmentMoneyBonus(Player player) {
+        if (equipmentMenuManager == null || player == null) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, equipmentMenuManager.getEquippedSystemStatBonus(player, EquipmentMenuManager.DAN_DUOC_MYTHIC_MONEY_BONUS_STAT));
     }
 
     private Location getDeathLocation(MythicMobLootDropEvent event) {

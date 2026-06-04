@@ -117,6 +117,10 @@ slots:
       enabled: true
       # Uu tien lay stat MMOItems nay tren item. Don vi: giay.
       stat: DAN_DUOC_DURATION
+      # Bonus system stat hoat dong khi DAN_DUOC dang duoc trang bi:
+      # - DAN_DUOC_TUVI_BONUS: cong % Tu Vi tu /tuluyen.
+      # - DAN_DUOC_MYTHIC_MONEY_BONUS: cong % Linh thach Vault tu MythicMobs money drop.
+      # - DAN_DUOC_FORGE_LUCK_BONUS: cong % luck cho TuTienForge /luyenkhi.
       # Neu item khong co stat DAN_DUOC_DURATION thi dung default nay.
       # Ho tro: 30s, 5m, 2h, 1d, hoac ghep nhu 1h30m.
       default: 1h

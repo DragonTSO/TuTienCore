@@ -70,6 +70,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private static final String MOD_PREFIX = "tutien_equipment_";
     private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
     private static final String DURATION_STAT_ID = "DAN_DUOC_DURATION";
+    public static final String DAN_DUOC_TU_VI_BONUS_STAT = "DAN_DUOC_TUVI_BONUS";
+    public static final String DAN_DUOC_MYTHIC_MONEY_BONUS_STAT = "DAN_DUOC_MYTHIC_MONEY_BONUS";
+    public static final String DAN_DUOC_FORGE_LUCK_BONUS_STAT = "DAN_DUOC_FORGE_LUCK_BONUS";
+    private static final Set<String> SYSTEM_STAT_IDS = Set.of(
+            DAN_DUOC_TU_VI_BONUS_STAT,
+            DAN_DUOC_MYTHIC_MONEY_BONUS_STAT,
+            DAN_DUOC_FORGE_LUCK_BONUS_STAT
+    );
     private static final Pattern DURATION_PART = Pattern.compile("(\\d+(?:\\.\\d+)?)(d|day|days|h|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?", Pattern.CASE_INSENSITIVE);
 
     private final JavaPlugin plugin;
@@ -135,6 +143,30 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeStats(player);
         }
+    }
+
+    public double getEquippedSystemStatBonus(Player player, String statId) {
+        if (player == null || statId == null || statId.isBlank() || !config.getBoolean("enabled", true)) {
+            return 0.0D;
+        }
+        String targetStat = normalizeStatId(statId);
+        if (targetStat.isBlank()) {
+            return 0.0D;
+        }
+
+        loadPlayer(player.getUniqueId());
+        Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
+        double total = 0.0D;
+        for (EquipSlot slot : slots.values()) {
+            if (!playerItems.containsKey(slot.id())) {
+                continue;
+            }
+            total += itemStatValue(playerItems.get(slot.id()), targetStat);
+            if (slot.useConfigStats()) {
+                total += slot.stats().getOrDefault(targetStat, 0.0D);
+            }
+        }
+        return total;
     }
 
     @Override
@@ -801,7 +833,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             if (!playerItems.containsKey(slot.id())) continue;
             itemStats(playerItems.get(slot.id())).forEach((stat, value) -> total.merge(stat, value, Double::sum));
             if (slot.useConfigStats()) {
-                slot.stats().forEach((stat, value) -> total.merge(stat, value, Double::sum));
+                slot.stats().forEach((stat, value) -> {
+                    if (!isEquipmentInternalStat(stat)) {
+                        total.merge(stat, value, Double::sum);
+                    }
+                });
             }
         }
         return total;
@@ -816,7 +852,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             for (ItemStat stat : liveItem.getStats()) {
                 if (!(stat instanceof DoubleStat)) continue;
                 String statId = normalize(stat.getId());
-                if (isEquipmentDurationStat(statId)) continue;
+                if (isEquipmentInternalStat(statId)) continue;
                 StatData data = liveItem.getData(stat);
                 if (!(data instanceof DoubleData doubleData)) continue;
                 double value = doubleData.getValue();
@@ -839,7 +875,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     continue;
                 }
                 String statId = normalize(tag.substring("MMOITEMS_".length()));
-                if (isEquipmentDurationStat(statId)) continue;
+                if (isEquipmentInternalStat(statId)) continue;
                 double value = nbt.getDouble(tag);
                 if (value != 0D) {
                     stats.merge(statId, value, Double::sum);
@@ -850,15 +886,63 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return stats;
     }
 
+    private double itemStatValue(ItemStack item, String statId) {
+        if (item == null || item.getType().isAir()) return 0.0D;
+        String targetStat = normalizeStatId(statId);
+        if (targetStat.isBlank()) return 0.0D;
+
+        try {
+            LiveMMOItem liveItem = new LiveMMOItem(item);
+            for (ItemStat stat : liveItem.getStats()) {
+                if (!normalizeStatId(stat.getId()).equals(targetStat)) continue;
+                StatData data = liveItem.getData(stat);
+                if (data instanceof DoubleData doubleData) {
+                    return doubleData.getValue();
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            for (String key : List.of(targetStat, "MMOITEMS_" + targetStat)) {
+                double numeric = nbt.getDouble(key);
+                if (numeric != 0.0D) return numeric;
+                String raw = nbt.getString(key);
+                if (raw != null && !raw.isBlank()) {
+                    try {
+                        return Double.parseDouble(raw.trim());
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0.0D;
+    }
+
+    private boolean isEquipmentInternalStat(String statId) {
+        return isEquipmentDurationStat(statId) || isEquipmentSystemStat(statId);
+    }
+
+    private boolean isEquipmentSystemStat(String statId) {
+        return SYSTEM_STAT_IDS.contains(normalizeStatId(statId));
+    }
+
     private boolean isEquipmentDurationStat(String statId) {
-        String normalized = normalize(statId);
+        String normalized = normalizeStatId(statId);
         if (normalized.equals(DURATION_STAT_ID)) return true;
         for (EquipSlot slot : slots.values()) {
-            if (slot.duration().enabled() && normalized.equals(normalize(slot.duration().statId()))) {
+            if (slot.duration().enabled() && normalized.equals(normalizeStatId(slot.duration().statId()))) {
                 return true;
             }
         }
         return false;
+    }
+
+    private String normalizeStatId(String value) {
+        String normalized = normalize(value);
+        return normalized.startsWith("MMOITEMS_") ? normalized.substring("MMOITEMS_".length()) : normalized;
     }
 
     private void loadSlots() {

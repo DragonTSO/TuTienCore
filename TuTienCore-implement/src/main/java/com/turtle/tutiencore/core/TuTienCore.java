@@ -114,7 +114,7 @@ public class TuTienCore {
         this.hotbarCommandItemManager = new HotbarCommandItemManager(plugin);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
-        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager);
+        this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager, equipmentMenuManager);
         this.playerHologramManager.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setTuLuyenManager(this.tuLuyenManager);
         this.lineParticleTask.setRealmManager(this.realmManager);
@@ -133,7 +133,7 @@ public class TuTienCore {
         this.linhDuocDropRateHook = new LinhDuocDropRateHook(plugin);
         this.linhDuocDropRateHook.register();
         this.killRewardHologramManager = new KillRewardHologramManager(plugin);
-        this.mythicMobsMoneyBonusHook = new MythicMobsMoneyBonusHook(plugin, actionBarManager, killRewardHologramManager);
+        this.mythicMobsMoneyBonusHook = new MythicMobsMoneyBonusHook(plugin, actionBarManager, killRewardHologramManager, equipmentMenuManager);
         this.mythicMobsMoneyBonusHook.register();
 
         this.sphereParticleTask = new SphereParticleTask(plugin, zoneManager, configManager);
