@@ -4,11 +4,25 @@ duration:
   # Luu thoi gian con lai xuong equipment-data.yml moi bao nhieu giay.
   save-interval-seconds: 30
 
+consumable:
+  enabled: true
+  accepted-types:
+    - DAN_DUOC
+  # Item DAN_DUOC nao co stat nay > 0 se duoc right-click de dung mot lan.
+  flag-stat: DAN_DUOC_CONSUMABLE
+  duration-stat: DAN_DUOC_DURATION
+  default-duration: 5m
+  consume-amount: 1
+
 messages:
   only-player: "&cChi player moi dung duoc lenh nay."
   invalid-item: "&cItem nay khong dung type yeu cau."
+  requirement-failed: "&cBan chua du dieu kien de trang bi item nay."
   expired-item: "&cItem nay da het thoi gian hieu luc."
   duration-expired: "&e%slot% &cda het thoi gian hieu luc."
+  consumable-used: "&aDa dung dan duoc. Hieu luc: &e%duration%"
+  consumable-no-stats: "&cDan nay chua co chi so MythicLib de kich hoat."
+  consumable-invalid-duration: "&cDan nay chua co thoi gian hieu luc."
   equipped: "&aDa trang bi &f%slot%&a."
   unequipped: "&eDa thao &f%slot%&e."
   no-offhand-item: "&cHay cam item MMOItems o offhand."

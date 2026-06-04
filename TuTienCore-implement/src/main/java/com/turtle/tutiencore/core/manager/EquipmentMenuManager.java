@@ -58,6 +58,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -68,15 +69,18 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private static final String MOD_PREFIX = "tutien_equipment_";
+    private static final String CONSUMABLE_MOD_PREFIX = "tutien_consumable_";
     private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
     private static final String DURATION_STAT_ID = "DAN_DUOC_DURATION";
+    private static final String CONSUMABLE_STAT_ID = "DAN_DUOC_CONSUMABLE";
     public static final String DAN_DUOC_TU_VI_BONUS_STAT = "DAN_DUOC_TUVI_BONUS";
     public static final String DAN_DUOC_MYTHIC_MONEY_BONUS_STAT = "DAN_DUOC_MYTHIC_MONEY_BONUS";
     public static final String DAN_DUOC_FORGE_LUCK_BONUS_STAT = "DAN_DUOC_FORGE_LUCK_BONUS";
     private static final Set<String> SYSTEM_STAT_IDS = Set.of(
             DAN_DUOC_TU_VI_BONUS_STAT,
             DAN_DUOC_MYTHIC_MONEY_BONUS_STAT,
-            DAN_DUOC_FORGE_LUCK_BONUS_STAT
+            DAN_DUOC_FORGE_LUCK_BONUS_STAT,
+            CONSUMABLE_STAT_ID
     );
     private static final Pattern DURATION_PART = Pattern.compile("(\\d+(?:\\.\\d+)?)(d|day|days|h|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?", Pattern.CASE_INSENSITIVE);
 
@@ -87,13 +91,16 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final NamespacedKey actionKey;
     private final NamespacedKey boundOffhandKey;
     private final NamespacedKey durationRemainingKey;
+    private final NamespacedKey durationTotalKey;
     private final NamespacedKey ancientDurationSecondsKey;
 
     private FileConfiguration config;
     private FileConfiguration data;
     private final Map<String, EquipSlot> slots = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack>> equipped = new HashMap<>();
+    private final Map<UUID, Set<String>> activeConsumables = new HashMap<>();
     private int durationSaveCounter;
+    private long consumableCounter;
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -103,6 +110,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         this.actionKey = new NamespacedKey(plugin, "equipment_action");
         this.boundOffhandKey = new NamespacedKey(plugin, "equipment_bound_offhand");
         this.durationRemainingKey = new NamespacedKey(plugin, "equipment_duration_remaining_seconds");
+        this.durationTotalKey = new NamespacedKey(plugin, "equipment_duration_total_seconds");
         this.ancientDurationSecondsKey = new NamespacedKey("tutienancient", "dan_duoc_duration_seconds");
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -115,6 +123,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         config = YamlConfiguration.loadConfiguration(configFile);
         data = YamlConfiguration.loadConfiguration(dataFile);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            removeConsumableStats(player);
+        }
+        activeConsumables.clear();
         loadSlots();
         equipped.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -142,7 +154,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     public void removeAllOnlineModifiers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeStats(player);
+            removeConsumableStats(player);
         }
+        activeConsumables.clear();
     }
 
     public double getEquippedSystemStatBonus(Player player, String statId) {
@@ -223,6 +237,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         savePlayer(event.getPlayer().getUniqueId());
         saveDataFile();
         removeStats(event.getPlayer());
+        removeConsumableStats(event.getPlayer());
         equipped.remove(event.getPlayer().getUniqueId());
     }
 
@@ -234,6 +249,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         if (!config.getBoolean("enabled", true)) return;
+        if (handleConsumableDanDuoc(event)) return;
         if (!config.getBoolean("offhand.bound-item.open-on-world-click", false)) return;
         ItemStack offhand = event.getPlayer().getInventory().getItemInOffHand();
         if (!isInfoOffhandItem(offhand)) return;
@@ -295,6 +311,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             ItemStack cursor = event.getCursor();
             if (!slot.accepts(mmoType(cursor))) {
                 player.sendMessage(message("invalid-item"));
+                return;
+            }
+            if (!canUseMmoItem(player, cursor)) {
                 return;
             }
             ItemStack one = cursor.clone();
@@ -673,6 +692,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 if (remaining < 0) {
                     continue;
                 }
+                ensureTotalDurationSeconds(slot, item, remaining);
                 if (remaining <= 0) {
                     expireTimedItem(player, slot, item, playerItems);
                     playerChanged = true;
@@ -683,7 +703,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
                 remaining--;
                 if (remaining <= 0) {
-                    setRemainingDurationSeconds(item, 0);
+                    setRemainingDurationSeconds(slot, item, 0);
                     expireTimedItem(player, slot, item, playerItems);
                     playerChanged = true;
                     statsChanged = true;
@@ -691,7 +711,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     continue;
                 }
 
-                setRemainingDurationSeconds(item, remaining);
+                setRemainingDurationSeconds(slot, item, remaining);
                 updateDurationItemLore(slot, item);
                 refreshOpenEquipmentSlot(player, slot);
                 playerChanged = true;
@@ -717,7 +737,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private void expireTimedItem(Player player, EquipSlot slot, ItemStack item, Map<String, ItemStack> playerItems) {
         playerItems.remove(slot.id());
-        setRemainingDurationSeconds(item, 0);
+        setRemainingDurationSeconds(slot, item, 0);
         updateDurationItemLore(slot, item);
         if (!slot.duration().consumeWhenExpired()) {
             giveOrDrop(player, item);
@@ -737,6 +757,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return false;
         }
         if (current > 0) {
+            ensureTotalDurationSeconds(slot, item, current);
+            syncMmoDurationSeconds(slot, item, current);
             updateDurationItemLore(slot, item);
             return true;
         }
@@ -745,12 +767,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (duration <= 0) {
             return true;
         }
-        setRemainingDurationSeconds(item, duration);
+        setTotalDurationSeconds(item, duration);
+        setRemainingDurationSeconds(slot, item, duration);
         updateDurationItemLore(slot, item);
         return true;
     }
 
     private long initialDurationSeconds(EquipSlot slot, ItemStack item) {
+        long existingTotal = persistentDurationSeconds(item, durationTotalKey);
+        if (existingTotal > 0L) {
+            return existingTotal;
+        }
         long fromAncient = persistentDurationSeconds(item, ancientDurationSecondsKey);
         if (fromAncient > 0L) {
             return fromAncient;
@@ -826,6 +853,149 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         item.setItemMeta(meta);
     }
 
+    private void setRemainingDurationSeconds(EquipSlot slot, ItemStack item, long seconds) {
+        setRemainingDurationSeconds(item, seconds);
+        syncMmoDurationSeconds(slot, item, seconds);
+    }
+
+    private void setTotalDurationSeconds(ItemStack item, long seconds) {
+        if (item == null || item.getType().isAir()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        meta.getPersistentDataContainer().set(durationTotalKey, PersistentDataType.LONG, Math.max(0L, seconds));
+        item.setItemMeta(meta);
+    }
+
+    private void ensureTotalDurationSeconds(EquipSlot slot, ItemStack item, long remainingSeconds) {
+        if (item == null || item.getType().isAir()) return;
+        if (persistentDurationSeconds(item, durationTotalKey) > 0L) return;
+        long total = initialDurationSeconds(slot, item);
+        if (total <= 0L) {
+            total = Math.max(0L, remainingSeconds);
+        }
+        if (total > 0L) {
+            setTotalDurationSeconds(item, Math.max(total, remainingSeconds));
+        }
+    }
+
+    private boolean handleConsumableDanDuoc(PlayerInteractEvent event) {
+        if (!config.getBoolean("consumable.enabled", true)) return false;
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return false;
+        if (event.getHand() != EquipmentSlot.HAND) return false;
+
+        ItemStack item = event.getItem();
+        if (!isConsumableDanDuoc(item)) return false;
+
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (!canUseMmoItem(player, item)) {
+            return true;
+        }
+
+        Map<String, Double> stats = itemStats(item);
+        if (stats.isEmpty()) {
+            player.sendMessage(message("consumable-no-stats", "&cDan nay chua co chi so MythicLib de kich hoat."));
+            return true;
+        }
+
+        long durationSeconds = consumableDurationSeconds(item);
+        if (durationSeconds <= 0L) {
+            player.sendMessage(message("consumable-invalid-duration", "&cDan nay chua co thoi gian hieu luc."));
+            return true;
+        }
+
+        applyConsumableStats(player, stats, durationSeconds);
+        consumeMainHandItem(player);
+        player.sendMessage(message("consumable-used", "&aDa dung dan duoc. Hieu luc: &e%duration%")
+                .replace("%duration%", formatDuration(durationSeconds)));
+        return true;
+    }
+
+    private void syncMmoDurationSeconds(EquipSlot slot, ItemStack item, long seconds) {
+        if (slot == null || !slot.duration().enabled() || item == null || item.getType().isAir()) return;
+        String statId = normalizeStatId(slot.duration().statId());
+        if (statId.isBlank()) statId = DURATION_STAT_ID;
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            String mmoTag = statId.startsWith("MMOITEMS_") ? statId : "MMOITEMS_" + statId;
+            nbt.setDouble(mmoTag, Math.max(0L, seconds));
+            if (nbt.hasTag(statId)) {
+                nbt.setDouble(statId, Math.max(0L, seconds));
+            }
+            copyItemData(item, nbt.toItem());
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void applyConsumableStats(Player player, Map<String, Double> stats, long durationSeconds) {
+        String effectId = CONSUMABLE_MOD_PREFIX + (++consumableCounter) + "_";
+        try {
+            MMOPlayerData mmoData = MMOPlayerData.get(player.getUniqueId());
+            if (mmoData == null || mmoData.getStatMap() == null) return;
+            StatMap statMap = mmoData.getStatMap();
+            for (Map.Entry<String, Double> entry : stats.entrySet()) {
+                if (entry.getValue() == 0.0D) continue;
+                StatInstance instance = statMap.getInstance(entry.getKey());
+                if (instance == null) continue;
+                instance.addModifier(new StatModifier(effectId + entry.getKey(), entry.getKey(), entry.getValue(), ModifierType.FLAT));
+            }
+            activeConsumables.computeIfAbsent(player.getUniqueId(), ignored -> new HashSet<>()).add(effectId);
+            long delayTicks = Math.max(1L, durationSeconds * 20L);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> removeConsumableStats(player.getUniqueId(), effectId), delayTicks);
+        } catch (Throwable throwable) {
+            plugin.getLogger().warning("Could not apply consumable dan duoc stats to " + player.getName() + ": " + throwable.getMessage());
+        }
+    }
+
+    private void removeConsumableStats(Player player) {
+        if (player == null) return;
+        removeConsumableStats(player.getUniqueId(), null);
+    }
+
+    private void removeConsumableStats(UUID uuid, String effectId) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) {
+            if (effectId == null) {
+                activeConsumables.remove(uuid);
+            } else {
+                Set<String> ids = activeConsumables.get(uuid);
+                if (ids != null) ids.remove(effectId);
+            }
+            return;
+        }
+
+        try {
+            MMOPlayerData mmoData = MMOPlayerData.get(uuid);
+            if (mmoData == null || mmoData.getStatMap() == null) return;
+            String prefix = effectId == null ? CONSUMABLE_MOD_PREFIX : effectId;
+            for (StatInstance instance : mmoData.getStatMap().getInstances()) {
+                if (instance != null) {
+                    instance.removeIf(key -> key.startsWith(prefix));
+                }
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            if (effectId == null) {
+                activeConsumables.remove(uuid);
+            } else {
+                Set<String> ids = activeConsumables.get(uuid);
+                if (ids != null) {
+                    ids.remove(effectId);
+                    if (ids.isEmpty()) activeConsumables.remove(uuid);
+                }
+            }
+        }
+    }
+
+    private void copyItemData(ItemStack target, ItemStack source) {
+        if (target == null || source == null || source.getType().isAir()) return;
+        int amount = target.getAmount();
+        target.setType(source.getType());
+        target.setItemMeta(source.getItemMeta());
+        target.setAmount(amount);
+    }
+
     private Map<String, Double> totalStats(UUID uuid) {
         Map<String, Double> total = new LinkedHashMap<>();
         Map<String, ItemStack> playerItems = equipped.getOrDefault(uuid, Map.of());
@@ -884,6 +1054,59 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         } catch (Throwable ignored) {
         }
         return stats;
+    }
+
+    private boolean isConsumableDanDuoc(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+        String type = mmoType(item);
+        if (type == null) return false;
+        List<String> acceptedTypes = config.getStringList("consumable.accepted-types");
+        if (acceptedTypes.isEmpty()) {
+            acceptedTypes = List.of("DAN_DUOC");
+        }
+        boolean accepted = acceptedTypes.stream().map(this::normalize).anyMatch(type::equals);
+        if (!accepted) return false;
+
+        String flagStat = normalizeStatId(config.getString("consumable.flag-stat", CONSUMABLE_STAT_ID));
+        if (flagStat.isBlank()) flagStat = CONSUMABLE_STAT_ID;
+        return itemStatValue(item, flagStat) > 0.0D;
+    }
+
+    private long consumableDurationSeconds(ItemStack item) {
+        String durationStat = normalizeStatId(config.getString("consumable.duration-stat", DURATION_STAT_ID));
+        if (durationStat.isBlank()) durationStat = DURATION_STAT_ID;
+
+        double statValue = itemStatValue(item, durationStat);
+        if (statValue > 0.0D) {
+            return Math.max(1L, Math.round(statValue));
+        }
+
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            for (String key : List.of(durationStat, "MMOITEMS_" + durationStat)) {
+                double numeric = nbt.getDouble(key);
+                if (numeric > 0.0D) return Math.max(1L, Math.round(numeric));
+                long parsed = parseDurationSeconds(nbt.getString(key), 0L);
+                if (parsed > 0L) return parsed;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return parseDurationSeconds(config.get("consumable.default-duration", "5m"), 0L);
+    }
+
+    private void consumeMainHandItem(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (item == null || item.getType().isAir()) return;
+        int consumeAmount = Math.max(1, config.getInt("consumable.consume-amount", 1));
+        int remaining = item.getAmount() - consumeAmount;
+        if (remaining <= 0) {
+            player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+        } else {
+            item.setAmount(remaining);
+            player.getInventory().setItemInMainHand(item);
+        }
+        player.updateInventory();
     }
 
     private double itemStatValue(ItemStack item, String statId) {
@@ -1075,6 +1298,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return mmoString(item, "MMOITEMS_ITEM_ID", "MMOITEMS_ID", "id");
     }
 
+    private boolean canUseMmoItem(Player player, ItemStack item) {
+        if (player == null || item == null || item.getType().isAir()) return false;
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            return PlayerData.get(player).getRPG().canUse(nbt, true);
+        } catch (Throwable throwable) {
+            player.sendMessage(message("requirement-failed", "&cBan chua du dieu kien de trang bi item nay."));
+            return false;
+        }
+    }
+
     private String mmoString(ItemStack item, String... keys) {
         if (item == null || item.getType() == Material.AIR) return null;
         try {
@@ -1251,6 +1485,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Map<String, ItemStack> playerItems = equipped.getOrDefault(player.getUniqueId(), Map.of());
         ItemStack item = playerItems.get(slot.id());
         player.getOpenInventory().getTopInventory().setItem(slot.guiSlot(), item == null ? emptySlotItem(slot) : displayEquippedItem(slot, item));
+        player.updateInventory();
     }
 
     private ItemStack confirmItem(Player player, ItemStack source, UpgradeRule rule) {
