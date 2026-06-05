@@ -156,10 +156,10 @@ offhand:
     name: ""
     lore:
       - ""
-      - "&e  Chuot phai &7de mo thong tin/trang bi."
-      - "&e  Chuot trai &7de mo nang cap."
+      - "&e  Chuột phải &7để mở thông tin/trang bị."
+      - "&e  Chuột trái &7để mở nâng cấp."
       - ""
-      - "&c  Khong the thao khoi tay phu."
+      - "&c  Không thể tháo khỏi tay phụ."
   info-item-types:
     - OFF_CATALYST
   info-items:

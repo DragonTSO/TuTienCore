@@ -570,7 +570,44 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (String line : config.getStringList("offhand.bound-item.lore")) {
             appendix.add(color(line.replace("%player%", player.getName())));
         }
+        ensureBoundOffhandDefaultGuides(appendix);
         return appendix;
+    }
+
+    private void ensureBoundOffhandDefaultGuides(List<String> appendix) {
+        boolean hasRightClick = appendix.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("chuot phai") && normalized.contains("thong tin");
+        });
+        boolean hasLeftClick = appendix.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("chuot trai") && normalized.contains("nang cap");
+        });
+        boolean hasCannotRemove = appendix.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("khong the") && normalized.contains("thao") && normalized.contains("tay phu");
+        });
+
+        if (!hasRightClick || !hasLeftClick) {
+            int insertIndex = 0;
+            if (appendix.isEmpty() || !isBlankLoreLine(appendix.get(0))) {
+                appendix.add(0, color(""));
+            }
+            insertIndex = 1;
+            if (!hasRightClick) {
+                appendix.add(insertIndex++, color("&e  Chuột phải &7để mở thông tin/trang bị."));
+            }
+            if (!hasLeftClick) {
+                appendix.add(insertIndex, color("&e  Chuột trái &7để mở nâng cấp."));
+            }
+        }
+
+        if (!hasCannotRemove) {
+            if (!appendix.isEmpty() && !isBlankLoreLine(appendix.get(appendix.size() - 1))) {
+                appendix.add(color(""));
+            }
+            appendix.add(color("&c  Không thể tháo khỏi tay phụ."));
+        }
     }
 
     private List<String> stripBoundOffhandAppendix(List<String> lore) {
