@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class OfflineTuLuyenManager implements Listener {
+    private static final String GUI_PATH = "gui";
     private static final int GUI_SIZE = 27;
     private static final int CLAIM_SLOT = 11;
     private static final int CLAIM_X2_SLOT = 15;
@@ -47,6 +48,7 @@ public class OfflineTuLuyenManager implements Listener {
 
     private File file;
     private FileConfiguration data;
+    private FileConfiguration guiConfig;
 
     public OfflineTuLuyenManager(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -132,15 +134,15 @@ public class OfflineTuLuyenManager implements Listener {
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
-        if (slot == CLOSE_SLOT) {
+        if (isGuiItemEnabled("close", true) && slot == itemSlot("close", CLOSE_SLOT)) {
             player.closeInventory();
             return;
         }
-        if (slot == CLAIM_SLOT) {
+        if (isGuiItemEnabled("claim", true) && slot == itemSlot("claim", CLAIM_SLOT)) {
             claim(player, false);
             return;
         }
-        if (slot == CLAIM_X2_SLOT) {
+        if (isGuiItemEnabled("claim-x2", true) && slot == itemSlot("claim-x2", CLAIM_X2_SLOT)) {
             claim(player, true);
         }
     }
@@ -198,6 +200,18 @@ public class OfflineTuLuyenManager implements Listener {
             }
         }
         data = YamlConfiguration.loadConfiguration(file);
+        loadGuiConfig();
+    }
+
+    private void loadGuiConfig() {
+        File guiFile = new File(plugin.getDataFolder(), "gui/offline-tuluyen.yml");
+        if (!guiFile.exists()) {
+            if (guiFile.getParentFile() != null && !guiFile.getParentFile().exists()) {
+                guiFile.getParentFile().mkdirs();
+            }
+            plugin.saveResource("gui/offline-tuluyen.yml", false);
+        }
+        guiConfig = YamlConfiguration.loadConfiguration(guiFile);
     }
 
     private void open(Player player) {
@@ -214,35 +228,37 @@ public class OfflineTuLuyenManager implements Listener {
         long earnedSeconds = data.getLong(path(uuid, "last-earned-seconds"), 0L);
         long realSeconds = data.getLong(path(uuid, "last-real-offline-seconds"), earnedSeconds);
         double multiplier = data.getDouble(path(uuid, "last-earned-multiplier"), getOfflineMultiplier(player));
+        OfflineGuiContext context = new OfflineGuiContext(player, pending, earnedSeconds, realSeconds, multiplier);
 
         OfflineGuiHolder holder = new OfflineGuiHolder();
-        Inventory gui = Bukkit.createInventory(holder, GUI_SIZE, color("&0✦ Tu Luyện Offline ✦"));
+        Inventory gui = Bukkit.createInventory(holder, guiSize(), color(formatPlaceholders(
+                guiConfig.getString(GUI_PATH + ".title", "&0✦ Tu Luyện Offline ✦"), context)));
         holder.setInventory(gui);
-        fill(gui);
-        gui.setItem(CLAIM_SLOT, item(Material.EXPERIENCE_BOTTLE, "&a&lNhận Tu Vi", List.of(
+        fill(gui, context);
+        setGuiItem(gui, "claim", CLAIM_SLOT, Material.EXPERIENCE_BOTTLE, "&a&lNhận Tu Vi", List.of(
                 "&8thông tin",
-                "&7Tu Vi đã tích lũy: &e" + format(pending),
-                "&7Thời gian tính: &b" + formatDuration(earnedSeconds) + getCappedSuffix(realSeconds, earnedSeconds),
-                "&7Hiệu suất offline: &a" + formatMultiplier(multiplier),
+                "&7Tu Vi đã tích lũy: &e%tuvi%",
+                "&7Thời gian tính: &b%earned_time%%capped_suffix%",
+                "&7Hiệu suất offline: &a%multiplier%",
                 "&7Hình thức: &aNhận miễn phí",
                 "",
-                "&aChuột trái để nhận ngay.")));
-        gui.setItem(CLAIM_X2_SLOT, item(Material.EMERALD, "&b&lNhận x2 Tu Vi", List.of(
+                "&aChuột trái để nhận ngay."), context);
+        setGuiItem(gui, "claim-x2", CLAIM_X2_SLOT, Material.EMERALD, "&b&lNhận x2 Tu Vi", List.of(
                 "&8nâng cấp phần thưởng",
-                "&7Tu Vi gốc: &e" + format(pending),
-                "&7Thời gian tính: &b" + formatDuration(earnedSeconds) + getCappedSuffix(realSeconds, earnedSeconds),
-                "&7Hiệu suất offline: &a" + formatMultiplier(multiplier),
-                "&7Sau nhân đôi: &b" + format(pending * 2),
-                "&7Chi phí: &e" + configManager.getOfflineClaimX2Cost() + " PlayerPoints",
+                "&7Tu Vi gốc: &e%tuvi%",
+                "&7Thời gian tính: &b%earned_time%%capped_suffix%",
+                "&7Hiệu suất offline: &a%multiplier%",
+                "&7Sau nhân đôi: &b%tuvi_x2%",
+                "&7Chi phí: &e%x2_cost% PlayerPoints",
                 "",
-                "&bChuột trái để nhận x2.")));
-        gui.setItem(CLOSE_SLOT, item(Material.BARRIER, "&cĐể Sau", List.of(
+                "&bChuột trái để nhận x2."), context);
+        setGuiItem(gui, "close", CLOSE_SLOT, Material.BARRIER, "&cĐể Sau", List.of(
                 "&7Tu Vi offline vẫn được giữ lại.",
-                "&7Bạn có thể claim ở lần vào sau.")));
+                "&7Bạn có thể claim ở lần vào sau."), context);
 
         openGuis.add(player.getUniqueId());
         player.openInventory(gui);
-        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.MASTER, 1.0f, 1.0f);
+        playConfiguredSound(player, "open-sound", Sound.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.MASTER, 1.0f, 1.0f);
     }
 
     private boolean isViewingOtherMenu(Player player) {
@@ -256,15 +272,23 @@ public class OfflineTuLuyenManager implements Listener {
     private void claim(Player player, boolean x2) {
         UUID uuid = player.getUniqueId();
         double pending = getPendingTuVi(uuid);
+        OfflineGuiContext context = new OfflineGuiContext(
+                player,
+                pending,
+                data.getLong(path(uuid, "last-earned-seconds"), 0L),
+                data.getLong(path(uuid, "last-real-offline-seconds"), 0L),
+                data.getDouble(path(uuid, "last-earned-multiplier"), getOfflineMultiplier(player))
+        );
         if (pending <= 0) {
-            player.sendMessage(color("&cBạn không có Tu Vi offline để nhận."));
+            player.sendMessage(message("no-pending", "&cBạn không có Tu Vi offline để nhận.", context));
             player.closeInventory();
             return;
         }
 
         int cost = configManager.getOfflineClaimX2Cost();
         if (x2 && !takePlayerPoints(player, cost)) {
-            player.sendMessage(color("&cKhông đủ &e" + cost + " PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."));
+            player.sendMessage(message("not-enough-points",
+                    "&cKhông đủ &e%x2_cost% PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại.", context));
             return;
         }
 
@@ -276,8 +300,11 @@ public class OfflineTuLuyenManager implements Listener {
         data.set(path(uuid, "last-earned-multiplier"), null);
         save();
 
-        player.sendMessage(color("&aĐã nhận &e" + format(reward) + " Tu Vi &atừ tu luyện offline" + (x2 ? " &b(x2)&a." : ".")));
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 1.0f, 1.2f);
+        player.sendMessage(message(x2 ? "claim-x2-success" : "claim-success",
+                x2 ? "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline &b(x2)&a."
+                        : "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline.",
+                context.withReward(reward)));
+        playConfiguredSound(player, "claim-sound", Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 1.0f, 1.2f);
         player.closeInventory();
     }
 
@@ -334,11 +361,56 @@ public class OfflineTuLuyenManager implements Listener {
         return uuid + "." + child;
     }
 
-    private void fill(Inventory gui) {
-        ItemStack pane = item(Material.GRAY_STAINED_GLASS_PANE, " ", List.of());
+    private int guiSize() {
+        int size = guiConfig.getInt(GUI_PATH + ".size", GUI_SIZE);
+        size = Math.max(9, Math.min(54, size));
+        return ((size + 8) / 9) * 9;
+    }
+
+    private boolean isGuiItemEnabled(String id, boolean fallback) {
+        return guiConfig.getBoolean(GUI_PATH + ".items." + id + ".enabled", fallback);
+    }
+
+    private int itemSlot(String id, int fallback) {
+        return guiConfig.getInt(GUI_PATH + ".items." + id + ".slot", fallback);
+    }
+
+    private void fill(Inventory gui, OfflineGuiContext context) {
+        ItemStack pane = configItem(GUI_PATH + ".filler", Material.GRAY_STAINED_GLASS_PANE, " ", List.of(), context);
         for (int i = 0; i < gui.getSize(); i++) {
             gui.setItem(i, pane);
         }
+    }
+
+    private void setGuiItem(Inventory gui, String id, int fallbackSlot, Material fallbackMaterial,
+                            String fallbackName, List<String> fallbackLore, OfflineGuiContext context) {
+        if (!isGuiItemEnabled(id, true)) {
+            return;
+        }
+        int slot = itemSlot(id, fallbackSlot);
+        if (slot < 0 || slot >= gui.getSize()) {
+            return;
+        }
+        gui.setItem(slot, configItem(GUI_PATH + ".items." + id, fallbackMaterial, fallbackName, fallbackLore, context));
+    }
+
+    private ItemStack configItem(String path, Material fallbackMaterial, String fallbackName,
+                                 List<String> fallbackLore, OfflineGuiContext context) {
+        Material material = material(guiConfig.getString(path + ".material"), fallbackMaterial);
+        String name = guiConfig.getString(path + ".name", fallbackName);
+        List<String> lore = guiConfig.getStringList(path + ".lore");
+        if (lore.isEmpty()) {
+            lore = fallbackLore;
+        }
+        return item(material, formatPlaceholders(name, context), formatPlaceholders(lore, context));
+    }
+
+    private Material material(String value, Material fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        Material material = Material.getMaterial(value.trim().toUpperCase());
+        return material == null ? fallback : material;
     }
 
     private ItemStack item(Material material, String name, List<String> lore) {
@@ -356,6 +428,76 @@ public class OfflineTuLuyenManager implements Listener {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private String message(String path, String fallback, OfflineGuiContext context) {
+        return color(formatPlaceholders(guiConfig.getString(GUI_PATH + ".messages." + path, fallback), context));
+    }
+
+    private void playConfiguredSound(Player player, String path, Sound fallbackSound, SoundCategory fallbackCategory,
+                                     float fallbackVolume, float fallbackPitch) {
+        String base = GUI_PATH + "." + path;
+        if (!guiConfig.getBoolean(base + ".enabled", true)) {
+            return;
+        }
+        Sound sound = parseSound(guiConfig.getString(base + ".sound", fallbackSound.name()), fallbackSound);
+        SoundCategory category = parseSoundCategory(guiConfig.getString(base + ".category", fallbackCategory.name()), fallbackCategory);
+        float volume = (float) guiConfig.getDouble(base + ".volume", fallbackVolume);
+        float pitch = (float) guiConfig.getDouble(base + ".pitch", fallbackPitch);
+        player.playSound(player.getLocation(), sound, category, volume, pitch);
+    }
+
+    private Sound parseSound(String value, Sound fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Sound.valueOf(value.trim().toUpperCase().replace('.', '_').replace('-', '_'));
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    private SoundCategory parseSoundCategory(String value, SoundCategory fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return SoundCategory.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    private List<String> formatPlaceholders(List<String> lines, OfflineGuiContext context) {
+        List<String> formatted = new ArrayList<>();
+        for (String line : lines) {
+            formatted.add(formatPlaceholders(line, context));
+        }
+        return formatted;
+    }
+
+    private String formatPlaceholders(String text, OfflineGuiContext context) {
+        if (text == null) {
+            return "";
+        }
+        if (context == null) {
+            return text;
+        }
+        return text
+                .replace("%player%", context.player.getName())
+                .replace("%player_name%", context.player.getName())
+                .replace("%tuvi%", format(context.pending))
+                .replace("%tuvi_x2%", format(context.pending * 2))
+                .replace("%reward%", format(context.reward))
+                .replace("%earned_seconds%", String.valueOf(context.earnedSeconds))
+                .replace("%real_seconds%", String.valueOf(context.realSeconds))
+                .replace("%earned_time%", formatDuration(context.earnedSeconds))
+                .replace("%real_time%", formatDuration(context.realSeconds))
+                .replace("%capped_suffix%", getCappedSuffix(context.realSeconds, context.earnedSeconds))
+                .replace("%multiplier%", formatMultiplier(context.multiplier))
+                .replace("%multiplier_percent%", formatMultiplier(context.multiplier))
+                .replace("%x2_cost%", String.valueOf(configManager.getOfflineClaimX2Cost()));
     }
 
     private String color(String text) {
@@ -385,6 +527,33 @@ public class OfflineTuLuyenManager implements Listener {
             return String.format("%d phút %02d giây", minutes, secs);
         }
         return secs + " giây";
+    }
+
+    private static final class OfflineGuiContext {
+        private final Player player;
+        private final double pending;
+        private final long earnedSeconds;
+        private final long realSeconds;
+        private final double multiplier;
+        private final double reward;
+
+        private OfflineGuiContext(Player player, double pending, long earnedSeconds, long realSeconds, double multiplier) {
+            this(player, pending, earnedSeconds, realSeconds <= 0L ? earnedSeconds : realSeconds, multiplier, pending);
+        }
+
+        private OfflineGuiContext(Player player, double pending, long earnedSeconds, long realSeconds,
+                                  double multiplier, double reward) {
+            this.player = player;
+            this.pending = pending;
+            this.earnedSeconds = earnedSeconds;
+            this.realSeconds = realSeconds;
+            this.multiplier = multiplier;
+            this.reward = reward;
+        }
+
+        private OfflineGuiContext withReward(double reward) {
+            return new OfflineGuiContext(player, pending, earnedSeconds, realSeconds, multiplier, reward);
+        }
     }
 
     private static final class OfflineGuiHolder implements InventoryHolder {

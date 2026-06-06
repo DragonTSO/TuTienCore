@@ -1,0 +1,67 @@
+gui:
+  title: "&8Tu Luyện Offline"
+  size: 27
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    name: "&8 "
+    lore: []
+
+  open-sound:
+    enabled: true
+    sound: BLOCK_ENCHANTMENT_TABLE_USE
+    category: MASTER
+    volume: 1.0
+    pitch: 1.0
+
+  claim-sound:
+    enabled: true
+    sound: ENTITY_PLAYER_LEVELUP
+    category: MASTER
+    volume: 1.0
+    pitch: 1.2
+
+  messages:
+    no-pending: "&cBạn không có Tu Vi offline để nhận."
+    not-enough-points: "&cKhông đủ &e%x2_cost% PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."
+    claim-success: "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline."
+    claim-x2-success: "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline &b(x2)&a."
+
+  items:
+    claim:
+      enabled: true
+      slot: 11
+      material: EXPERIENCE_BOTTLE
+      name: "&a&lNhận Tu Vi"
+      lore:
+        - "&8thông tin"
+        - "&7Tu Vi đã tích lũy: &e%tuvi%"
+        - "&7Thời gian tính: &b%earned_time%%capped_suffix%"
+        - "&7Hiệu suất offline: &a%multiplier%"
+        - "&7Hình thức: &aNhận miễn phí"
+        - ""
+        - "&aChuột trái để nhận ngay."
+
+    claim-x2:
+      enabled: true
+      slot: 15
+      material: EMERALD
+      name: "&b&lNhận x2 Tu Vi"
+      lore:
+        - "&8nâng cấp phần thưởng"
+        - "&7Tu Vi gốc: &e%tuvi%"
+        - "&7Thời gian tính: &b%earned_time%%capped_suffix%"
+        - "&7Hiệu suất offline: &a%multiplier%"
+        - "&7Sau nhân đôi: &b%tuvi_x2%"
+        - "&7Chi phí: &e%x2_cost% PlayerPoints"
+        - ""
+        - "&bChuột trái để nhận x2."
+
+    close:
+      enabled: true
+      slot: 22
+      material: BARRIER
+      name: "&cĐể Sau"
+      lore:
+        - "&7Tu Vi offline vẫn được giữ lại."
+        - "&7Bạn có thể claim ở lần vào sau."
