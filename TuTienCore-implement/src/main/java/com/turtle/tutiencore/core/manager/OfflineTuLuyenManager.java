@@ -285,6 +285,12 @@ public class OfflineTuLuyenManager implements Listener {
             return;
         }
 
+        if (x2 && !canUseClaimX2(player)) {
+            player.sendMessage(message("x2-no-permission",
+                    "&cBạn cần thuê gói nhận x2 theo tháng để dùng nút này. &7Permission: &e%x2_permission%", context));
+            return;
+        }
+
         int cost = configManager.getOfflineClaimX2Cost();
         if (x2 && !takePlayerPoints(player, cost)) {
             player.sendMessage(message("not-enough-points",
@@ -346,6 +352,19 @@ public class OfflineTuLuyenManager implements Listener {
     private String offlinePermission() {
         String permission = configManager.getOfflinePermission();
         return (permission == null || permission.isBlank()) ? "tutiencore.tuluyen.vip" : permission;
+    }
+
+    private boolean canUseClaimX2(Player player) {
+        if (!configManager.isOfflineClaimX2PermissionRequired()) {
+            return true;
+        }
+        String permission = offlineClaimX2Permission();
+        return permission.isBlank() || player.hasPermission(permission);
+    }
+
+    private String offlineClaimX2Permission() {
+        String permission = configManager.getOfflineClaimX2Permission();
+        return permission == null ? "" : permission;
     }
 
     private long getMaxOfflineSeconds() {
@@ -497,7 +516,9 @@ public class OfflineTuLuyenManager implements Listener {
                 .replace("%capped_suffix%", getCappedSuffix(context.realSeconds, context.earnedSeconds))
                 .replace("%multiplier%", formatMultiplier(context.multiplier))
                 .replace("%multiplier_percent%", formatMultiplier(context.multiplier))
-                .replace("%x2_cost%", String.valueOf(configManager.getOfflineClaimX2Cost()));
+                .replace("%x2_cost%", String.valueOf(configManager.getOfflineClaimX2Cost()))
+                .replace("%x2_permission%", offlineClaimX2Permission())
+                .replace("%x2_permission_status%", canUseClaimX2(context.player) ? "&aĐã thuê" : "&cChưa thuê");
     }
 
     private String color(String text) {

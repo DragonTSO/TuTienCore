@@ -33,6 +33,8 @@ public class ConfigManager {
     private float tuLuyenIntervalResetSoundPitch;
     private int offlineIntervalSeconds;
     private int offlineClaimX2Cost;
+    private boolean offlineClaimX2RequirePermission;
+    private String offlineClaimX2Permission;
     private String offlinePermission;
     private double offlineDefaultMultiplier;
     private double offlinePermissionMultiplier;
@@ -103,6 +105,8 @@ public class ConfigManager {
         tuLuyenIntervalResetSoundPitch = (float) config.getDouble("tu-luyen.sounds.interval-reset.pitch", 1.15);
         offlineIntervalSeconds = Math.max(1, config.getInt("offline-tuluyen.interval-seconds", 60));
         offlineClaimX2Cost = config.getInt("offline-tuluyen.claim-x2-cost", 100);
+        offlineClaimX2RequirePermission = config.getBoolean("offline-tuluyen.claim-x2.require-permission", true);
+        offlineClaimX2Permission = config.getString("offline-tuluyen.claim-x2.permission", "tutiencore.tuluyen.offline.x2");
         offlinePermission = config.getString("offline-tuluyen.permission", "tutiencore.tuluyen.vip");
         offlineDefaultMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.default-multiplier", 0.5));
         offlinePermissionMultiplier = Math.max(0.0, config.getDouble("offline-tuluyen.permission-multiplier", 1.0));
@@ -309,6 +313,14 @@ public class ConfigManager {
 
     public int getOfflineClaimX2Cost() {
         return offlineClaimX2Cost;
+    }
+
+    public boolean isOfflineClaimX2PermissionRequired() {
+        return offlineClaimX2RequirePermission;
+    }
+
+    public String getOfflineClaimX2Permission() {
+        return offlineClaimX2Permission;
     }
 
     public String getOfflinePermission() {

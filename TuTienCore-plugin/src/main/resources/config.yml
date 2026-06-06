@@ -220,6 +220,12 @@ offline-tuluyen:
     fallback-delay-ticks: 300
   # Chi phi PlayerPoints khi claim x2.
   claim-x2-cost: 100
+  claim-x2:
+    # true = player phai co permission thue thang moi duoc bam nhan x2.
+    # Vi du LuckPerms thue 30 ngay:
+    # /lp user <player> permission settemp tutiencore.tuluyen.offline.x2 true 30d
+    require-permission: true
+    permission: "tutiencore.tuluyen.offline.x2"
 
 # Kick người chơi AFK theo rank VIP.
 # Plugin lấy rank cao nhất mà player có permission theo dạng:
