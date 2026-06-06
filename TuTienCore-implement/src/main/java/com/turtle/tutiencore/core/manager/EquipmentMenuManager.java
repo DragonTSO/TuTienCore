@@ -444,9 +444,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (!config.getBoolean("enabled", true) || !config.getBoolean("offhand.bound-item.enabled", true)) return;
 
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (isBoundOffhandItem(offhand)) {
+        if (isManagedOffhandItem(offhand)) {
+            markBoundOffhand(offhand);
             saveBoundOffhandState(player.getUniqueId(), offhand);
             refreshBoundOffhandLore(player, offhand);
+            scheduleBoundOffhandLoreAppend(player, 4L, 10L);
             return;
         }
 
@@ -517,7 +519,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private void saveCurrentBoundOffhandState(Player player) {
         if (player == null) return;
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (isBoundOffhandItem(offhand)) {
+        if (isManagedOffhandItem(offhand)) {
             saveBoundOffhandState(player.getUniqueId(), offhand);
         }
     }
@@ -599,7 +601,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!player.isOnline()) return;
             ItemStack offhand = player.getInventory().getItemInOffHand();
-            if (!isBoundOffhandItem(offhand)) return;
+            if (!isManagedOffhandItem(offhand)) return;
+            markBoundOffhand(offhand);
             if (hasUnparsedMmoItemsExpansionLore(offhand)) {
                 parseMmoItemsExpansionLore(player, offhand);
                 if (hasUnparsedMmoItemsExpansionLore(offhand)) {
@@ -793,6 +796,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (item == null || item.getType().isAir()) return false;
         ItemMeta meta = item.getItemMeta();
         return meta != null && meta.getPersistentDataContainer().has(boundOffhandKey, PersistentDataType.BYTE);
+    }
+
+    private boolean isManagedOffhandItem(ItemStack item) {
+        return isBoundOffhandItem(item) || isInfoOffhandItem(item);
     }
 
     private void applyStats(Player player) {
