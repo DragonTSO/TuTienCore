@@ -70,6 +70,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private static final String MOD_PREFIX = "tutien_equipment_";
     private static final String CONSUMABLE_MOD_PREFIX = "tutien_consumable_";
+    private static final String BOUND_OFFHAND_DATA_PATH = "bound-offhand";
     private static final Pattern STAT_PLACEHOLDER = Pattern.compile("%stat_([A-Z0-9_]+)%");
     private static final String DURATION_STAT_ID = "DAN_DUOC_DURATION";
     public static final String DAN_DUOC_TU_VI_BONUS_STAT = "DAN_DUOC_TUVI_BONUS";
@@ -113,6 +114,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         reload();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickTimedEquipment, 20L, 20L);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::ensureOnlineBoundOffhands, 40L, 40L);
     }
 
     public void reload() {
@@ -135,6 +137,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     public void saveAll() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            saveCurrentBoundOffhandState(player);
+        }
         for (UUID uuid : equipped.keySet()) {
             savePlayer(uuid);
         }
@@ -232,6 +237,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        saveCurrentBoundOffhandState(event.getPlayer());
         savePlayer(event.getPlayer().getUniqueId());
         saveDataFile();
         removeStats(event.getPlayer());
@@ -359,6 +365,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         if (rule.takeSource()) {
             player.getInventory().setItemInOffHand(resultItem);
+            saveBoundOffhandState(player.getUniqueId(), resultItem);
+            saveDataFile();
             scheduleBoundOffhandLoreAppend(player, 4L);
         } else {
             giveOrDrop(player, resultItem);
@@ -437,6 +445,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
         ItemStack offhand = player.getInventory().getItemInOffHand();
         if (isBoundOffhandItem(offhand)) {
+            saveBoundOffhandState(player.getUniqueId(), offhand);
             refreshBoundOffhandLore(player, offhand);
             return;
         }
@@ -449,14 +458,32 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ItemStack item = createBoundOffhandItem(player);
         if (item != null && !item.getType().isAir()) {
             player.getInventory().setItemInOffHand(item);
-            scheduleBoundOffhandLoreAppend(player, 4L);
+            saveBoundOffhandState(player.getUniqueId(), item);
+            saveDataFile();
+            scheduleBoundOffhandLoreAppend(player, 1L, 4L, 10L, 20L);
+        }
+    }
+
+    private void ensureOnlineBoundOffhands() {
+        if (!config.getBoolean("enabled", true) || !config.getBoolean("offhand.bound-item.enabled", true)) return;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            ensureBoundOffhand(player);
         }
     }
 
     private ItemStack createBoundOffhandItem(Player player) {
-        String typeId = config.getString("offhand.bound-item.type", "OFF_CATALYST");
-        String itemId = config.getString("offhand.bound-item.id", "HA_MACH_HO_MENH_TIEN_HOAN");
+        BoundOffhandState state = boundOffhandState(player.getUniqueId());
+        String typeId = state.type();
+        String itemId = state.id();
         ItemStack item = createMmoItem(player, typeId, itemId);
+        BoundOffhandState fallbackState = defaultBoundOffhandState();
+        if ((item == null || item.getType().isAir()) && !state.equals(fallbackState)) {
+            item = createMmoItem(player, fallbackState.type(), fallbackState.id());
+            if (item != null && !item.getType().isAir()) {
+                typeId = fallbackState.type();
+                itemId = fallbackState.id();
+            }
+        }
         if (item == null || item.getType().isAir()) {
             item = named(
                     Material.matchMaterial(config.getString("offhand.bound-item.fallback-material", "NETHER_STAR")),
@@ -465,7 +492,51 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             );
         }
         markBoundOffhand(item);
+        saveBoundOffhandState(player.getUniqueId(), typeId, itemId);
         return item;
+    }
+
+    private BoundOffhandState defaultBoundOffhandState() {
+        return new BoundOffhandState(
+                normalize(config.getString("offhand.bound-item.type", "OFF_CATALYST")),
+                normalize(config.getString("offhand.bound-item.id", "HA_MACH_HO_MENH_TIEN_HOAN"))
+        );
+    }
+
+    private BoundOffhandState boundOffhandState(UUID uuid) {
+        BoundOffhandState fallback = defaultBoundOffhandState();
+        String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
+        String type = normalize(data.getString(path + ".type", fallback.type()));
+        String id = normalize(data.getString(path + ".id", fallback.id()));
+        if (type.isBlank() || id.isBlank()) {
+            return fallback;
+        }
+        return new BoundOffhandState(type, id);
+    }
+
+    private void saveCurrentBoundOffhandState(Player player) {
+        if (player == null) return;
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (isBoundOffhandItem(offhand)) {
+            saveBoundOffhandState(player.getUniqueId(), offhand);
+        }
+    }
+
+    private void saveBoundOffhandState(UUID uuid, ItemStack item) {
+        String type = mmoType(item);
+        String id = mmoId(item);
+        if (type == null || id == null || type.isBlank() || id.isBlank()) return;
+        saveBoundOffhandState(uuid, type, id);
+    }
+
+    private void saveBoundOffhandState(UUID uuid, String type, String id) {
+        if (uuid == null) return;
+        String normalizedType = normalize(type);
+        String normalizedId = normalize(id);
+        if (normalizedType.isBlank() || normalizedId.isBlank()) return;
+        String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
+        data.set(path + ".type", normalizedType);
+        data.set(path + ".id", normalizedId);
     }
 
     private ItemStack createMmoItem(Player player, String typeId, String itemId) {
@@ -537,6 +608,12 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             }
             appendBoundOffhandLore(player, offhand);
         }, delay);
+    }
+
+    private void scheduleBoundOffhandLoreAppend(Player player, long... delays) {
+        for (long delay : delays) {
+            scheduleBoundOffhandLoreAppend(player, delay);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1919,5 +1996,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             SubRealm requiredSubRealm,
             boolean takeSource,
             List<String> commands) {
+    }
+
+    private record BoundOffhandState(String type, String id) {
     }
 }
