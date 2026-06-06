@@ -588,6 +588,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     : new ArrayList<>();
             lore = stripBoundOffhandAppendix(lore);
             lore.addAll(appendix);
+            lore = ensureCompleteBoundOffhandLore(lore);
             meta.setLore(lore);
         }
         meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
@@ -698,6 +699,60 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             stripped.remove(stripped.size() - 1);
         }
         return stripped;
+    }
+
+    private List<String> ensureCompleteBoundOffhandLore(List<String> lore) {
+        List<String> fixed = new ArrayList<>(lore == null ? List.of() : lore);
+        boolean hasRightClick = fixed.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("chuot phai") && normalized.contains("thong tin");
+        });
+        boolean hasLeftClick = fixed.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("chuot trai") && normalized.contains("nang cap");
+        });
+        boolean hasCannotRemove = fixed.stream().anyMatch(line -> {
+            String normalized = normalizeLoreLine(line);
+            return normalized.contains("khong the") && normalized.contains("thao") && normalized.contains("tay phu");
+        });
+
+        if (hasRightClick && hasLeftClick && hasCannotRemove) {
+            return fixed;
+        }
+
+        int insertIndex = firstCannotRemoveIndex(fixed);
+        if (insertIndex < 0) {
+            if (!fixed.isEmpty() && !isBlankLoreLine(fixed.get(fixed.size() - 1))) {
+                fixed.add(color(""));
+            }
+            insertIndex = fixed.size();
+        } else if (insertIndex > 0 && !isBlankLoreLine(fixed.get(insertIndex - 1))) {
+            fixed.add(insertIndex++, color(""));
+        }
+
+        if (!hasRightClick) {
+            fixed.add(insertIndex++, color("&e  Chuột phải &7để mở thông tin/trang bị."));
+        }
+        if (!hasLeftClick) {
+            fixed.add(insertIndex++, color("&e  Chuột trái &7để mở nâng cấp."));
+        }
+        if (!hasCannotRemove) {
+            if (insertIndex > 0 && !isBlankLoreLine(fixed.get(insertIndex - 1))) {
+                fixed.add(insertIndex++, color(""));
+            }
+            fixed.add(insertIndex, color("&c  Không thể tháo khỏi tay phụ."));
+        }
+        return fixed;
+    }
+
+    private int firstCannotRemoveIndex(List<String> lore) {
+        for (int i = 0; i < lore.size(); i++) {
+            String normalized = normalizeLoreLine(lore.get(i));
+            if (normalized.contains("khong the") && normalized.contains("thao") && normalized.contains("tay phu")) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private boolean isBoundOffhandGuideLine(String line) {
