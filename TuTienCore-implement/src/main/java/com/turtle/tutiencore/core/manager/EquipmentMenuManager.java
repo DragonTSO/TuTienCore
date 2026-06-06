@@ -582,6 +582,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (item == null || item.getType().isAir()) return;
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
+        boolean syncToOffhand = isCurrentManagedOffhand(player, item);
 
         List<String> appendix = boundOffhandAppendix(player);
         if (!appendix.isEmpty()) {
@@ -590,11 +591,31 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     : new ArrayList<>();
             lore = stripBoundOffhandAppendix(lore);
             lore.addAll(appendix);
-            lore = ensureCompleteBoundOffhandLore(lore);
             meta.setLore(lore);
         }
         meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
+        if (syncToOffhand) {
+            player.getInventory().setItemInOffHand(item);
+            player.updateInventory();
+        }
+    }
+
+    private boolean isCurrentManagedOffhand(Player player, ItemStack item) {
+        if (player == null || item == null || item.getType().isAir()) return false;
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand == null || offhand.getType().isAir()) return false;
+        if (item == offhand) return true;
+
+        String itemType = mmoType(item);
+        String itemId = mmoId(item);
+        String offhandType = mmoType(offhand);
+        String offhandId = mmoId(offhand);
+        if (itemType != null && itemId != null && offhandType != null && offhandId != null) {
+            return itemType.equals(offhandType) && itemId.equals(offhandId);
+        }
+
+        return isBoundOffhandItem(item) && isBoundOffhandItem(offhand) && item.getType() == offhand.getType();
     }
 
     private void scheduleBoundOffhandLoreAppend(Player player, long delay) {
@@ -651,7 +672,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (String line : config.getStringList("offhand.bound-item.lore")) {
             appendix.add(color(line.replace("%player%", player.getName())));
         }
-        ensureBoundOffhandDefaultGuides(appendix);
         return appendix;
     }
 
@@ -761,12 +781,21 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private boolean isBoundOffhandGuideLine(String line) {
         String normalized = normalizeLoreLine(line);
         return normalized.equals("vat pham tay phu cua he thong.")
+                || normalized.equals("de mo thong tin/trang bi.")
+                || normalized.equals("de mo tien hoa.")
                 || normalized.equals("chuot phai de mo thong tin/trang bi.")
                 || normalized.equals("chuot trai de mo nang cap.")
+                || normalized.equals("chuot trai de mo tien hoa.")
                 || normalized.equals("khong the thao khoi tay phu.")
+                || line.contains("\uA423")
+                || line.contains("\uA41D")
                 || (normalized.contains("vat pham") && normalized.contains("tay phu") && normalized.contains("he thong"))
+                || (normalized.contains("de mo") && normalized.contains("thong tin"))
+                || (normalized.contains("de mo") && normalized.contains("trang bi"))
+                || (normalized.contains("de mo") && normalized.contains("tien hoa"))
                 || (normalized.contains("chuot phai") && normalized.contains("thong tin"))
                 || (normalized.contains("chuot trai") && normalized.contains("nang cap"))
+                || (normalized.contains("chuot trai") && normalized.contains("tien hoa"))
                 || (normalized.contains("khong the") && normalized.contains("thao") && normalized.contains("tay phu"));
     }
 
