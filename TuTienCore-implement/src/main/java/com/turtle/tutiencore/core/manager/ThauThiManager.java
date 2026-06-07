@@ -456,6 +456,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return;
         }
 
+        String shape = plugin.getConfig().getString(path + ".shape", "BURST");
+        if ("EXPANDING_RING".equalsIgnoreCase(shape) || "RING".equalsIgnoreCase(shape)) {
+            spawnExpandingRing(player, particle, path);
+            return;
+        }
+
         Location location = effectLocation(player, path);
         int count = Math.max(0, plugin.getConfig().getInt(path + ".count", 12));
         double offsetX = Math.max(0.0D, plugin.getConfig().getDouble(path + ".x-offset", 0.25D));
@@ -467,6 +473,80 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         } catch (IllegalArgumentException ignored) {
             // Some particles require extra data; ignore invalid config instead of spamming console.
         }
+    }
+
+    private void spawnExpandingRing(Player player, Particle particle, String path) {
+        int ticks = Math.max(1, plugin.getConfig().getInt(path + ".ring.ticks", 5));
+        long interval = Math.max(1L, plugin.getConfig().getLong(path + ".ring.interval-ticks", 1L));
+        int points = Math.max(6, plugin.getConfig().getInt(path + ".ring.points", 28));
+        int countPerPoint = Math.max(1, plugin.getConfig().getInt(path + ".ring.point-count", 1));
+        double pointOffset = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.point-offset", 0.0D));
+        double speed = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.speed",
+                plugin.getConfig().getDouble(path + ".speed", 0.0D)));
+        double radiusStart = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.radius-start", 0.12D));
+        double radiusEnd = Math.max(radiusStart, plugin.getConfig().getDouble(path + ".ring.radius-end", 1.15D));
+        double forwardOffset = plugin.getConfig().getDouble(path + ".ring.forward-offset", 0.85D);
+        boolean smooth = plugin.getConfig().getBoolean(path + ".ring.smooth", true);
+
+        BukkitTask[] taskRef = new BukkitTask[1];
+        taskRef[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            private int tick;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                double progress = ticks <= 1 ? 1.0D : Math.max(0.0D, Math.min(1.0D, (double) tick / (ticks - 1)));
+                if (smooth) {
+                    progress = progress * progress * (3.0D - 2.0D * progress);
+                }
+                double radius = radiusStart + ((radiusEnd - radiusStart) * progress);
+
+                Location eye = player.getEyeLocation();
+                Vector forward = eye.getDirection().normalize();
+                Vector right = new Vector(0.0D, 1.0D, 0.0D).crossProduct(forward);
+                if (right.lengthSquared() < 0.0001D) {
+                    right = new Vector(1.0D, 0.0D, 0.0D);
+                } else {
+                    right.normalize();
+                }
+                Vector up = forward.clone().crossProduct(right);
+                if (up.lengthSquared() < 0.0001D) {
+                    up = new Vector(0.0D, 1.0D, 0.0D);
+                } else {
+                    up.normalize();
+                }
+
+                Location center = effectLocation(player, path).add(forward.multiply(forwardOffset));
+                for (int point = 0; point < points; point++) {
+                    double angle = (Math.PI * 2.0D * point) / points;
+                    Vector offset = right.clone().multiply(Math.cos(angle) * radius)
+                            .add(up.clone().multiply(Math.sin(angle) * radius));
+                    try {
+                        player.spawnParticle(particle, center.clone().add(offset), countPerPoint,
+                                pointOffset, pointOffset, pointOffset, speed);
+                    } catch (IllegalArgumentException ignored) {
+                        cancel();
+                        return;
+                    }
+                }
+
+                if (tick >= ticks - 1) {
+                    cancel();
+                    return;
+                }
+                tick++;
+            }
+
+            private void cancel() {
+                if (taskRef[0] != null) {
+                    taskRef[0].cancel();
+                }
+            }
+        }, 0L, interval);
     }
 
     private Location effectLocation(Player player, String path) {

@@ -113,12 +113,24 @@ thauthi:
       particle:
         enabled: true
         type: ENCHANT
+        shape: EXPANDING_RING
         anchor: EYE
         count: 14
         x-offset: 0.28
         y-offset: 0.18
         z-offset: 0.28
         speed: 0.02
+        ring:
+          ticks: 5
+          interval-ticks: 1
+          points: 96
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.12
+          radius-end: 20.0
+          forward-offset: 0.85
+          speed: 0.0
+          smooth: true
     toggle-off:
       sound:
         enabled: true
@@ -129,12 +141,24 @@ thauthi:
       particle:
         enabled: true
         type: SMOKE
+        shape: EXPANDING_RING
         anchor: EYE
         count: 8
         x-offset: 0.18
         y-offset: 0.12
         z-offset: 0.18
         speed: 0.01
+        ring:
+          ticks: 4
+          interval-ticks: 1
+          points: 80
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.1
+          radius-end: 20.0
+          forward-offset: 0.75
+          speed: 0.0
+          smooth: true
     target-found:
       sound:
         enabled: true
@@ -145,12 +169,24 @@ thauthi:
       particle:
         enabled: true
         type: END_ROD
+        shape: EXPANDING_RING
         anchor: EYE
         count: 10
         x-offset: 0.18
         y-offset: 0.12
         z-offset: 0.18
         speed: 0.035
+        ring:
+          ticks: 5
+          interval-ticks: 1
+          points: 96
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.08
+          radius-end: 20.0
+          forward-offset: 0.9
+          speed: 0.0
+          smooth: true
     target-lost:
       sound:
         enabled: true
@@ -161,12 +197,24 @@ thauthi:
       particle:
         enabled: true
         type: ASH
+        shape: EXPANDING_RING
         anchor: EYE
         count: 8
         x-offset: 0.16
         y-offset: 0.1
         z-offset: 0.16
         speed: 0.01
+        ring:
+          ticks: 4
+          interval-ticks: 1
+          points: 80
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.08
+          radius-end: 20.0
+          forward-offset: 0.75
+          speed: 0.0
+          smooth: true
   opacity: 230
   view-range: 24.0
   line-width: 190
