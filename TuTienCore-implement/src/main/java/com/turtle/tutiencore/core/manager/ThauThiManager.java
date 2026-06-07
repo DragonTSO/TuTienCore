@@ -4,7 +4,11 @@ import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import io.lumine.mythic.bukkit.MythicBukkit;
+import io.lumine.mythic.core.mobs.ActiveMob;
 import me.clip.placeholderapi.PlaceholderAPI;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
@@ -21,6 +25,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
@@ -43,6 +48,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -155,7 +161,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 continue;
             }
 
-            Player target = findTarget(viewer);
+            ThauThiTarget target = findTarget(viewer);
             if (target == null) {
                 removeDisplay(uuid, true);
                 continue;
@@ -165,22 +171,27 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
     }
 
-    private Player findTarget(Player viewer) {
+    private ThauThiTarget findTarget(Player viewer) {
         World world = viewer.getWorld();
         Location eye = viewer.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
         double distance = Math.max(1.0D, settings.getDouble("thauthi.max-distance", 18.0D));
         double raySize = Math.max(0.0D, settings.getDouble("thauthi.ray-size", 0.35D));
         boolean ignoreSpectator = settings.getBoolean("thauthi.ignore-spectator", true);
+        boolean mythicMobsEnabled = settings.getBoolean("thauthi.mythicmobs.enabled", true)
+                && Bukkit.getPluginManager().isPluginEnabled("MythicMobs");
 
         RayTraceResult result = world.rayTraceEntities(eye, direction, distance, raySize, entity -> {
-            if (!(entity instanceof Player target) || target == viewer || target.isDead() || !viewer.canSee(target)) {
+            if (entity == viewer || entity.isDead()) {
                 return false;
             }
-            return !ignoreSpectator || target.getGameMode() != GameMode.SPECTATOR;
+            if (entity instanceof Player target) {
+                return viewer.canSee(target) && (!ignoreSpectator || target.getGameMode() != GameMode.SPECTATOR);
+            }
+            return mythicMobsEnabled && entity instanceof LivingEntity && activeMob(entity) != null;
         });
 
-        if (result == null || !(result.getHitEntity() instanceof Player target)) {
+        if (result == null || !(result.getHitEntity() instanceof LivingEntity target)) {
             return null;
         }
 
@@ -191,23 +202,29 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         RayTraceResult blockHit = world.rayTraceBlocks(eye, direction, distance, FluidCollisionMode.NEVER, true);
         if (blockHit != null && blockHit.getHitPosition() != null) {
             double blockDistance = blockHit.getHitPosition().distance(eye.toVector());
-            double targetDistance = target.getEyeLocation().toVector().distance(eye.toVector());
+            double targetDistance = rayTargetLocation(target).toVector().distance(eye.toVector());
             if (blockDistance + 0.15D < targetDistance) {
                 return null;
             }
         }
 
-        return target;
+        if (target instanceof Player) {
+            return new ThauThiTarget(target, null);
+        }
+
+        ActiveMob activeMob = activeMob(target);
+        return activeMob == null ? null : new ThauThiTarget(target, activeMob);
     }
 
-    private void showOrUpdate(Player viewer, Player target) {
+    private void showOrUpdate(Player viewer, ThauThiTarget target) {
+        LivingEntity targetEntity = target.entity();
         UUID viewerId = viewer.getUniqueId();
         DisplayState state = displays.get(viewerId);
-        Location location = targetLocation(viewer, target);
+        Location location = targetLocation(viewer, targetEntity);
         String text = buildText(viewer, target);
 
         if (state == null || state.display == null || !state.display.isValid()
-                || state.display.getWorld() != target.getWorld()) {
+                || state.display.getWorld() != targetEntity.getWorld()) {
             removeDisplay(viewerId, false);
             state = new DisplayState(spawnDisplay(viewer, introStartLocation(location), text));
             displays.put(viewerId, state);
@@ -215,7 +232,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
         state.cancelRemoval();
         state.removing = false;
-        UUID targetUuid = target.getUniqueId();
+        UUID targetUuid = targetEntity.getUniqueId();
         boolean newTarget = state.targetUuid == null || !state.targetUuid.equals(targetUuid);
         if (newTarget) {
             state.targetUuid = targetUuid;
@@ -235,7 +252,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             display.teleport(location);
             display.setTextOpacity(opacity);
         }
-        applyScale(display, viewer, target);
+        applyScale(display, viewer, targetEntity);
     }
 
     private TextDisplay spawnDisplay(Player viewer, Location location, String text) {
@@ -262,7 +279,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return display;
     }
 
-    private Location targetLocation(Player viewer, Player target) {
+    private Location targetLocation(Player viewer, LivingEntity target) {
         double yOffset = settings.getDouble("thauthi.y-offset", 0.75D);
         double xOffset = settings.getDouble("thauthi.x-offset", -0.95D);
         double zOffset = settings.getDouble("thauthi.z-offset", 0.0D);
@@ -287,7 +304,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return location.add(right.multiply(xOffset)).add(forward.multiply(zOffset));
     }
 
-    private void applyScale(TextDisplay display, Player viewer, Player target) {
+    private void applyScale(TextDisplay display, Player viewer, LivingEntity target) {
         double scale = settings.getDouble("thauthi.scale.default", 1.0D);
         if (settings.getBoolean("thauthi.scale.distance-based", true)) {
             double minDistance = Math.max(0.0D, settings.getDouble("thauthi.scale.min-distance", 1.5D));
@@ -660,7 +677,16 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         removeDisplay(uuid, false);
     }
 
-    private String buildText(Player viewer, Player target) {
+    private String buildText(Player viewer, ThauThiTarget target) {
+        if (target.activeMob() != null) {
+            return buildMythicMobText(viewer, target);
+        }
+
+        Player playerTarget = target.player();
+        if (playerTarget == null) {
+            return "";
+        }
+
         List<String> lines = settings.getStringList("thauthi.lines");
         if (lines.isEmpty()) {
             lines = List.of(
@@ -671,12 +697,28 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
         List<String> rendered = new ArrayList<>();
         for (String line : lines) {
-            rendered.add(colorize(applyPlaceholders(viewer, target, line)));
+            rendered.add(colorize(applyPlayerPlaceholders(viewer, playerTarget, line)));
         }
         return String.join("\n", rendered);
     }
 
-    private String applyPlaceholders(Player viewer, Player target, String line) {
+    private String buildMythicMobText(Player viewer, ThauThiTarget target) {
+        List<String> lines = settings.getStringList("thauthi.mythicmobs.lines");
+        if (lines.isEmpty()) {
+            lines = List.of(
+                    "&6&lThau Thi &8» &c{mob}",
+                    "&7HP: &c{health}&8/&c{max_health}",
+                    "&7Sat thuong: &e{attack_damage}");
+        }
+
+        List<String> rendered = new ArrayList<>();
+        for (String line : lines) {
+            rendered.add(colorize(applyMythicMobPlaceholders(viewer, target, line)));
+        }
+        return String.join("\n", rendered);
+    }
+
+    private String applyPlayerPlaceholders(Player viewer, Player target, String line) {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             line = PlaceholderAPI.setPlaceholders(target, line);
         }
@@ -713,6 +755,170 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 .replace("{realm_tier}", realm != null ? realm.getTier().getDisplayName() : "Pham Gioi")
                 .replace("{level}", level)
                 .replace("{world}", target.getWorld().getName());
+    }
+
+    private String applyMythicMobPlaceholders(Player viewer, ThauThiTarget target, String line) {
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            line = PlaceholderAPI.setPlaceholders(viewer, line);
+        }
+
+        LivingEntity entity = target.entity();
+        String mobId = mythicMobId(target.activeMob());
+        String mobName = mythicMobName(entity, target.activeMob(), mobId);
+        double health = Math.max(0.0D, entity.getHealth());
+        double maxHealth = Math.max(0.0D, maxHealth(entity));
+        String attackDamage = attackDamage(entity);
+
+        return line
+                .replace("{viewer}", viewer.getName())
+                .replace("{player}", mobName)
+                .replace("{target}", mobName)
+                .replace("{mob}", mobName)
+                .replace("{mob_id}", mobId)
+                .replace("{mob_display}", mobName)
+                .replace("{entity_type}", prettyName(entity.getType().name()))
+                .replace("{health}", formatDecimal(health))
+                .replace("{health_int}", String.valueOf(Math.round(health)))
+                .replace("{max_health}", formatDecimal(maxHealth))
+                .replace("{max_health_int}", String.valueOf(Math.round(maxHealth)))
+                .replace("{attack_damage}", attackDamage)
+                .replace("{damage}", attackDamage)
+                .replace("{world}", entity.getWorld().getName());
+    }
+
+    private ActiveMob activeMob(Entity entity) {
+        if (!Bukkit.getPluginManager().isPluginEnabled("MythicMobs")) {
+            return null;
+        }
+
+        try {
+            Optional<ActiveMob> activeMob = MythicBukkit.inst().getMobManager().getActiveMob(entity.getUniqueId());
+            return activeMob.orElse(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private Location rayTargetLocation(LivingEntity target) {
+        if (target instanceof Player player) {
+            return player.getEyeLocation();
+        }
+        return target.getLocation().add(0.0D, target.getHeight() * 0.5D, 0.0D);
+    }
+
+    private double maxHealth(LivingEntity entity) {
+        Attribute attribute = attribute("MAX_HEALTH", "GENERIC_MAX_HEALTH");
+        if (attribute != null) {
+            AttributeInstance instance = entity.getAttribute(attribute);
+            if (instance != null) {
+                return instance.getValue();
+            }
+        }
+        return entity.getMaxHealth();
+    }
+
+    private String attackDamage(LivingEntity entity) {
+        Attribute attribute = attribute("ATTACK_DAMAGE", "GENERIC_ATTACK_DAMAGE");
+        if (attribute == null) {
+            return unknownMobDamage();
+        }
+
+        AttributeInstance instance = entity.getAttribute(attribute);
+        if (instance == null) {
+            return unknownMobDamage();
+        }
+
+        double value = instance.getValue();
+        if (Double.isNaN(value) || value <= 0.0D) {
+            return unknownMobDamage();
+        }
+        return formatDecimal(value);
+    }
+
+    private String unknownMobDamage() {
+        return settings.getString("thauthi.mythicmobs.unknown-damage", "???");
+    }
+
+    private static Attribute attribute(String... names) {
+        for (String name : names) {
+            try {
+                return Attribute.valueOf(name);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private String mythicMobName(LivingEntity entity, ActiveMob activeMob, String mobId) {
+        String customName = entity.getCustomName();
+        if (customName != null && !customName.isBlank()) {
+            return customName;
+        }
+
+        String activeDisplay = invokeString(activeMob, "getDisplayName", "getName");
+        if (!activeDisplay.isBlank()) {
+            return activeDisplay;
+        }
+
+        Object type = invokeNoArg(activeMob, "getType");
+        String typeDisplay = invokeString(type, "getDisplayName", "getName", "getInternalName");
+        if (!typeDisplay.isBlank()) {
+            return typeDisplay;
+        }
+
+        return mobId.isBlank() ? prettyName(entity.getType().name()) : mobId;
+    }
+
+    private String mythicMobId(ActiveMob activeMob) {
+        Object type = invokeNoArg(activeMob, "getType");
+        String typeId = invokeString(type, "getInternalName", "getId", "getName");
+        if (!typeId.isBlank()) {
+            return typeId;
+        }
+
+        String activeId = invokeString(activeMob, "getMobType", "getTypeName", "getName");
+        return activeId.isBlank() ? "UNKNOWN" : activeId;
+    }
+
+    private static Object invokeNoArg(Object target, String methodName) {
+        if (target == null || methodName == null || methodName.isBlank()) {
+            return null;
+        }
+
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    private static String invokeString(Object target, String... methodNames) {
+        if (target == null) {
+            return "";
+        }
+
+        if (target instanceof CharSequence sequence) {
+            return sequence.toString();
+        }
+
+        for (String methodName : methodNames) {
+            String value = stringify(invokeNoArg(target, methodName));
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static String stringify(Object value) {
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof Optional<?> optional) {
+            return optional.map(Object::toString).orElse("");
+        }
+        return value.toString();
     }
 
     private long getNextTuViRequired(UUID uuid, PlayerRealm playerRealm, Realm currentRealm) {
@@ -777,6 +983,28 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return String.valueOf((long) Math.rint(value));
         }
         return String.format(Locale.US, "%.1f", value);
+    }
+
+    private static String prettyName(String name) {
+        if (name == null || name.isBlank()) {
+            return "";
+        }
+
+        String[] parts = name.toLowerCase(Locale.ROOT).split("[_\\s]+");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0)));
+            if (part.length() > 1) {
+                builder.append(part.substring(1));
+            }
+        }
+        return builder.toString();
     }
 
     private static int clampDuration(int value) {
@@ -874,6 +1102,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 fadeInTask = null;
             }
             animatingIn = false;
+        }
+    }
+
+    private record ThauThiTarget(LivingEntity entity, ActiveMob activeMob) {
+        private Player player() {
+            return entity instanceof Player player ? player : null;
         }
     }
 }
