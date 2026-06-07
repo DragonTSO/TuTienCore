@@ -191,13 +191,17 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         if (state == null || state.display == null || !state.display.isValid()
                 || state.display.getWorld() != target.getWorld()) {
             removeDisplay(viewerId, false);
-            state = new DisplayState(spawnDisplay(viewer, location, text));
+            state = new DisplayState(spawnDisplay(viewer, introStartLocation(location), text));
             displays.put(viewerId, state);
         }
 
         state.cancelRemoval();
         state.removing = false;
-        state.targetUuid = target.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+        boolean newTarget = state.targetUuid == null || !state.targetUuid.equals(targetUuid);
+        if (newTarget) {
+            state.targetUuid = targetUuid;
+        }
 
         TextDisplay display = state.display;
         display.setText(text);
@@ -205,8 +209,13 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         display.setInterpolationDuration(clampDuration(plugin.getConfig().getInt("thauthi.interpolation-duration", 3)));
         setOptional(display, "setInterpolationDelay", int.class,
                 Math.max(0, plugin.getConfig().getInt("thauthi.interpolation-delay", 0)));
-        display.teleport(location);
-        display.setTextOpacity(parseOpacity(plugin.getConfig().getInt("thauthi.opacity", 230)));
+        byte opacity = parseOpacity(plugin.getConfig().getInt("thauthi.opacity", 230));
+        if (newTarget) {
+            animateIn(state, location, opacity);
+        } else if (!state.animatingIn) {
+            display.teleport(location);
+            display.setTextOpacity(opacity);
+        }
         applyScale(display, viewer, target);
     }
 
@@ -280,11 +289,86 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 new AxisAngle4f()));
     }
 
+    private Location introStartLocation(Location finalLocation) {
+        if (!plugin.getConfig().getBoolean("thauthi.spawn-animation.enabled", true)) {
+            return finalLocation;
+        }
+        double fromYOffset = plugin.getConfig().getDouble("thauthi.spawn-animation.from-y-offset", -0.45D);
+        return finalLocation.clone().add(0.0D, fromYOffset, 0.0D);
+    }
+
+    private void animateIn(DisplayState state, Location finalLocation, byte targetOpacity) {
+        TextDisplay display = state.display;
+        state.cancelFadeIn();
+
+        if (!plugin.getConfig().getBoolean("thauthi.spawn-animation.enabled", true)) {
+            state.animatingIn = false;
+            display.teleport(finalLocation);
+            display.setTextOpacity(targetOpacity);
+            return;
+        }
+
+        int fadeTicks = Math.max(1, plugin.getConfig().getInt("thauthi.spawn-animation.fade-in-ticks", 10));
+        int riseDuration = clampDuration(plugin.getConfig().getInt("thauthi.spawn-animation.rise-duration", 8));
+        int interpolationDuration = clampDuration(plugin.getConfig().getInt("thauthi.spawn-animation.interpolation-duration", fadeTicks));
+        long delay = Math.max(0L, plugin.getConfig().getLong("thauthi.spawn-animation.start-delay-ticks", 1L));
+        Location startLocation = introStartLocation(finalLocation);
+
+        state.animatingIn = true;
+        display.setTeleportDuration(0);
+        display.setInterpolationDuration(interpolationDuration);
+        display.setTextOpacity(parseOpacity(0));
+        display.teleport(startLocation);
+
+        BukkitTask[] taskRef = new BukkitTask[1];
+        taskRef[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            private int tick;
+
+            @Override
+            public void run() {
+                if (!display.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                if (tick == 0) {
+                    display.setTeleportDuration(riseDuration);
+                    display.setInterpolationDuration(interpolationDuration);
+                    display.teleport(finalLocation);
+                }
+
+                double progress = Math.max(0.0D, Math.min(1.0D, (double) tick / fadeTicks));
+                progress = progress * progress * (3.0D - 2.0D * progress);
+                display.setTextOpacity(parseOpacity((int) Math.round((targetOpacity & 0xFF) * progress)));
+
+                if (tick >= fadeTicks) {
+                    display.setTextOpacity(targetOpacity);
+                    state.animatingIn = false;
+                    cancel();
+                    return;
+                }
+                tick++;
+            }
+
+            private void cancel() {
+                state.animatingIn = false;
+                if (taskRef[0] != null) {
+                    taskRef[0].cancel();
+                    if (state.fadeInTask == taskRef[0]) {
+                        state.fadeInTask = null;
+                    }
+                }
+            }
+        }, delay, 1L);
+        state.fadeInTask = taskRef[0];
+    }
+
     private void removeDisplay(UUID viewerId, boolean fade) {
         DisplayState state = displays.get(viewerId);
         if (state == null || state.display == null) {
             return;
         }
+        state.cancelFadeIn();
 
         TextDisplay display = state.display;
         if (!fade || !display.isValid()) {
@@ -502,7 +586,9 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         private final TextDisplay display;
         private UUID targetUuid;
         private BukkitTask removeTask;
+        private BukkitTask fadeInTask;
         private boolean removing;
+        private boolean animatingIn;
 
         private DisplayState(TextDisplay display) {
             this.display = display;
@@ -513,6 +599,14 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 removeTask.cancel();
                 removeTask = null;
             }
+        }
+
+        private void cancelFadeIn() {
+            if (fadeInTask != null) {
+                fadeInTask.cancel();
+                fadeInTask = null;
+            }
+            animatingIn = false;
         }
     }
 }

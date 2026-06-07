@@ -83,6 +83,14 @@ thauthi:
     max-distance: 10.0
     min: 0.62
     max: 1.0
+  spawn-animation:
+    enabled: true
+    # Text bat dau thap hon vi tri that roi truot len.
+    from-y-offset: -0.45
+    start-delay-ticks: 1
+    fade-in-ticks: 10
+    rise-duration: 8
+    interpolation-duration: 10
   teleport-duration: 3
   interpolation-duration: 3
   interpolation-delay: 0
