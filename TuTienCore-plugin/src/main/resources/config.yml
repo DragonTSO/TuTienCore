@@ -494,6 +494,20 @@ fly-sword:
     permission: "tutiencore.flysword"
     # Rời world không nằm trong list thì tắt allowFlight để tránh bay lạc world.
     disable-outside-world: true
+  # Khi player nhan damage se bi tat bay va khoa /fly trong mot khoang thoi gian.
+  combat-lock:
+    enabled: true
+    duration-seconds: 20
+    disable-flying: true
+    disable-allow-flight: true
+    block-fly-command: true
+    command-labels:
+      - fly
+      - essentials:fly
+      - cmi:fly
+    messages:
+      damaged: "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c."
+      locked-command: "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai."
   evolution:
     enabled: true
     default-level: 1

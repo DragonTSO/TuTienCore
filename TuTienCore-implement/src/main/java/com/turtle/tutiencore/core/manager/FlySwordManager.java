@@ -12,9 +12,12 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -45,6 +48,7 @@ public class FlySwordManager implements Listener {
     private final Map<UUID, com.ticxo.modelengine.api.model.ActiveModel> flySwordModels = new HashMap<>();
     private final Map<UUID, String> flySwordAnimations = new HashMap<>();
     private final Map<UUID, Location> lastFlySwordLocations = new HashMap<>();
+    private final Map<UUID, Long> flightLockedUntil = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
@@ -68,6 +72,12 @@ public class FlySwordManager implements Listener {
     private boolean autoFlightDisableOutsideWorld;
     private String autoFlightPermission;
     private Set<String> autoFlightWorlds = new HashSet<>();
+    private boolean combatLockEnabled;
+    private long combatLockDurationMillis;
+    private boolean combatLockDisableFlying;
+    private boolean combatLockDisableAllowFlight;
+    private boolean combatLockBlockFlyCommand;
+    private Set<String> combatLockCommandLabels = new HashSet<>();
 
     public FlySwordManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -102,6 +112,24 @@ public class FlySwordManager implements Listener {
             if (world != null && !world.isBlank()) {
                 autoFlightWorlds.add(world.trim().toLowerCase(Locale.ROOT));
             }
+        }
+        combatLockEnabled = plugin.getConfig().getBoolean("fly-sword.combat-lock.enabled", true);
+        combatLockDurationMillis = Math.max(0L, plugin.getConfig().getLong("fly-sword.combat-lock.duration-seconds", 20L)) * 1000L;
+        combatLockDisableFlying = plugin.getConfig().getBoolean("fly-sword.combat-lock.disable-flying", true);
+        combatLockDisableAllowFlight = plugin.getConfig().getBoolean("fly-sword.combat-lock.disable-allow-flight", true);
+        combatLockBlockFlyCommand = plugin.getConfig().getBoolean("fly-sword.combat-lock.block-fly-command", true);
+        combatLockCommandLabels = new HashSet<>();
+        List<String> labels = plugin.getConfig().getStringList("fly-sword.combat-lock.command-labels");
+        if (labels.isEmpty()) {
+            labels = List.of("fly", "essentials:fly", "cmi:fly");
+        }
+        for (String label : labels) {
+            if (label != null && !label.isBlank()) {
+                combatLockCommandLabels.add(label.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (!combatLockEnabled) {
+            flightLockedUntil.clear();
         }
 
         if (!enabled) {
@@ -210,12 +238,19 @@ public class FlySwordManager implements Listener {
             followTask.cancel();
             followTask = null;
         }
+        flightLockedUntil.clear();
         cleanupAll();
     }
 
     @EventHandler
     public void onToggleFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
+        if (isFlightLocked(player)) {
+            event.setCancelled(true);
+            disableFlight(player);
+            sendCombatLockMessage(player, "locked-command", "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai.");
+            return;
+        }
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline() && shouldHideWhileSpectator(player)) {
                 stop(player, false);
@@ -225,6 +260,35 @@ public class FlySwordManager implements Listener {
                 stop(player, true);
             }
         });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0D) {
+            return;
+        }
+        lockFlightAfterDamage(player);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onCommand(PlayerCommandPreprocessEvent event) {
+        if (!combatLockBlockFlyCommand || !isFlightLocked(event.getPlayer())) {
+            return;
+        }
+
+        String message = event.getMessage();
+        if (message == null || message.length() <= 1) {
+            return;
+        }
+
+        String label = message.substring(1).split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        if (!combatLockCommandLabels.contains(label) && !combatLockCommandLabels.contains("*")) {
+            return;
+        }
+
+        event.setCancelled(true);
+        disableFlight(event.getPlayer());
+        sendCombatLockMessage(event.getPlayer(), "locked-command", "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai.");
     }
 
     @EventHandler
@@ -281,11 +345,13 @@ public class FlySwordManager implements Listener {
 
     @EventHandler
     public void onDeath(PlayerDeathEvent event) {
+        flightLockedUntil.remove(event.getEntity().getUniqueId());
         stop(event.getEntity(), false);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        flightLockedUntil.remove(event.getPlayer().getUniqueId());
         stop(event.getPlayer(), false);
     }
 
@@ -359,6 +425,7 @@ public class FlySwordManager implements Listener {
         followTask = new BukkitRunnable() {
             @Override
             public void run() {
+                processFlightLocks();
                 for (UUID uuid : new java.util.ArrayList<>(flyingPlayers.keySet())) {
                     Player player = Bukkit.getPlayer(uuid);
                     ArmorStand stand = flyingPlayers.get(uuid);
@@ -450,6 +517,10 @@ public class FlySwordManager implements Listener {
     private void applyAutoFlight(Player player) {
         if (player == null || !player.isOnline() || !autoFlightEnabled) return;
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
+        if (isFlightLocked(player)) {
+            disableFlight(player);
+            return;
+        }
         boolean allowedWorld = isAutoFlightWorld(player);
         boolean allowedPermission = !autoFlightRequirePermission || player.hasPermission(autoFlightPermission);
         if (allowedWorld && allowedPermission) {
@@ -466,6 +537,87 @@ public class FlySwordManager implements Listener {
         if (autoFlightWorlds.isEmpty()) return true;
         String world = player.getWorld().getName().toLowerCase(Locale.ROOT);
         return autoFlightWorlds.contains(world) || autoFlightWorlds.contains("*");
+    }
+
+    private void lockFlightAfterDamage(Player player) {
+        if (!combatLockEnabled || combatLockDurationMillis <= 0L || player == null || !player.isOnline()) {
+            return;
+        }
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        Long previousUntil = flightLockedUntil.put(player.getUniqueId(), now + combatLockDurationMillis);
+        disableFlight(player);
+        if (previousUntil == null || previousUntil <= now) {
+            sendCombatLockMessage(player, "damaged", "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c.");
+        }
+    }
+
+    private boolean isFlightLocked(Player player) {
+        if (!combatLockEnabled || player == null) {
+            return false;
+        }
+        Long lockedUntil = flightLockedUntil.get(player.getUniqueId());
+        if (lockedUntil == null) {
+            return false;
+        }
+        if (lockedUntil <= System.currentTimeMillis()) {
+            flightLockedUntil.remove(player.getUniqueId());
+            return false;
+        }
+        return true;
+    }
+
+    private void processFlightLocks() {
+        if (flightLockedUntil.isEmpty()) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        for (UUID uuid : new ArrayList<>(flightLockedUntil.keySet())) {
+            Long lockedUntil = flightLockedUntil.get(uuid);
+            if (lockedUntil == null || lockedUntil > now) {
+                continue;
+            }
+            flightLockedUntil.remove(uuid);
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                applyAutoFlight(player);
+            }
+        }
+    }
+
+    private void disableFlight(Player player) {
+        if (player == null || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+        if (combatLockDisableFlying && player.isFlying()) {
+            player.setFlying(false);
+        }
+        if (combatLockDisableAllowFlight && player.getAllowFlight()) {
+            player.setAllowFlight(false);
+        }
+        stop(player, false);
+    }
+
+    private void sendCombatLockMessage(Player player, String key, String fallback) {
+        String message = plugin.getConfig().getString("fly-sword.combat-lock.messages." + key, fallback);
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        player.sendMessage(color(message
+                .replace("{seconds}", String.valueOf(remainingFlightLockSeconds(player)))
+                .replace("%seconds%", String.valueOf(remainingFlightLockSeconds(player)))));
+    }
+
+    private long remainingFlightLockSeconds(Player player) {
+        Long lockedUntil = player == null ? null : flightLockedUntil.get(player.getUniqueId());
+        if (lockedUntil == null) {
+            return 0L;
+        }
+        return Math.max(0L, (long) Math.ceil((lockedUntil - System.currentTimeMillis()) / 1000.0D));
     }
 
     private void loadData() {
