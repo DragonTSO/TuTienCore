@@ -471,6 +471,10 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         String shape = settings.getString(path + ".shape", "BURST");
+        if ("EXPANDING_SPHERE".equalsIgnoreCase(shape) || "SPHERE".equalsIgnoreCase(shape)) {
+            spawnExpandingSphere(player, particle, path);
+            return;
+        }
         if ("EXPANDING_RING".equalsIgnoreCase(shape) || "RING".equalsIgnoreCase(shape)) {
             spawnExpandingRing(player, particle, path);
             return;
@@ -563,9 +567,79 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }, 0L, interval);
     }
 
+    private void spawnExpandingSphere(Player player, Particle particle, String path) {
+        int ticks = Math.max(1, settings.getInt(path + ".sphere.ticks", 7));
+        long interval = Math.max(1L, settings.getLong(path + ".sphere.interval-ticks", 1L));
+        int points = Math.max(12, settings.getInt(path + ".sphere.points", 160));
+        int countPerPoint = Math.max(1, settings.getInt(path + ".sphere.point-count", 1));
+        double pointOffset = Math.max(0.0D, settings.getDouble(path + ".sphere.point-offset", 0.0D));
+        double speed = Math.max(0.0D, settings.getDouble(path + ".sphere.speed",
+                settings.getDouble(path + ".speed", 0.0D)));
+        double radiusStart = Math.max(0.0D, settings.getDouble(path + ".sphere.radius-start", 0.2D));
+        double radiusEnd = Math.max(radiusStart, settings.getDouble(path + ".sphere.radius-end", 20.0D));
+        boolean smooth = settings.getBoolean(path + ".sphere.smooth", true);
+        double goldenAngle = Math.PI * (3.0D - Math.sqrt(5.0D));
+
+        BukkitTask[] taskRef = new BukkitTask[1];
+        taskRef[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            private int tick;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                double progress = ticks <= 1 ? 1.0D : Math.max(0.0D, Math.min(1.0D, (double) tick / (ticks - 1)));
+                if (smooth) {
+                    progress = progress * progress * (3.0D - 2.0D * progress);
+                }
+                double radius = radiusStart + ((radiusEnd - radiusStart) * progress);
+                Location center = effectLocation(player, path);
+
+                for (int point = 0; point < points; point++) {
+                    double y = points == 1 ? 0.0D : 1.0D - (2.0D * point / (points - 1.0D));
+                    double horizontal = Math.sqrt(Math.max(0.0D, 1.0D - (y * y)));
+                    double angle = goldenAngle * point;
+                    Vector offset = new Vector(
+                            Math.cos(angle) * horizontal * radius,
+                            y * radius,
+                            Math.sin(angle) * horizontal * radius);
+                    try {
+                        player.spawnParticle(particle, center.clone().add(offset), countPerPoint,
+                                pointOffset, pointOffset, pointOffset, speed);
+                    } catch (IllegalArgumentException ignored) {
+                        cancel();
+                        return;
+                    }
+                }
+
+                if (tick >= ticks - 1) {
+                    cancel();
+                    return;
+                }
+                tick++;
+            }
+
+            private void cancel() {
+                if (taskRef[0] != null) {
+                    taskRef[0].cancel();
+                }
+            }
+        }, 0L, interval);
+    }
+
     private Location effectLocation(Player player, String path) {
         String anchor = settings.getString(path + ".anchor", "EYE");
-        Location location = "FEET".equalsIgnoreCase(anchor) ? player.getLocation() : player.getEyeLocation();
+        Location location;
+        if ("FEET".equalsIgnoreCase(anchor) || "ORIGIN".equalsIgnoreCase(anchor)) {
+            location = player.getLocation();
+        } else if ("BODY".equalsIgnoreCase(anchor) || "CENTER".equalsIgnoreCase(anchor)) {
+            location = player.getLocation().add(0.0D, player.getHeight() * 0.5D, 0.0D);
+        } else {
+            location = player.getEyeLocation();
+        }
         return location.add(
                 settings.getDouble(path + ".location-x-offset", 0.0D),
                 settings.getDouble(path + ".location-y-offset", 0.0D),

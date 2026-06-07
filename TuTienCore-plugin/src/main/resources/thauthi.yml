@@ -55,22 +55,21 @@ thauthi:
       particle:
         enabled: true
         type: ENCHANT
-        shape: EXPANDING_RING
-        anchor: EYE
+        shape: EXPANDING_SPHERE
+        anchor: BODY
         count: 14
         x-offset: 0.28
         y-offset: 0.18
         z-offset: 0.28
         speed: 0.02
-        ring:
-          ticks: 5
+        sphere:
+          ticks: 7
           interval-ticks: 1
-          points: 96
+          points: 180
           point-count: 1
           point-offset: 0.0
-          radius-start: 0.12
+          radius-start: 0.2
           radius-end: 20.0
-          forward-offset: 0.85
           speed: 0.0
           smooth: true
     toggle-off:
