@@ -1,0 +1,181 @@
+# Thau Thi system configuration
+# TextDisplay duoc an mac dinh va chi show cho player dang bat /thauthi.
+
+thauthi:
+  enabled: true
+  permission: "tutiencore.thauthi"
+  require-permission-each-tick: true
+  max-distance: 18.0
+  ray-size: 0.35
+  require-line-of-sight: true
+  ignore-spectator: true
+  update-interval-ticks: 2
+  y-offset: 0.75
+  # offset-relative-to-viewer=true:
+  # x-offset am = ben trai man hinh nguoi soi, duong = ben phai.
+  # z-offset am = gan nguoi soi hon, duong = xa nguoi soi hon.
+  x-offset: -0.95
+  z-offset: 0.0
+  offset-relative-to-viewer: true
+  scale:
+    default: 1.0
+    distance-based: true
+    # Cang lai gan target, text cang nho lai.
+    min-distance: 1.5
+    max-distance: 10.0
+    min: 0.62
+    max: 1.0
+  spawn-animation:
+    enabled: true
+    # Text bat dau thap hon vi tri that roi truot len.
+    from-y-offset: -0.45
+    start-delay-ticks: 1
+    fade-in-ticks: 10
+    rise-duration: 8
+    interpolation-duration: 10
+  teleport-duration: 3
+  interpolation-duration: 3
+  interpolation-delay: 0
+  fade-out-ticks: 8
+  # Mat target thi text truot nguoc xuong duoi roi moi bien mat.
+  fade-out-y-offset: -0.45
+  fade-out-teleport-duration: 8
+  fade-out-interpolation-duration: 4
+  fade-out-opacity: 0
+  effects:
+    enabled: true
+    # Sound name co the la sound vanilla hoac custom resourcepack, vi du: "turtle:thauthi_on".
+    toggle-on:
+      sound:
+        enabled: true
+        name: "minecraft:block.amethyst_block.chime"
+        category: MASTER
+        volume: 0.7
+        pitch: 1.25
+      particle:
+        enabled: true
+        type: ENCHANT
+        shape: EXPANDING_RING
+        anchor: EYE
+        count: 14
+        x-offset: 0.28
+        y-offset: 0.18
+        z-offset: 0.28
+        speed: 0.02
+        ring:
+          ticks: 5
+          interval-ticks: 1
+          points: 96
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.12
+          radius-end: 20.0
+          forward-offset: 0.85
+          speed: 0.0
+          smooth: true
+    toggle-off:
+      sound:
+        enabled: true
+        name: "minecraft:block.amethyst_block.hit"
+        category: MASTER
+        volume: 0.55
+        pitch: 0.85
+      particle:
+        enabled: true
+        type: SMOKE
+        shape: EXPANDING_RING
+        anchor: EYE
+        count: 8
+        x-offset: 0.18
+        y-offset: 0.12
+        z-offset: 0.18
+        speed: 0.01
+        ring:
+          ticks: 4
+          interval-ticks: 1
+          points: 80
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.1
+          radius-end: 20.0
+          forward-offset: 0.75
+          speed: 0.0
+          smooth: true
+    target-found:
+      sound:
+        enabled: true
+        name: "minecraft:block.note_block.harp"
+        category: MASTER
+        volume: 0.55
+        pitch: 1.6
+      particle:
+        enabled: true
+        type: END_ROD
+        shape: EXPANDING_RING
+        anchor: EYE
+        count: 10
+        x-offset: 0.18
+        y-offset: 0.12
+        z-offset: 0.18
+        speed: 0.035
+        ring:
+          ticks: 5
+          interval-ticks: 1
+          points: 96
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.08
+          radius-end: 20.0
+          forward-offset: 0.9
+          speed: 0.0
+          smooth: true
+    target-lost:
+      sound:
+        enabled: true
+        name: "minecraft:block.note_block.bass"
+        category: MASTER
+        volume: 0.45
+        pitch: 0.7
+      particle:
+        enabled: true
+        type: ASH
+        shape: EXPANDING_RING
+        anchor: EYE
+        count: 8
+        x-offset: 0.16
+        y-offset: 0.1
+        z-offset: 0.16
+        speed: 0.01
+        ring:
+          ticks: 4
+          interval-ticks: 1
+          points: 80
+          point-count: 1
+          point-offset: 0.0
+          radius-start: 0.08
+          radius-end: 20.0
+          forward-offset: 0.75
+          speed: 0.0
+          smooth: true
+  opacity: 230
+  view-range: 24.0
+  line-width: 190
+  shadow: true
+  see-through: false
+  default-background: false
+  level-unavailable: "N/A"
+  background-color:
+    a: 0
+    r: 0
+    g: 0
+    b: 0
+  lines:
+    - "&6&lThau Thi &8» &f{target}"
+    - "&7Canh gioi: &e{realm_full}"
+    - "&7Level: &a{level} &8| &7Tu Vi: &b{tuvi_compact}"
+  messages:
+    only-player: "&cChi player moi dung duoc lenh nay."
+    disabled: "&cThau thi dang tat."
+    no-permission: "&cBan khong co quyen dung Thau Thi."
+    on: "&aDa bat Thau Thi. Nhin vao player de soi thong tin."
+    off: "&cDa tat Thau Thi."

@@ -155,7 +155,7 @@ public class TuTienCore {
         TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
                 flySwordManager, realmManager, breakthroughManager, playerHologramManager, actionBarManager,
                 infusionManager, afkKickManager, deathTipManager, regionRespawnManager, equipmentMenuManager,
-                hotbarCommandItemManager, this::reloadCommandAliases);
+                hotbarCommandItemManager, thauThiManager, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
             plugin.getCommand("ttc").setTabCompleter(commandHandler);

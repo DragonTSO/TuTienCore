@@ -17,6 +17,8 @@ import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -33,6 +35,7 @@ import org.bukkit.util.Vector;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -54,6 +57,8 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
+    private File configFile;
+    private FileConfiguration settings;
     private final Set<UUID> enabledPlayers = ConcurrentHashMap.newKeySet();
     private final Map<UUID, DisplayState> displays = new ConcurrentHashMap<>();
     private BukkitTask task;
@@ -62,8 +67,17 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     public ThauThiManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
+        reload();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         start();
+    }
+
+    public void reload() {
+        configFile = new File(plugin.getDataFolder(), "thauthi.yml");
+        if (!configFile.exists()) {
+            plugin.saveResource("thauthi.yml", false);
+        }
+        settings = YamlConfiguration.loadConfiguration(configFile);
     }
 
     private void start() {
@@ -91,7 +105,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return true;
         }
 
-        if (!plugin.getConfig().getBoolean("thauthi.enabled", true)) {
+        if (!settings.getBoolean("thauthi.enabled", true)) {
             player.sendMessage(colorize(message("disabled", "&cThấu thị đang tắt.")));
             return true;
         }
@@ -121,7 +135,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         tickCounter++;
-        int updateInterval = Math.max(1, plugin.getConfig().getInt("thauthi.update-interval-ticks", 2));
+        int updateInterval = Math.max(1, settings.getInt("thauthi.update-interval-ticks", 2));
         if (tickCounter % updateInterval != 0) {
             return;
         }
@@ -134,7 +148,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 continue;
             }
 
-            if (plugin.getConfig().getBoolean("thauthi.require-permission-each-tick", true)
+            if (settings.getBoolean("thauthi.require-permission-each-tick", true)
                     && !permission().isBlank() && !viewer.hasPermission(permission())) {
                 enabledPlayers.remove(uuid);
                 removeDisplay(uuid, false);
@@ -155,9 +169,9 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         World world = viewer.getWorld();
         Location eye = viewer.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
-        double distance = Math.max(1.0D, plugin.getConfig().getDouble("thauthi.max-distance", 18.0D));
-        double raySize = Math.max(0.0D, plugin.getConfig().getDouble("thauthi.ray-size", 0.35D));
-        boolean ignoreSpectator = plugin.getConfig().getBoolean("thauthi.ignore-spectator", true);
+        double distance = Math.max(1.0D, settings.getDouble("thauthi.max-distance", 18.0D));
+        double raySize = Math.max(0.0D, settings.getDouble("thauthi.ray-size", 0.35D));
+        boolean ignoreSpectator = settings.getBoolean("thauthi.ignore-spectator", true);
 
         RayTraceResult result = world.rayTraceEntities(eye, direction, distance, raySize, entity -> {
             if (!(entity instanceof Player target) || target == viewer || target.isDead() || !viewer.canSee(target)) {
@@ -170,7 +184,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return null;
         }
 
-        if (plugin.getConfig().getBoolean("thauthi.require-line-of-sight", true) && !viewer.hasLineOfSight(target)) {
+        if (settings.getBoolean("thauthi.require-line-of-sight", true) && !viewer.hasLineOfSight(target)) {
             return null;
         }
 
@@ -210,11 +224,11 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
         TextDisplay display = state.display;
         display.setText(text);
-        display.setTeleportDuration(clampDuration(plugin.getConfig().getInt("thauthi.teleport-duration", 3)));
-        display.setInterpolationDuration(clampDuration(plugin.getConfig().getInt("thauthi.interpolation-duration", 3)));
+        display.setTeleportDuration(clampDuration(settings.getInt("thauthi.teleport-duration", 3)));
+        display.setInterpolationDuration(clampDuration(settings.getInt("thauthi.interpolation-duration", 3)));
         setOptional(display, "setInterpolationDelay", int.class,
-                Math.max(0, plugin.getConfig().getInt("thauthi.interpolation-delay", 0)));
-        byte opacity = parseOpacity(plugin.getConfig().getInt("thauthi.opacity", 230));
+                Math.max(0, settings.getInt("thauthi.interpolation-delay", 0)));
+        byte opacity = parseOpacity(settings.getInt("thauthi.opacity", 230));
         if (newTarget) {
             animateIn(state, location, opacity);
         } else if (!state.animatingIn) {
@@ -233,15 +247,15 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             hologram.setBillboard(Display.Billboard.CENTER);
             hologram.setText(text);
             hologram.setTextOpacity(parseOpacity(0));
-            hologram.setShadowed(plugin.getConfig().getBoolean("thauthi.shadow", true));
-            hologram.setSeeThrough(plugin.getConfig().getBoolean("thauthi.see-through", false));
-            hologram.setLineWidth(Math.max(1, plugin.getConfig().getInt("thauthi.line-width", 190)));
-            hologram.setTeleportDuration(clampDuration(plugin.getConfig().getInt("thauthi.teleport-duration", 3)));
-            hologram.setInterpolationDuration(clampDuration(plugin.getConfig().getInt("thauthi.interpolation-duration", 3)));
+            hologram.setShadowed(settings.getBoolean("thauthi.shadow", true));
+            hologram.setSeeThrough(settings.getBoolean("thauthi.see-through", false));
+            hologram.setLineWidth(Math.max(1, settings.getInt("thauthi.line-width", 190)));
+            hologram.setTeleportDuration(clampDuration(settings.getInt("thauthi.teleport-duration", 3)));
+            hologram.setInterpolationDuration(clampDuration(settings.getInt("thauthi.interpolation-duration", 3)));
             setOptional(hologram, "setViewRange", float.class,
-                    (float) Math.max(1.0D, plugin.getConfig().getDouble("thauthi.view-range", 24.0D)));
+                    (float) Math.max(1.0D, settings.getDouble("thauthi.view-range", 24.0D)));
             setOptional(hologram, "setDefaultBackground", boolean.class,
-                    plugin.getConfig().getBoolean("thauthi.default-background", false));
+                    settings.getBoolean("thauthi.default-background", false));
             setOptional(hologram, "setBackgroundColor", Color.class, backgroundColor());
         });
         viewer.showEntity(plugin, display);
@@ -249,12 +263,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private Location targetLocation(Player viewer, Player target) {
-        double yOffset = plugin.getConfig().getDouble("thauthi.y-offset", 0.75D);
-        double xOffset = plugin.getConfig().getDouble("thauthi.x-offset", -0.95D);
-        double zOffset = plugin.getConfig().getDouble("thauthi.z-offset", 0.0D);
+        double yOffset = settings.getDouble("thauthi.y-offset", 0.75D);
+        double xOffset = settings.getDouble("thauthi.x-offset", -0.95D);
+        double zOffset = settings.getDouble("thauthi.z-offset", 0.0D);
         Location location = target.getLocation().add(0.0D, target.getHeight() + yOffset, 0.0D);
 
-        if (!plugin.getConfig().getBoolean("thauthi.offset-relative-to-viewer", true)) {
+        if (!settings.getBoolean("thauthi.offset-relative-to-viewer", true)) {
             return location.add(xOffset, 0.0D, zOffset);
         }
 
@@ -274,12 +288,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private void applyScale(TextDisplay display, Player viewer, Player target) {
-        double scale = plugin.getConfig().getDouble("thauthi.scale.default", 1.0D);
-        if (plugin.getConfig().getBoolean("thauthi.scale.distance-based", true)) {
-            double minDistance = Math.max(0.0D, plugin.getConfig().getDouble("thauthi.scale.min-distance", 1.5D));
-            double maxDistance = Math.max(minDistance + 0.01D, plugin.getConfig().getDouble("thauthi.scale.max-distance", 10.0D));
-            double minScale = Math.max(0.01D, plugin.getConfig().getDouble("thauthi.scale.min", 0.62D));
-            double maxScale = Math.max(minScale, plugin.getConfig().getDouble("thauthi.scale.max", 1.0D));
+        double scale = settings.getDouble("thauthi.scale.default", 1.0D);
+        if (settings.getBoolean("thauthi.scale.distance-based", true)) {
+            double minDistance = Math.max(0.0D, settings.getDouble("thauthi.scale.min-distance", 1.5D));
+            double maxDistance = Math.max(minDistance + 0.01D, settings.getDouble("thauthi.scale.max-distance", 10.0D));
+            double minScale = Math.max(0.01D, settings.getDouble("thauthi.scale.min", 0.62D));
+            double maxScale = Math.max(minScale, settings.getDouble("thauthi.scale.max", 1.0D));
             double distance = viewer.getLocation().distance(target.getLocation());
             double progress = Math.max(0.0D, Math.min(1.0D, (distance - minDistance) / (maxDistance - minDistance)));
             progress = progress * progress * (3.0D - 2.0D * progress);
@@ -295,10 +309,10 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private Location introStartLocation(Location finalLocation) {
-        if (!plugin.getConfig().getBoolean("thauthi.spawn-animation.enabled", true)) {
+        if (!settings.getBoolean("thauthi.spawn-animation.enabled", true)) {
             return finalLocation;
         }
-        double fromYOffset = plugin.getConfig().getDouble("thauthi.spawn-animation.from-y-offset", -0.45D);
+        double fromYOffset = settings.getDouble("thauthi.spawn-animation.from-y-offset", -0.45D);
         return finalLocation.clone().add(0.0D, fromYOffset, 0.0D);
     }
 
@@ -306,17 +320,17 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         TextDisplay display = state.display;
         state.cancelFadeIn();
 
-        if (!plugin.getConfig().getBoolean("thauthi.spawn-animation.enabled", true)) {
+        if (!settings.getBoolean("thauthi.spawn-animation.enabled", true)) {
             state.animatingIn = false;
             display.teleport(finalLocation);
             display.setTextOpacity(targetOpacity);
             return;
         }
 
-        int fadeTicks = Math.max(1, plugin.getConfig().getInt("thauthi.spawn-animation.fade-in-ticks", 10));
-        int riseDuration = clampDuration(plugin.getConfig().getInt("thauthi.spawn-animation.rise-duration", 8));
-        int interpolationDuration = clampDuration(plugin.getConfig().getInt("thauthi.spawn-animation.interpolation-duration", fadeTicks));
-        long delay = Math.max(0L, plugin.getConfig().getLong("thauthi.spawn-animation.start-delay-ticks", 1L));
+        int fadeTicks = Math.max(1, settings.getInt("thauthi.spawn-animation.fade-in-ticks", 10));
+        int riseDuration = clampDuration(settings.getInt("thauthi.spawn-animation.rise-duration", 8));
+        int interpolationDuration = clampDuration(settings.getInt("thauthi.spawn-animation.interpolation-duration", fadeTicks));
+        long delay = Math.max(0L, settings.getLong("thauthi.spawn-animation.start-delay-ticks", 1L));
         Location startLocation = introStartLocation(finalLocation);
 
         state.animatingIn = true;
@@ -395,18 +409,18 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             playClientEffect(viewer, "target-lost");
         }
         state.targetUuid = null;
-        int fallDuration = clampDuration(plugin.getConfig().getInt("thauthi.fade-out-teleport-duration",
-                plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4)));
-        int interpolationDuration = clampDuration(plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4));
-        double yOffset = plugin.getConfig().getDouble("thauthi.fade-out-y-offset", -0.45D);
+        int fallDuration = clampDuration(settings.getInt("thauthi.fade-out-teleport-duration",
+                settings.getInt("thauthi.fade-out-interpolation-duration", 4)));
+        int interpolationDuration = clampDuration(settings.getInt("thauthi.fade-out-interpolation-duration", 4));
+        double yOffset = settings.getDouble("thauthi.fade-out-y-offset", -0.45D);
         Location endLocation = display.getLocation().clone().add(0.0D, yOffset, 0.0D);
 
         display.setTeleportDuration(fallDuration);
         display.setInterpolationDuration(interpolationDuration);
         display.teleport(endLocation);
-        display.setTextOpacity(parseOpacity(plugin.getConfig().getInt("thauthi.fade-out-opacity", 0)));
+        display.setTextOpacity(parseOpacity(settings.getInt("thauthi.fade-out-opacity", 0)));
         long delay = Math.max(1L, Math.max(
-                plugin.getConfig().getLong("thauthi.fade-out-ticks", 8L),
+                settings.getLong("thauthi.fade-out-ticks", 8L),
                 Math.max(fallDuration, interpolationDuration)));
         state.removeTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             DisplayState current = displays.get(viewerId);
@@ -421,7 +435,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private void playClientEffect(Player player, String key) {
         if (player == null || !player.isOnline()
-                || !plugin.getConfig().getBoolean("thauthi.effects.enabled", true)) {
+                || !settings.getBoolean("thauthi.effects.enabled", true)) {
             return;
         }
 
@@ -431,43 +445,43 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private void playClientSound(Player player, String path) {
-        if (!plugin.getConfig().getBoolean(path + ".enabled", false)) {
+        if (!settings.getBoolean(path + ".enabled", false)) {
             return;
         }
 
-        String name = plugin.getConfig().getString(path + ".name", "");
+        String name = settings.getString(path + ".name", "");
         if (name == null || name.isBlank()) {
             return;
         }
 
-        SoundCategory category = soundCategory(plugin.getConfig().getString(path + ".category", "MASTER"));
-        float volume = (float) plugin.getConfig().getDouble(path + ".volume", 1.0D);
-        float pitch = (float) plugin.getConfig().getDouble(path + ".pitch", 1.0D);
+        SoundCategory category = soundCategory(settings.getString(path + ".category", "MASTER"));
+        float volume = (float) settings.getDouble(path + ".volume", 1.0D);
+        float pitch = (float) settings.getDouble(path + ".pitch", 1.0D);
         player.playSound(player.getLocation(), name, category, volume, pitch);
     }
 
     private void spawnClientParticle(Player player, String path) {
-        if (!plugin.getConfig().getBoolean(path + ".enabled", false)) {
+        if (!settings.getBoolean(path + ".enabled", false)) {
             return;
         }
 
-        Particle particle = particle(plugin.getConfig().getString(path + ".type", "ENCHANT"));
+        Particle particle = particle(settings.getString(path + ".type", "ENCHANT"));
         if (particle == null) {
             return;
         }
 
-        String shape = plugin.getConfig().getString(path + ".shape", "BURST");
+        String shape = settings.getString(path + ".shape", "BURST");
         if ("EXPANDING_RING".equalsIgnoreCase(shape) || "RING".equalsIgnoreCase(shape)) {
             spawnExpandingRing(player, particle, path);
             return;
         }
 
         Location location = effectLocation(player, path);
-        int count = Math.max(0, plugin.getConfig().getInt(path + ".count", 12));
-        double offsetX = Math.max(0.0D, plugin.getConfig().getDouble(path + ".x-offset", 0.25D));
-        double offsetY = Math.max(0.0D, plugin.getConfig().getDouble(path + ".y-offset", 0.25D));
-        double offsetZ = Math.max(0.0D, plugin.getConfig().getDouble(path + ".z-offset", 0.25D));
-        double speed = Math.max(0.0D, plugin.getConfig().getDouble(path + ".speed", 0.02D));
+        int count = Math.max(0, settings.getInt(path + ".count", 12));
+        double offsetX = Math.max(0.0D, settings.getDouble(path + ".x-offset", 0.25D));
+        double offsetY = Math.max(0.0D, settings.getDouble(path + ".y-offset", 0.25D));
+        double offsetZ = Math.max(0.0D, settings.getDouble(path + ".z-offset", 0.25D));
+        double speed = Math.max(0.0D, settings.getDouble(path + ".speed", 0.02D));
         try {
             player.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, speed);
         } catch (IllegalArgumentException ignored) {
@@ -476,17 +490,17 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private void spawnExpandingRing(Player player, Particle particle, String path) {
-        int ticks = Math.max(1, plugin.getConfig().getInt(path + ".ring.ticks", 5));
-        long interval = Math.max(1L, plugin.getConfig().getLong(path + ".ring.interval-ticks", 1L));
-        int points = Math.max(6, plugin.getConfig().getInt(path + ".ring.points", 28));
-        int countPerPoint = Math.max(1, plugin.getConfig().getInt(path + ".ring.point-count", 1));
-        double pointOffset = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.point-offset", 0.0D));
-        double speed = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.speed",
-                plugin.getConfig().getDouble(path + ".speed", 0.0D)));
-        double radiusStart = Math.max(0.0D, plugin.getConfig().getDouble(path + ".ring.radius-start", 0.12D));
-        double radiusEnd = Math.max(radiusStart, plugin.getConfig().getDouble(path + ".ring.radius-end", 1.15D));
-        double forwardOffset = plugin.getConfig().getDouble(path + ".ring.forward-offset", 0.85D);
-        boolean smooth = plugin.getConfig().getBoolean(path + ".ring.smooth", true);
+        int ticks = Math.max(1, settings.getInt(path + ".ring.ticks", 5));
+        long interval = Math.max(1L, settings.getLong(path + ".ring.interval-ticks", 1L));
+        int points = Math.max(6, settings.getInt(path + ".ring.points", 28));
+        int countPerPoint = Math.max(1, settings.getInt(path + ".ring.point-count", 1));
+        double pointOffset = Math.max(0.0D, settings.getDouble(path + ".ring.point-offset", 0.0D));
+        double speed = Math.max(0.0D, settings.getDouble(path + ".ring.speed",
+                settings.getDouble(path + ".speed", 0.0D)));
+        double radiusStart = Math.max(0.0D, settings.getDouble(path + ".ring.radius-start", 0.12D));
+        double radiusEnd = Math.max(radiusStart, settings.getDouble(path + ".ring.radius-end", 1.15D));
+        double forwardOffset = settings.getDouble(path + ".ring.forward-offset", 0.85D);
+        boolean smooth = settings.getBoolean(path + ".ring.smooth", true);
 
         BukkitTask[] taskRef = new BukkitTask[1];
         taskRef[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
@@ -550,12 +564,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private Location effectLocation(Player player, String path) {
-        String anchor = plugin.getConfig().getString(path + ".anchor", "EYE");
+        String anchor = settings.getString(path + ".anchor", "EYE");
         Location location = "FEET".equalsIgnoreCase(anchor) ? player.getLocation() : player.getEyeLocation();
         return location.add(
-                plugin.getConfig().getDouble(path + ".location-x-offset", 0.0D),
-                plugin.getConfig().getDouble(path + ".location-y-offset", 0.0D),
-                plugin.getConfig().getDouble(path + ".location-z-offset", 0.0D));
+                settings.getDouble(path + ".location-x-offset", 0.0D),
+                settings.getDouble(path + ".location-y-offset", 0.0D),
+                settings.getDouble(path + ".location-z-offset", 0.0D));
     }
 
     private void removeAllDisplays() {
@@ -573,7 +587,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private String buildText(Player viewer, Player target) {
-        List<String> lines = plugin.getConfig().getStringList("thauthi.lines");
+        List<String> lines = settings.getStringList("thauthi.lines");
         if (lines.isEmpty()) {
             lines = List.of(
                     "&6&lThấu Thị &8» &f{target}",
@@ -644,7 +658,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private String getTuTienLevel(Player target) {
         if (!Bukkit.getPluginManager().isPluginEnabled("TuTienLevel")) {
-            return plugin.getConfig().getString("thauthi.level-unavailable", "N/A");
+            return settings.getString("thauthi.level-unavailable", "N/A");
         }
 
         try {
@@ -663,25 +677,25 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return placeholderLevel(target);
         }
 
-        return plugin.getConfig().getString("thauthi.level-unavailable", "N/A");
+        return settings.getString("thauthi.level-unavailable", "N/A");
     }
 
     private String placeholderLevel(Player target) {
         if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            return plugin.getConfig().getString("thauthi.level-unavailable", "N/A");
+            return settings.getString("thauthi.level-unavailable", "N/A");
         }
         String parsed = PlaceholderAPI.setPlaceholders(target, "%tutienlevel_level%");
         return parsed == null || parsed.isBlank() || parsed.startsWith("%")
-                ? plugin.getConfig().getString("thauthi.level-unavailable", "N/A")
+                ? settings.getString("thauthi.level-unavailable", "N/A")
                 : parsed;
     }
 
     private String permission() {
-        return plugin.getConfig().getString("thauthi.permission", "tutiencore.thauthi");
+        return settings.getString("thauthi.permission", "tutiencore.thauthi");
     }
 
     private String message(String key, String fallback) {
-        return plugin.getConfig().getString("thauthi.messages." + key, fallback);
+        return settings.getString("thauthi.messages." + key, fallback);
     }
 
     private static String formatDecimal(double value) {
@@ -701,10 +715,10 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private Color backgroundColor() {
         return Color.fromARGB(
-                clampColor(plugin.getConfig().getInt("thauthi.background-color.a", 0)),
-                clampColor(plugin.getConfig().getInt("thauthi.background-color.r", 0)),
-                clampColor(plugin.getConfig().getInt("thauthi.background-color.g", 0)),
-                clampColor(plugin.getConfig().getInt("thauthi.background-color.b", 0)));
+                clampColor(settings.getInt("thauthi.background-color.a", 0)),
+                clampColor(settings.getInt("thauthi.background-color.r", 0)),
+                clampColor(settings.getInt("thauthi.background-color.g", 0)),
+                clampColor(settings.getInt("thauthi.background-color.b", 0)));
     }
 
     private static int clampColor(int value) {

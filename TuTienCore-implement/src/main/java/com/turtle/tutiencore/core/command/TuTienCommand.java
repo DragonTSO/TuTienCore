@@ -13,6 +13,7 @@ import com.turtle.tutiencore.core.manager.HotbarCommandItemManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.RegionRespawnManager;
+import com.turtle.tutiencore.core.manager.ThauThiManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.model.CuboidZone;
@@ -50,6 +51,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
     private final RegionRespawnManager regionRespawnManager;
     private final EquipmentMenuManager equipmentMenuManager;
     private final HotbarCommandItemManager hotbarCommandItemManager;
+    private final ThauThiManager thauThiManager;
     private final Runnable commandAliasReloader;
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
@@ -57,7 +59,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             BreakthroughManager breakthroughManager, PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
             InfusionManager infusionManager, AfkKickManager afkKickManager, DeathTipManager deathTipManager,
             RegionRespawnManager regionRespawnManager, EquipmentMenuManager equipmentMenuManager,
-            HotbarCommandItemManager hotbarCommandItemManager, Runnable commandAliasReloader) {
+            HotbarCommandItemManager hotbarCommandItemManager, ThauThiManager thauThiManager, Runnable commandAliasReloader) {
         this.tuLuyenManager = tuLuyenManager;
         this.zoneManager = zoneManager;
         this.config = config;
@@ -73,6 +75,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         this.regionRespawnManager = regionRespawnManager;
         this.equipmentMenuManager = equipmentMenuManager;
         this.hotbarCommandItemManager = hotbarCommandItemManager;
+        this.thauThiManager = thauThiManager;
         this.commandAliasReloader = commandAliasReloader;
     }
 
@@ -144,6 +147,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             regionRespawnManager.reload();
             equipmentMenuManager.reload();
             hotbarCommandItemManager.reload();
+            thauThiManager.reload();
             if (commandAliasReloader != null) {
                 commandAliasReloader.run();
             }
