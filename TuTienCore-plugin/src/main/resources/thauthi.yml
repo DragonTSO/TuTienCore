@@ -20,6 +20,8 @@ thauthi:
     y-offset: -0.35
     z-offset: -2.5
     scale: 0.65
+    force-transform-refresh: true
+    refresh-epsilon: 0.0005
     teleport-duration: 1
     interpolation-duration: 1
     interpolation-delay: 0
