@@ -312,9 +312,8 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         LivingEntity targetEntity = target.entity();
         UUID viewerId = viewer.getUniqueId();
         DisplayState state = displays.get(viewerId);
-        Location normalLocation = targetLocation(viewer, targetEntity);
-        boolean headMounted = shouldHeadMount(viewer, normalLocation);
-        Location location = headMounted ? headMountLocation(viewer) : normalLocation;
+        boolean headMounted = shouldHeadMount(viewer, targetEntity);
+        Location location = headMounted ? headMountLocation(viewer) : targetLocation(viewer, targetEntity);
         String text = buildText(viewer, target);
 
         if (state == null || state.display == null || !state.display.isValid()
@@ -413,7 +412,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return location.add(right.multiply(xOffset)).add(forward.multiply(zOffset));
     }
 
-    private boolean shouldHeadMount(Player viewer, Location normalLocation) {
+    private boolean shouldHeadMount(Player viewer, LivingEntity target) {
         if (!settings.getBoolean("thauthi.head-mount.enabled", true)) {
             return false;
         }
@@ -421,10 +420,10 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return false;
         }
         double threshold = settings.getDouble("thauthi.head-mount.distance", 24.0D);
-        if (threshold <= 0.0D || normalLocation.getWorld() != viewer.getWorld()) {
+        if (target.getWorld() != viewer.getWorld()) {
             return false;
         }
-        return viewer.getEyeLocation().distance(normalLocation) >= threshold;
+        return threshold <= 0.0D || viewer.getEyeLocation().distance(target.getLocation()) >= threshold;
     }
 
     private Location headMountLocation(Player viewer) {
