@@ -1,11 +1,12 @@
 package com.turtle.tutiencore.core.manager;
 
-import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.event.PacketListenerAbstract;
-import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.User;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.ListenerPriority;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
@@ -72,7 +73,8 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
-    private final PacketListenerAbstract passengerPacketListener = new PassengerPacketListener();
+    private final PacketAdapter passengerPacketListener;
+    private ProtocolManager protocolManager;
     private File configFile;
     private FileConfiguration settings;
     private FileConfiguration mobAssignments = new YamlConfiguration();
@@ -85,6 +87,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     public ThauThiManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
+        this.passengerPacketListener = new PassengerPacketListener(plugin);
         reload();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         registerPassengerPacketListener();
@@ -168,11 +171,11 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private void registerPassengerPacketListener() {
-        if (passengerPacketListenerRegistered || !isPacketEventsReady()) {
+        if (passengerPacketListenerRegistered || !isProtocolLibReady()) {
             return;
         }
         try {
-            PacketEvents.getAPI().getEventManager().registerListener(passengerPacketListener);
+            protocolManager.addPacketListener(passengerPacketListener);
             passengerPacketListenerRegistered = true;
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Could not register Thau Thi passenger listener: " + ex.getMessage());
@@ -180,14 +183,14 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private void unregisterPassengerPacketListener() {
-        if (!passengerPacketListenerRegistered || !isPacketEventsReady()) {
+        if (!passengerPacketListenerRegistered || !isProtocolLibReady()) {
             passengerPacketListenerRegistered = false;
             return;
         }
         try {
-            PacketEvents.getAPI().getEventManager().unregisterListener(passengerPacketListener);
+            protocolManager.removePacketListener(passengerPacketListener);
         } catch (RuntimeException ignored) {
-            // PacketEvents may already be shutting down.
+            // ProtocolLib may already be shutting down.
         } finally {
             passengerPacketListenerRegistered = false;
         }
@@ -418,7 +421,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         if (!settings.getBoolean("thauthi.head-mount.enabled", true)) {
             return false;
         }
-        if (!isPacketEventsReady()) {
+        if (!isProtocolLibReady()) {
             return false;
         }
         double threshold = settings.getDouble("thauthi.head-mount.distance", 24.0D);
@@ -467,14 +470,13 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return;
         }
 
-        User user = getPacketEventsUser(viewer);
-        if (user == null || user.getChannel() == null) {
+        if (!isProtocolLibReady()) {
             return;
         }
 
         int displayEntityId = state.display.getEntityId();
         int[] passengers = appendPassenger(getPassengerIds(viewer), displayEntityId);
-        user.sendPacket(new WrapperPlayServerSetPassengers(viewer.getEntityId(), passengers));
+        sendMountPacket(viewer, viewer.getEntityId(), passengers);
         state.headMounted = true;
         state.mountedVehicleUuid = viewer.getUniqueId();
         state.mountedVehicleEntityId = viewer.getEntityId();
@@ -486,13 +488,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         if (viewer != null && viewer.isOnline()) {
-            User user = getPacketEventsUser(viewer);
-            if (user != null && user.getChannel() != null) {
+            if (isProtocolLibReady()) {
                 Entity vehicle = state.mountedVehicleUuid == null ? null : Bukkit.getEntity(state.mountedVehicleUuid);
                 int[] passengers = vehicle == null ? new int[0] : getPassengerIds(vehicle);
-                user.sendPacket(new WrapperPlayServerSetPassengers(
+                sendMountPacket(viewer,
                         state.mountedVehicleEntityId,
-                        removePassenger(passengers, state.display.getEntityId())));
+                        removePassenger(passengers, state.display.getEntityId()));
             }
         }
 
@@ -543,17 +544,26 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return updated;
     }
 
-    private User getPacketEventsUser(Player player) {
+    private void sendMountPacket(Player viewer, int vehicleEntityId, int[] passengerIds) {
         try {
-            return PacketEvents.getAPI().getPlayerManager().getUser(player);
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.MOUNT);
+            packet.getIntegers().write(0, vehicleEntityId);
+            packet.getIntegerArrays().write(0, passengerIds);
+            protocolManager.sendServerPacket(viewer, packet);
         } catch (NoClassDefFoundError | ExceptionInInitializerError | RuntimeException ex) {
-            return null;
+            plugin.getLogger().warning("Could not send Thau Thi mount packet: " + ex.getMessage());
         }
     }
 
-    private boolean isPacketEventsReady() {
+    private boolean isProtocolLibReady() {
         try {
-            return Bukkit.getPluginManager().isPluginEnabled("packetevents") && PacketEvents.getAPI() != null;
+            if (!Bukkit.getPluginManager().isPluginEnabled("ProtocolLib")) {
+                return false;
+            }
+            if (protocolManager == null) {
+                protocolManager = ProtocolLibrary.getProtocolManager();
+            }
+            return protocolManager != null;
         } catch (NoClassDefFoundError | ExceptionInInitializerError | RuntimeException ex) {
             return false;
         }
@@ -1429,33 +1439,38 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return builder.toString();
     }
 
-    private final class PassengerPacketListener extends PacketListenerAbstract {
+    private final class PassengerPacketListener extends PacketAdapter {
+        private PassengerPacketListener(JavaPlugin plugin) {
+            super(plugin, ListenerPriority.NORMAL, PacketType.Play.Server.MOUNT);
+        }
+
         @Override
-        public void onPacketSend(PacketSendEvent event) {
-            if (event.getPacketType() != PacketType.Play.Server.SET_PASSENGERS) {
+        public void onPacketSending(PacketEvent event) {
+            if (event.getPacketType() != PacketType.Play.Server.MOUNT) {
                 return;
             }
 
-            UUID viewerId = event.getUser().getUUID();
-            if (viewerId == null) {
+            Player viewer = event.getPlayer();
+            if (viewer == null) {
                 return;
             }
+            UUID viewerId = viewer.getUniqueId();
 
             DisplayState state = displays.get(viewerId);
             if (state == null || !state.headMounted || state.display == null || !state.display.isValid()) {
                 return;
             }
 
-            WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(event);
-            if (packet.getEntityId() != state.mountedVehicleEntityId) {
+            PacketContainer packet = event.getPacket();
+            int entityId = packet.getIntegers().read(0);
+            if (entityId != state.mountedVehicleEntityId) {
                 return;
             }
 
-            int[] passengers = packet.getPassengers();
+            int[] passengers = packet.getIntegerArrays().read(0);
             int[] updated = appendPassenger(passengers, state.display.getEntityId());
             if (updated != passengers) {
-                packet.setPassengers(updated);
-                event.markForReEncode(true);
+                packet.getIntegerArrays().write(0, updated);
             }
         }
     }
