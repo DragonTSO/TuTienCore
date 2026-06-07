@@ -108,7 +108,7 @@ thauthi:
         volume: 0.55
         pitch: 1.6
       particle:
-        enabled: true
+        enabled: false
         type: END_ROD
         shape: EXPANDING_RING
         anchor: EYE
