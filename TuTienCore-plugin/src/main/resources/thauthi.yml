@@ -158,6 +158,8 @@ thauthi:
           smooth: true
   opacity: 230
   view-range: 24.0
+  auto-view-range: true
+  view-range-padding: 4.0
   line-width: 190
   shadow: true
   see-through: false
@@ -174,6 +176,7 @@ thauthi:
     - "&7Level: &a{level} &8| &7Tu Vi: &b{tuvi_compact}"
   mythicmobs:
     enabled: true
+    ray-size: 1.25
     unknown-damage: "???"
     assignments:
       enabled: true

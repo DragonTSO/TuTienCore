@@ -227,10 +227,13 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         Location eye = viewer.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
         double distance = Math.max(1.0D, settings.getDouble("thauthi.max-distance", 18.0D));
-        double raySize = Math.max(0.0D, settings.getDouble("thauthi.ray-size", 0.35D));
         boolean ignoreSpectator = settings.getBoolean("thauthi.ignore-spectator", true);
         boolean mythicMobsEnabled = settings.getBoolean("thauthi.mythicmobs.enabled", true)
                 && Bukkit.getPluginManager().isPluginEnabled("MythicMobs");
+        double raySize = Math.max(0.0D, settings.getDouble("thauthi.ray-size", 0.35D));
+        if (mythicMobsEnabled) {
+            raySize = Math.max(raySize, settings.getDouble("thauthi.mythicmobs.ray-size", 1.25D));
+        }
 
         RayTraceResult result = world.rayTraceEntities(eye, direction, distance, raySize, entity -> {
             if (entity == viewer || entity.isDead()) {
@@ -320,8 +323,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             hologram.setLineWidth(Math.max(1, settings.getInt("thauthi.line-width", 190)));
             hologram.setTeleportDuration(clampDuration(settings.getInt("thauthi.teleport-duration", 3)));
             hologram.setInterpolationDuration(clampDuration(settings.getInt("thauthi.interpolation-duration", 3)));
-            setOptional(hologram, "setViewRange", float.class,
-                    (float) Math.max(1.0D, settings.getDouble("thauthi.view-range", 24.0D)));
+            setOptional(hologram, "setViewRange", float.class, displayViewRange());
             setOptional(hologram, "setDefaultBackground", boolean.class,
                     settings.getBoolean("thauthi.default-background", false));
             setOptional(hologram, "setBackgroundColor", Color.class, backgroundColor());
@@ -1179,6 +1181,16 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 clampColor(settings.getInt("thauthi.background-color.r", 0)),
                 clampColor(settings.getInt("thauthi.background-color.g", 0)),
                 clampColor(settings.getInt("thauthi.background-color.b", 0)));
+    }
+
+    private float displayViewRange() {
+        double viewRange = settings.getDouble("thauthi.view-range", 24.0D);
+        if (settings.getBoolean("thauthi.auto-view-range", true)) {
+            double maxDistance = Math.max(1.0D, settings.getDouble("thauthi.max-distance", 18.0D));
+            double padding = Math.max(0.0D, settings.getDouble("thauthi.view-range-padding", 4.0D));
+            viewRange = Math.max(viewRange, maxDistance + padding);
+        }
+        return (float) Math.max(1.0D, viewRange);
     }
 
     private static int clampColor(int value) {
