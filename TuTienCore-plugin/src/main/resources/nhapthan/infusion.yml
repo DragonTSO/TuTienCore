@@ -7,6 +7,12 @@
 # tu-vi-bonus trong types là % Tu Vi riêng của từng Lửa, được nhân với multiplier của rarity.
 # material của mỗi Lửa dùng Music Disc riêng; disc thường cho Lửa cơ bản, disc hiếm hơn cho Lửa cấp cao.
 
+mmoitems:
+  enabled: true
+  type: "LUA_THAN"
+  # Item id trong MMOItems. Vi du: NAM_MINH_LY_HOA_COMMON.
+  id-format: "{type}_{rarity}"
+
 gui:
   title: "&6&lLửa Thần"
   border-material: "PURPLE_STAINED_GLASS_PANE"

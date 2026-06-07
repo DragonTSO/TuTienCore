@@ -1,0 +1,1055 @@
+﻿NAM_MINH_LY_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_13
+    name: '&7Nam Minh Ly Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fNam Minh Ly Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+6%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+NAM_MINH_LY_HOA_RARE:
+  base:
+    material: MUSIC_DISC_13
+    name: '&aNam Minh Ly Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fNam Minh Ly Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+9.8%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+NAM_MINH_LY_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_13
+    name: '<#0078d7>Nam Minh Ly Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fNam Minh Ly Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+16%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+NAM_MINH_LY_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_13
+    name: '<#d485ff>Nam Minh Ly Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fNam Minh Ly Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+22.6%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+NAM_MINH_LY_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_13
+    name: '<#ffde26>Nam Minh Ly Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fNam Minh Ly Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+35%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_DUONG_CHAN_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_CAT
+    name: '&7Thái Dương Chân Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Dương Chân Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+2%'
+      - '&7<shift:12>Đặc tính: &fCó thể rơi thêm Linh Dược khi tu luyện.'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_DUONG_CHAN_HOA_RARE:
+  base:
+    material: MUSIC_DISC_CAT
+    name: '&aThái Dương Chân Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Dương Chân Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+5%'
+      - '&7<shift:12>Đặc tính: &fCó thể rơi thêm Linh Dược khi tu luyện.'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_DUONG_CHAN_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_CAT
+    name: '<#0078d7>Thái Dương Chân Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Dương Chân Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+10%'
+      - '&7<shift:12>Đặc tính: &fCó thể rơi thêm Linh Dược khi tu luyện.'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_DUONG_CHAN_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_CAT
+    name: '<#d485ff>Thái Dương Chân Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Dương Chân Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+15%'
+      - '&7<shift:12>Đặc tính: &fCó thể rơi thêm Linh Dược khi tu luyện.'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_DUONG_CHAN_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_CAT
+    name: '<#ffde26>Thái Dương Chân Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Dương Chân Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+25%'
+      - '&7<shift:12>Đặc tính: &fCó thể rơi thêm Linh Dược khi tu luyện.'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+TU_VI_THIEN_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_BLOCKS
+    name: '&7Tử Vi Thiên Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fTử Vi Thiên Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+12%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+TU_VI_THIEN_HOA_RARE:
+  base:
+    material: MUSIC_DISC_BLOCKS
+    name: '&aTử Vi Thiên Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fTử Vi Thiên Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+17%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+TU_VI_THIEN_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_BLOCKS
+    name: '<#0078d7>Tử Vi Thiên Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fTử Vi Thiên Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+25%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+TU_VI_THIEN_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_BLOCKS
+    name: '<#d485ff>Tử Vi Thiên Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fTử Vi Thiên Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+34%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+TU_VI_THIEN_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_BLOCKS
+    name: '<#ffde26>Tử Vi Thiên Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fTử Vi Thiên Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+50%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_THIEN_HUYEN_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_CHIRP
+    name: '&7Cửu Thiên Huyền Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Thiên Huyền Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+10%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_THIEN_HUYEN_HOA_RARE:
+  base:
+    material: MUSIC_DISC_CHIRP
+    name: '&aCửu Thiên Huyền Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Thiên Huyền Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+14.6%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_THIEN_HUYEN_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_CHIRP
+    name: '<#0078d7>Cửu Thiên Huyền Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Thiên Huyền Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+22%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_THIEN_HUYEN_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_CHIRP
+    name: '<#d485ff>Cửu Thiên Huyền Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Thiên Huyền Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+30.2%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_THIEN_HUYEN_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_CHIRP
+    name: '<#ffde26>Cửu Thiên Huyền Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Thiên Huyền Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+45%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_MINH_QUY_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_FAR
+    name: '&7U Minh Quỷ Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU Minh Quỷ Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+2%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_MINH_QUY_HOA_RARE:
+  base:
+    material: MUSIC_DISC_FAR
+    name: '&aU Minh Quỷ Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU Minh Quỷ Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_MINH_QUY_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_FAR
+    name: '<#0078d7>U Minh Quỷ Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU Minh Quỷ Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+10%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_MINH_QUY_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_FAR
+    name: '<#d485ff>U Minh Quỷ Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU Minh Quỷ Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+15%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_MINH_QUY_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_FAR
+    name: '<#ffde26>U Minh Quỷ Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU Minh Quỷ Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+25%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_SO_THANH_HOA_COMMON:
+  base:
+    material: MUSIC_DISC_MALL
+    name: '&7Thái Sơ Thánh Hỏa &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Sơ Thánh Hỏa'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+8%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_SO_THANH_HOA_RARE:
+  base:
+    material: MUSIC_DISC_MALL
+    name: '&aThái Sơ Thánh Hỏa &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Sơ Thánh Hỏa'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+12.2%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_SO_THANH_HOA_EPIC:
+  base:
+    material: MUSIC_DISC_MALL
+    name: '<#0078d7>Thái Sơ Thánh Hỏa &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Sơ Thánh Hỏa'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+19%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_SO_THANH_HOA_LEGENDARY:
+  base:
+    material: MUSIC_DISC_MALL
+    name: '<#d485ff>Thái Sơ Thánh Hỏa &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Sơ Thánh Hỏa'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+26.4%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+THAI_SO_THANH_HOA_MYTHIC:
+  base:
+    material: MUSIC_DISC_MALL
+    name: '<#ffde26>Thái Sơ Thánh Hỏa &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fThái Sơ Thánh Hỏa'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+40%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_LA_BANG_VIEM_COMMON:
+  base:
+    material: MUSIC_DISC_OTHERSIDE
+    name: '&7U La Băng Viêm &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU La Băng Viêm'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+2%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_LA_BANG_VIEM_RARE:
+  base:
+    material: MUSIC_DISC_OTHERSIDE
+    name: '&aU La Băng Viêm &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU La Băng Viêm'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_LA_BANG_VIEM_EPIC:
+  base:
+    material: MUSIC_DISC_OTHERSIDE
+    name: '<#0078d7>U La Băng Viêm &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU La Băng Viêm'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+10%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_LA_BANG_VIEM_LEGENDARY:
+  base:
+    material: MUSIC_DISC_OTHERSIDE
+    name: '<#d485ff>U La Băng Viêm &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU La Băng Viêm'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+15%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+U_LA_BANG_VIEM_MYTHIC:
+  base:
+    material: MUSIC_DISC_OTHERSIDE
+    name: '<#ffde26>U La Băng Viêm &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fU La Băng Viêm'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+25%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_TU_LUAN_HOI_VIEM_COMMON:
+  base:
+    material: MUSIC_DISC_PIGSTEP
+    name: '&7Cửu Tử Luân Hồi Viêm &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Tử Luân Hồi Viêm'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+9%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_TU_LUAN_HOI_VIEM_RARE:
+  base:
+    material: MUSIC_DISC_PIGSTEP
+    name: '&aCửu Tử Luân Hồi Viêm &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Tử Luân Hồi Viêm'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+13.4%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_TU_LUAN_HOI_VIEM_EPIC:
+  base:
+    material: MUSIC_DISC_PIGSTEP
+    name: '<#0078d7>Cửu Tử Luân Hồi Viêm &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Tử Luân Hồi Viêm'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+20.5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_TU_LUAN_HOI_VIEM_LEGENDARY:
+  base:
+    material: MUSIC_DISC_PIGSTEP
+    name: '<#d485ff>Cửu Tử Luân Hồi Viêm &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Tử Luân Hồi Viêm'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+28.3%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+CUU_TU_LUAN_HOI_VIEM_MYTHIC:
+  base:
+    material: MUSIC_DISC_PIGSTEP
+    name: '<#ffde26>Cửu Tử Luân Hồi Viêm &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fCửu Tử Luân Hồi Viêm'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+42.5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+BICH_HAI_THANH_THIEN_VIEM_COMMON:
+  base:
+    material: MUSIC_DISC_RELIC
+    name: '&7Bích Hải Thanh Thiên Viêm &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fBích Hải Thanh Thiên Viêm'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+11%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+BICH_HAI_THANH_THIEN_VIEM_RARE:
+  base:
+    material: MUSIC_DISC_RELIC
+    name: '&aBích Hải Thanh Thiên Viêm &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fBích Hải Thanh Thiên Viêm'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+15.8%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+BICH_HAI_THANH_THIEN_VIEM_EPIC:
+  base:
+    material: MUSIC_DISC_RELIC
+    name: '<#0078d7>Bích Hải Thanh Thiên Viêm &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fBích Hải Thanh Thiên Viêm'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+23.5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+BICH_HAI_THANH_THIEN_VIEM_LEGENDARY:
+  base:
+    material: MUSIC_DISC_RELIC
+    name: '<#d485ff>Bích Hải Thanh Thiên Viêm &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fBích Hải Thanh Thiên Viêm'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+32.1%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+BICH_HAI_THANH_THIEN_VIEM_MYTHIC:
+  base:
+    material: MUSIC_DISC_RELIC
+    name: '<#ffde26>Bích Hải Thanh Thiên Viêm &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fBích Hải Thanh Thiên Viêm'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+47.5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+HONG_LIEN_THUC_COT_VIEM_COMMON:
+  base:
+    material: MUSIC_DISC_PRECIPICE
+    name: '&7Hồng Liên Thực Cốt Viêm &8[&7Phàm Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: common
+    tier: PHAMPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fHồng Liên Thực Cốt Viêm'
+      - '&7<shift:12>Bậc: &7Phàm Hỏa &8| &7Hệ số: &ex1'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+2%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+HONG_LIEN_THUC_COT_VIEM_RARE:
+  base:
+    material: MUSIC_DISC_PRECIPICE
+    name: '&aHồng Liên Thực Cốt Viêm &8[&aLinh Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: uncommon
+    tier: HAPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fHồng Liên Thực Cốt Viêm'
+      - '&7<shift:12>Bậc: &aLinh Hỏa &8| &7Hệ số: &ex1.2'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+5%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+HONG_LIEN_THUC_COT_VIEM_EPIC:
+  base:
+    material: MUSIC_DISC_PRECIPICE
+    name: '<#0078d7>Hồng Liên Thực Cốt Viêm &8[<#0078d7>Huyền Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fHồng Liên Thực Cốt Viêm'
+      - '&7<shift:12>Bậc: <#0078d7>Huyền Hỏa &8| &7Hệ số: &ex1.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+10%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+HONG_LIEN_THUC_COT_VIEM_LEGENDARY:
+  base:
+    material: MUSIC_DISC_PRECIPICE
+    name: '<#d485ff>Hồng Liên Thực Cốt Viêm &8[<#d485ff>Thiên Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: epic
+    tier: THUONGPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fHồng Liên Thực Cốt Viêm'
+      - '&7<shift:12>Bậc: <#d485ff>Thiên Hỏa &8| &7Hệ số: &ex1.9'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+15%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+
+HONG_LIEN_THUC_COT_VIEM_MYTHIC:
+  base:
+    material: MUSIC_DISC_PRECIPICE
+    name: '<#ffde26>Hồng Liên Thực Cốt Viêm &8[<#ffde26>Hồng Mông Thần Hỏa&8]'
+    displayed-type: Lửa Thần
+    tooltip-style: legendary
+    tier: CUCPHAM
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+      - '&7<shift:12>Loại: &fHồng Liên Thực Cốt Viêm'
+      - '&7<shift:12>Bậc: <#ffde26>Hồng Mông Thần Hỏa &8| &7Hệ số: &ex2.5'
+      - '&7<shift:12>Tu Vi nhận thêm: &a+25%'
+      - ''
+      - '&f<shift:12>Cầm trên tay để kích hoạt.'
+

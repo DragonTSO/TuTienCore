@@ -1,0 +1,9 @@
+LUA_THAN:
+  display: MUSIC_DISC_13
+  name: 'Lửa Thần'
+  parent: MISCELLANEOUS
+  hide-in-game: false
+  unident-item:
+    name: '&fLửa Thần Chưa Giám Định'
+    lore:
+      - '&7Một loại dị hỏa chưa rõ phẩm chất.'

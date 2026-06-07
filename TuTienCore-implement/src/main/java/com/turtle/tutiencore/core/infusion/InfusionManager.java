@@ -2,6 +2,7 @@ package com.turtle.tutiencore.core.infusion;
 
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
 
+import io.lumine.mythic.lib.api.item.NBTItem;
 import io.lumine.mythic.lib.api.player.MMOPlayerData;
 import io.lumine.mythic.lib.api.stat.StatInstance;
 import io.lumine.mythic.lib.api.stat.StatMap;
@@ -71,6 +72,7 @@ public final class InfusionManager implements Listener {
     private static final String MODIFIER_PREFIX = "tutien_infusion_";
     private static final String TU_VI_BONUS_STAT = "tu_vi_bonus";
     private static final String DROP_TYPE_MMOITEMS = "mmoitems";
+    private static final String DEFAULT_MMO_FLAME_TYPE = "LUA_THAN";
     private static final int GUI_SIZE = 27;
     private static final int EQUIPPED_SLOT = 13;
     private static final int PREV_SLOT = 9;
@@ -91,11 +93,15 @@ public final class InfusionManager implements Listener {
     private final Map<UUID, Integer> currentPage = new HashMap<>();
     private final Set<String> missingStatWarnings = new HashSet<>();
     private final Set<String> missingDropWarnings = new HashSet<>();
+    private final Set<String> missingMmoFlameWarnings = new HashSet<>();
 
     private File configFile;
     private FileConfiguration config;
     private String guiTitle;
     private boolean featureEnabled;
+    private boolean mmoItemsFlamesEnabled;
+    private String mmoItemsFlameType;
+    private String mmoItemsIdFormat;
 
     private final Map<String, InfusionType> typesByLookup = new LinkedHashMap<>();
     private final Map<String, InfusionRarity> raritiesByLookup = new LinkedHashMap<>();
@@ -121,6 +127,7 @@ public final class InfusionManager implements Listener {
         loadDefinitions();
         missingStatWarnings.clear();
         missingDropWarnings.clear();
+        missingMmoFlameWarnings.clear();
     }
 
     public boolean isFeatureEnabled() {
@@ -570,6 +577,15 @@ public final class InfusionManager implements Listener {
 
         config = YamlConfiguration.loadConfiguration(configFile);
         guiTitle = colorize(config.getString("gui.title", "&6&lLua Than"));
+        mmoItemsFlamesEnabled = config.getBoolean("mmoitems.enabled", true);
+        mmoItemsFlameType = normalizeMmoKey(config.getString("mmoitems.type", DEFAULT_MMO_FLAME_TYPE));
+        if (mmoItemsFlameType.isBlank()) {
+            mmoItemsFlameType = DEFAULT_MMO_FLAME_TYPE;
+        }
+        mmoItemsIdFormat = config.getString("mmoitems.id-format", "{type}_{rarity}");
+        if (mmoItemsIdFormat == null || mmoItemsIdFormat.isBlank()) {
+            mmoItemsIdFormat = "{type}_{rarity}";
+        }
     }
 
     private void loadDefinitions() {
@@ -689,6 +705,11 @@ public final class InfusionManager implements Listener {
     }
 
     private ItemStack createFlameItem(Player player, InfusionType type, InfusionRarity rarity) {
+        ItemStack mmoItem = createMmoFlameItem(player, type, rarity);
+        if (mmoItem != null) {
+            return tagFlameItem(mmoItem, type, rarity, mmoFlameItemId(type, rarity));
+        }
+
         String itemId = UUID.randomUUID().toString();
         List<String> lore = buildInfusionLore(player, type, rarity);
         lore.add(colorize("&8"));
@@ -696,6 +717,35 @@ public final class InfusionManager implements Listener {
         lore.add(colorize("&7ID: &8" + itemId));
 
         ItemStack item = createItem(materialOrDefault(type.material()), buildInfusionDisplayName(type, rarity), lore);
+        return tagFlameItem(item, type, rarity, itemId);
+    }
+
+    private ItemStack createMmoFlameItem(Player player, InfusionType type, InfusionRarity rarity) {
+        if (!mmoItemsFlamesEnabled || player == null || !Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
+            return null;
+        }
+
+        try {
+            Type mmoType = MMOItems.plugin.getTypes().get(mmoItemsFlameType);
+            if (mmoType == null) {
+                logMissingMmoFlame("type:" + mmoItemsFlameType);
+                return null;
+            }
+
+            String itemId = mmoFlameItemId(type, rarity);
+            ItemStack item = MMOItems.plugin.getItem(mmoType, itemId, PlayerData.get(player));
+            if (item == null || item.getType().isAir()) {
+                logMissingMmoFlame(mmoItemsFlameType + ":" + itemId);
+                return null;
+            }
+            return item;
+        } catch (Throwable throwable) {
+            logMissingMmoFlame("api:" + throwable.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private ItemStack tagFlameItem(ItemStack item, InfusionType type, InfusionRarity rarity, String itemId) {
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return item;
@@ -717,6 +767,9 @@ public final class InfusionManager implements Listener {
     private void refreshFlameLore(Player player, ItemStack item) {
         Optional<HeldInfusion> held = readFlameItem(item);
         if (held.isEmpty()) {
+            return;
+        }
+        if (isMmoFlameItem(item)) {
             return;
         }
 
@@ -835,6 +888,11 @@ public final class InfusionManager implements Listener {
             return Optional.empty();
         }
 
+        Optional<HeldInfusion> mmoInfusion = readMmoFlameItem(item);
+        if (mmoInfusion.isPresent()) {
+            return mmoInfusion;
+        }
+
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return Optional.empty();
@@ -852,6 +910,61 @@ public final class InfusionManager implements Listener {
         }
 
         return Optional.of(new HeldInfusion(itemId == null || itemId.isBlank() ? "" : itemId, typeId, rarityId));
+    }
+
+    private Optional<HeldInfusion> readMmoFlameItem(ItemStack item) {
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            String type = firstMmoString(nbt, "MMOITEMS_ITEM_TYPE", "MMOITEMS_TYPE", "type");
+            if (!mmoItemsFlameType.equals(normalizeMmoKey(type))) {
+                return Optional.empty();
+            }
+
+            String id = firstMmoString(nbt, "MMOITEMS_ITEM_ID", "MMOITEMS_ID", "id");
+            if (id == null || id.isBlank()) {
+                return Optional.empty();
+            }
+            return resolveMmoFlameItemId(id);
+        } catch (Throwable ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<HeldInfusion> resolveMmoFlameItemId(String mmoItemId) {
+        String normalizedId = normalizeMmoKey(mmoItemId);
+        for (InfusionType type : new LinkedHashSet<>(typesByLookup.values())) {
+            for (InfusionRarity rarity : new LinkedHashSet<>(raritiesByLookup.values())) {
+                String configuredId = mmoFlameItemId(type, rarity);
+                String typeFirstId = normalizeMmoKey(type.id()) + "_" + normalizeMmoKey(rarity.id());
+                String rarityFirstId = normalizeMmoKey(rarity.id()) + "_" + normalizeMmoKey(type.id());
+                if (normalizedId.equals(configuredId)
+                        || normalizedId.equals(typeFirstId)
+                        || normalizedId.equals(rarityFirstId)) {
+                    return Optional.of(new HeldInfusion(mmoItemId, type.id(), rarity.id()));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean isMmoFlameItem(ItemStack item) {
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            return mmoItemsFlameType.equals(normalizeMmoKey(firstMmoString(nbt,
+                    "MMOITEMS_ITEM_TYPE", "MMOITEMS_TYPE", "type")));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private String firstMmoString(NBTItem nbt, String... keys) {
+        for (String key : keys) {
+            String value = nbt.getString(key);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     private InfusionType.TuluyenDropConfig readTuluyenDropConfig(ConfigurationSection section) {
@@ -1156,6 +1269,22 @@ public final class InfusionManager implements Listener {
 
     private String normalizeMmoKey(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+    }
+
+    private String mmoFlameItemId(InfusionType type, InfusionRarity rarity) {
+        String itemId = mmoItemsIdFormat
+                .replace("{type}", normalizeMmoKey(type.id()))
+                .replace("{rarity}", normalizeMmoKey(rarity.id()))
+                .replace("{type_lower}", lookupKey(type.id()))
+                .replace("{rarity_lower}", lookupKey(rarity.id()));
+        return normalizeMmoKey(itemId);
+    }
+
+    private void logMissingMmoFlame(String key) {
+        if (missingMmoFlameWarnings.add(key)) {
+            plugin.getLogger().warning("Lua Than MMOItems item unavailable: " + key
+                    + ". Falling back to legacy item.");
+        }
     }
 
     private void scheduleHeldRefresh(Player player) {
