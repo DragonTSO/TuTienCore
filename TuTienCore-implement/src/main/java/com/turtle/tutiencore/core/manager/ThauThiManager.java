@@ -21,6 +21,7 @@ import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
@@ -41,6 +42,7 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 import java.io.File;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -65,6 +67,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     private final RealmManager realmManager;
     private File configFile;
     private FileConfiguration settings;
+    private FileConfiguration mobAssignments = new YamlConfiguration();
     private final Set<UUID> enabledPlayers = ConcurrentHashMap.newKeySet();
     private final Map<UUID, DisplayState> displays = new ConcurrentHashMap<>();
     private BukkitTask task;
@@ -84,6 +87,54 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             plugin.saveResource("thauthi.yml", false);
         }
         settings = YamlConfiguration.loadConfiguration(configFile);
+        loadMobAssignments();
+    }
+
+    private void loadMobAssignments() {
+        mobAssignments = new YamlConfiguration();
+        if (!settings.getBoolean("thauthi.mythicmobs.assignments.enabled", true)) {
+            return;
+        }
+
+        List<String> fileNames = settings.getStringList("thauthi.mythicmobs.assignments.files");
+        if (fileNames.isEmpty()) {
+            String legacyFileName = settings.getString("thauthi.mythicmobs.assignments.file", "");
+            if (legacyFileName != null && !legacyFileName.isBlank()) {
+                fileNames = List.of(legacyFileName);
+            } else {
+                fileNames = List.of("../SunshineHealthBars/mob_assignments.yml", "mob_assignments.yml");
+            }
+        }
+
+        for (String fileName : fileNames) {
+            if (fileName == null || fileName.isBlank()) {
+                continue;
+            }
+
+            File assignmentsFile = new File(fileName);
+            if (!assignmentsFile.isAbsolute()) {
+                assignmentsFile = new File(plugin.getDataFolder(), fileName);
+            }
+
+            if (!assignmentsFile.exists()) {
+                try {
+                    String resourcePath = fileName.replace('\\', '/');
+                    if (!resourcePath.contains("..")) {
+                        try (InputStream resource = plugin.getResource(resourcePath)) {
+                            if (resource != null) {
+                                plugin.saveResource(resourcePath, false);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (assignmentsFile.exists()) {
+                mobAssignments = YamlConfiguration.loadConfiguration(assignmentsFile);
+                return;
+            }
+        }
     }
 
     private void start() {
@@ -703,7 +754,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     }
 
     private String buildMythicMobText(Player viewer, ThauThiTarget target) {
-        List<String> lines = settings.getStringList("thauthi.mythicmobs.lines");
+        String mobId = mythicMobId(target.activeMob());
+        ConfigurationSection mobConfig = mythicMobConfig(mobId);
+        List<String> lines = mobLines(mobConfig);
+        if (lines.isEmpty()) {
+            lines = settings.getStringList("thauthi.mythicmobs.lines");
+        }
         if (lines.isEmpty()) {
             lines = List.of(
                     "&6&lThau Thi &8» &c{mob}",
@@ -713,7 +769,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
         List<String> rendered = new ArrayList<>();
         for (String line : lines) {
-            rendered.add(colorize(applyMythicMobPlaceholders(viewer, target, line)));
+            rendered.add(colorize(applyMythicMobPlaceholders(viewer, target, line, mobId, mobConfig)));
         }
         return String.join("\n", rendered);
     }
@@ -757,17 +813,20 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 .replace("{world}", target.getWorld().getName());
     }
 
-    private String applyMythicMobPlaceholders(Player viewer, ThauThiTarget target, String line) {
+    private String applyMythicMobPlaceholders(Player viewer, ThauThiTarget target, String line,
+                                             String mobId, ConfigurationSection mobConfig) {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             line = PlaceholderAPI.setPlaceholders(viewer, line);
         }
 
         LivingEntity entity = target.entity();
-        String mobId = mythicMobId(target.activeMob());
-        String mobName = mythicMobName(entity, target.activeMob(), mobId);
+        String mobName = mythicMobName(entity, target.activeMob(), mobId, mobConfig);
         double health = Math.max(0.0D, entity.getHealth());
         double maxHealth = Math.max(0.0D, maxHealth(entity));
         String attackDamage = attackDamage(entity);
+        String layout = mobConfig == null ? "" : stringAt(mobConfig, "layout", "");
+        String mountBone = mobConfig == null ? "" : stringAt(mobConfig, "mount-bone", "");
+        String verticalOffset = mobConfig == null ? "" : stringAt(mobConfig, "vertical-offset", "");
 
         return line
                 .replace("{viewer}", viewer.getName())
@@ -783,6 +842,11 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 .replace("{max_health_int}", String.valueOf(Math.round(maxHealth)))
                 .replace("{attack_damage}", attackDamage)
                 .replace("{damage}", attackDamage)
+                .replace("{layout}", layout)
+                .replace("{mount_bone}", mountBone)
+                .replace("{mount-bone}", mountBone)
+                .replace("{vertical_offset}", verticalOffset)
+                .replace("{vertical-offset}", verticalOffset)
                 .replace("{world}", entity.getWorld().getName());
     }
 
@@ -849,7 +913,12 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return null;
     }
 
-    private String mythicMobName(LivingEntity entity, ActiveMob activeMob, String mobId) {
+    private String mythicMobName(LivingEntity entity, ActiveMob activeMob, String mobId, ConfigurationSection mobConfig) {
+        String configuredName = configuredMobName(mobConfig);
+        if (!configuredName.isBlank()) {
+            return configuredName;
+        }
+
         String customName = entity.getCustomName();
         if (customName != null && !customName.isBlank()) {
             return customName;
@@ -867,6 +936,95 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         return mobId.isBlank() ? prettyName(entity.getType().name()) : mobId;
+    }
+
+    private ConfigurationSection mythicMobConfig(String mobId) {
+        if (mobId == null || mobId.isBlank()) {
+            return null;
+        }
+
+        ConfigurationSection configured = findSection(
+                settings.getConfigurationSection("thauthi.mythicmobs.mobs"), mobId);
+        if (configured != null) {
+            return configured;
+        }
+
+        if (!settings.getBoolean("thauthi.mythicmobs.assignments.enabled", true)) {
+            return null;
+        }
+        return findSection(mobAssignments, mobId);
+    }
+
+    private List<String> mobLines(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+
+        List<String> lines = section.getStringList("thauthi.lines");
+        if (!lines.isEmpty()) {
+            return lines;
+        }
+
+        lines = section.getStringList("lines");
+        if (!lines.isEmpty()) {
+            return lines;
+        }
+
+        return section.getStringList("display.lines");
+    }
+
+    private String configuredMobName(ConfigurationSection section) {
+        if (section == null) {
+            return "";
+        }
+
+        String name = stringAt(section, "thauthi.name", "");
+        if (!name.isBlank()) {
+            return name;
+        }
+
+        name = stringAt(section, "display-name", "");
+        if (!name.isBlank()) {
+            return name;
+        }
+
+        name = stringAt(section, "display_name", "");
+        if (!name.isBlank()) {
+            return name;
+        }
+
+        return stringAt(section, "name", "");
+    }
+
+    private static ConfigurationSection findSection(ConfigurationSection parent, String key) {
+        if (parent == null || key == null || key.isBlank()) {
+            return null;
+        }
+
+        ConfigurationSection direct = parent.getConfigurationSection(key);
+        if (direct != null) {
+            return direct;
+        }
+
+        String normalizedKey = normalizeKey(key);
+        for (String childKey : parent.getKeys(false)) {
+            if (childKey.equalsIgnoreCase(key) || normalizeKey(childKey).equals(normalizedKey)) {
+                return parent.getConfigurationSection(childKey);
+            }
+        }
+        return null;
+    }
+
+    private static String stringAt(ConfigurationSection section, String path, String fallback) {
+        if (section == null || path == null || path.isBlank()) {
+            return fallback;
+        }
+        Object value = section.get(path);
+        return value == null ? fallback : String.valueOf(value);
+    }
+
+    private static String normalizeKey(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
     }
 
     private String mythicMobId(ActiveMob activeMob) {

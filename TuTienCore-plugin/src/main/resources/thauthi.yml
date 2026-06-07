@@ -175,10 +175,26 @@ thauthi:
   mythicmobs:
     enabled: true
     unknown-damage: "???"
+    assignments:
+      enabled: true
+      # Uu tien doc file SunshineHealthBars, sau do fallback ve folder TuTienCore.
+      files:
+        - "../SunshineHealthBars/mob_assignments.yml"
+        - "mob_assignments.yml"
     lines:
       - "&6&lThau Thi &8» &c{mob}"
       - "&7HP: &c{health}&8/&c{max_health}"
       - "&7Sat thuong: &e{attack_damage}"
+    mobs:
+      SoiHoang:
+        # Override name/lines rieng cho mob nay. Neu bo trong se lay name tu mob_assignments.yml.
+        # name: "&7Soi hoang &8[&aMoc&8]"
+        thauthi:
+          lines:
+            - "&6&lThau Thi &8» &c{mob}"
+            - "&7ID: &f{mob_id}"
+            - "&7HP: &c{health}&8/&c{max_health}"
+            - "&7Sat thuong: &e{attack_damage}"
   messages:
     only-player: "&cChi player moi dung duoc lenh nay."
     disabled: "&cThau thi dang tat."
