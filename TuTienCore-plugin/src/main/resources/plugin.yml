@@ -43,6 +43,10 @@ commands:
     description: Nang cap VIP rank bang Co thach
     usage: /rankup [rank]
     permission: tutiencore.rankup
+  thauthi:
+    description: Bat/tat Thau Thi de soi thong tin player dang nhin
+    usage: /thauthi
+    permission: tutiencore.thauthi
 
 permissions:
   tutiencore.use:
@@ -54,6 +58,9 @@ permissions:
   tutiencore.rankup:
     description: Allows using /rankup
     default: true
+  tutiencore.thauthi:
+    description: Allows using /thauthi
+    default: false
   tutiencore.nhapthan.give:
     description: Allows granting legacy Nhap Than to players
     default: op

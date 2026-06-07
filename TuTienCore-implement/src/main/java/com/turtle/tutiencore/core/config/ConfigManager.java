@@ -362,6 +362,7 @@ public class ConfigManager {
         aliases.put("dotpha", getCommandAliases("dotpha", List.of("dp")));
         aliases.put("canhgioi", getCommandAliases("canhgioi", List.of("realm")));
         aliases.put("tuvi", getCommandAliases("tuvi", List.of()));
+        aliases.put("thauthi", getCommandAliases("thauthi", List.of()));
         return aliases;
     }
 

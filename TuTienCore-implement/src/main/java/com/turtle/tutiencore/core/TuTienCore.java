@@ -29,6 +29,7 @@ import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.RegionRespawnManager;
+import com.turtle.tutiencore.core.manager.ThauThiManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
@@ -74,6 +75,7 @@ public class TuTienCore {
     private MythicMobsMoneyBonusHook mythicMobsMoneyBonusHook;
     private KillRewardHologramManager killRewardHologramManager;
     private CommandAliasManager commandAliasManager;
+    private ThauThiManager thauThiManager;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -112,6 +114,7 @@ public class TuTienCore {
         this.regionRespawnManager = new RegionRespawnManager(plugin, zoneManager);
         this.equipmentMenuManager = new EquipmentMenuManager(plugin, realmManager);
         this.hotbarCommandItemManager = new HotbarCommandItemManager(plugin);
+        this.thauThiManager = new ThauThiManager(plugin, realmManager);
 
         this.lineParticleTask = new TuLuyenParticleTask(plugin, configManager);
         this.tuLuyenManager = new TuLuyenManager(plugin, configManager, zoneManager, lineParticleTask, realmManager, infusionManager, equipmentMenuManager);
@@ -193,6 +196,9 @@ public class TuTienCore {
             plugin.getCommand("rankup").setExecutor(rankupCommand);
             plugin.getCommand("rankup").setTabCompleter(rankupCommand);
         }
+        if (plugin.getCommand("thauthi") != null) {
+            plugin.getCommand("thauthi").setExecutor(thauThiManager);
+        }
         reloadCommandAliases();
 
         // Register Placeholders
@@ -245,6 +251,9 @@ public class TuTienCore {
         }
         if (killRewardHologramManager != null) {
             killRewardHologramManager.removeAll();
+        }
+        if (thauThiManager != null) {
+            thauThiManager.stop();
         }
         if (afkKickManager != null) {
             afkKickManager.stop();
