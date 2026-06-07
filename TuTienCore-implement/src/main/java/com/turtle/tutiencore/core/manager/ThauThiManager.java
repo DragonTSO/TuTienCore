@@ -350,7 +350,9 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         byte opacity = parseOpacity(settings.getInt("thauthi.opacity", 230));
         if (headMounted) {
             state.cancelFadeIn();
-            display.teleport(location);
+            if (!state.headMounted) {
+                display.teleport(location);
+            }
             display.setTextOpacity(opacity);
             mountDisplayToViewerHead(viewer, state);
         } else if (newTarget) {
