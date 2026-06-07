@@ -75,6 +75,14 @@ thauthi:
   x-offset: -0.95
   z-offset: 0.0
   offset-relative-to-viewer: true
+  scale:
+    default: 1.0
+    distance-based: true
+    # Cang lai gan target, text cang nho lai.
+    min-distance: 1.5
+    max-distance: 10.0
+    min: 0.62
+    max: 1.0
   teleport-duration: 3
   interpolation-duration: 3
   interpolation-delay: 0

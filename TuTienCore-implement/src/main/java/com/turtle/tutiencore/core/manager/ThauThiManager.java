@@ -26,7 +26,10 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.RayTraceResult;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
@@ -204,6 +207,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 Math.max(0, plugin.getConfig().getInt("thauthi.interpolation-delay", 0)));
         display.teleport(location);
         display.setTextOpacity(parseOpacity(plugin.getConfig().getInt("thauthi.opacity", 230)));
+        applyScale(display, viewer, target);
     }
 
     private TextDisplay spawnDisplay(Player viewer, Location location, String text) {
@@ -253,6 +257,27 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         forward.normalize();
         Vector right = new Vector(-forward.getZ(), 0.0D, forward.getX()).normalize();
         return location.add(right.multiply(xOffset)).add(forward.multiply(zOffset));
+    }
+
+    private void applyScale(TextDisplay display, Player viewer, Player target) {
+        double scale = plugin.getConfig().getDouble("thauthi.scale.default", 1.0D);
+        if (plugin.getConfig().getBoolean("thauthi.scale.distance-based", true)) {
+            double minDistance = Math.max(0.0D, plugin.getConfig().getDouble("thauthi.scale.min-distance", 1.5D));
+            double maxDistance = Math.max(minDistance + 0.01D, plugin.getConfig().getDouble("thauthi.scale.max-distance", 10.0D));
+            double minScale = Math.max(0.01D, plugin.getConfig().getDouble("thauthi.scale.min", 0.62D));
+            double maxScale = Math.max(minScale, plugin.getConfig().getDouble("thauthi.scale.max", 1.0D));
+            double distance = viewer.getLocation().distance(target.getLocation());
+            double progress = Math.max(0.0D, Math.min(1.0D, (distance - minDistance) / (maxDistance - minDistance)));
+            progress = progress * progress * (3.0D - 2.0D * progress);
+            scale = minScale + ((maxScale - minScale) * progress);
+        }
+
+        float value = (float) Math.max(0.01D, scale);
+        display.setTransformation(new Transformation(
+                new Vector3f(),
+                new AxisAngle4f(),
+                new Vector3f(value, value, value),
+                new AxisAngle4f()));
     }
 
     private void removeDisplay(UUID viewerId, boolean fade) {
