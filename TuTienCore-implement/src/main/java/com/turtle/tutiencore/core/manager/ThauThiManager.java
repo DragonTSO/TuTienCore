@@ -385,9 +385,20 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         state.removing = true;
-        display.setInterpolationDuration(clampDuration(plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4)));
+        state.targetUuid = null;
+        int fallDuration = clampDuration(plugin.getConfig().getInt("thauthi.fade-out-teleport-duration",
+                plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4)));
+        int interpolationDuration = clampDuration(plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4));
+        double yOffset = plugin.getConfig().getDouble("thauthi.fade-out-y-offset", -0.45D);
+        Location endLocation = display.getLocation().clone().add(0.0D, yOffset, 0.0D);
+
+        display.setTeleportDuration(fallDuration);
+        display.setInterpolationDuration(interpolationDuration);
+        display.teleport(endLocation);
         display.setTextOpacity(parseOpacity(plugin.getConfig().getInt("thauthi.fade-out-opacity", 0)));
-        long delay = Math.max(1L, plugin.getConfig().getLong("thauthi.fade-out-ticks", 8L));
+        long delay = Math.max(1L, Math.max(
+                plugin.getConfig().getLong("thauthi.fade-out-ticks", 8L),
+                Math.max(fallDuration, interpolationDuration)));
         state.removeTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             DisplayState current = displays.get(viewerId);
             if (current == state) {

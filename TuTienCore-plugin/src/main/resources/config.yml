@@ -95,6 +95,9 @@ thauthi:
   interpolation-duration: 3
   interpolation-delay: 0
   fade-out-ticks: 8
+  # Mat target thi text truot nguoc xuong duoi roi moi bien mat.
+  fade-out-y-offset: -0.45
+  fade-out-teleport-duration: 8
   fade-out-interpolation-duration: 4
   fade-out-opacity: 0
   opacity: 230
