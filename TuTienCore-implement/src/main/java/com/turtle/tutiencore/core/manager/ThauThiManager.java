@@ -182,7 +182,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     private void showOrUpdate(Player viewer, Player target) {
         UUID viewerId = viewer.getUniqueId();
         DisplayState state = displays.get(viewerId);
-        Location location = targetLocation(target);
+        Location location = targetLocation(viewer, target);
         String text = buildText(viewer, target);
 
         if (state == null || state.display == null || !state.display.isValid()
@@ -230,9 +230,29 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return display;
     }
 
-    private Location targetLocation(Player target) {
+    private Location targetLocation(Player viewer, Player target) {
         double yOffset = plugin.getConfig().getDouble("thauthi.y-offset", 0.75D);
-        return target.getLocation().add(0.0D, target.getHeight() + yOffset, 0.0D);
+        double xOffset = plugin.getConfig().getDouble("thauthi.x-offset", -0.95D);
+        double zOffset = plugin.getConfig().getDouble("thauthi.z-offset", 0.0D);
+        Location location = target.getLocation().add(0.0D, target.getHeight() + yOffset, 0.0D);
+
+        if (!plugin.getConfig().getBoolean("thauthi.offset-relative-to-viewer", true)) {
+            return location.add(xOffset, 0.0D, zOffset);
+        }
+
+        Vector forward = target.getLocation().toVector().subtract(viewer.getLocation().toVector());
+        forward.setY(0.0D);
+        if (forward.lengthSquared() < 0.0001D) {
+            forward = viewer.getLocation().getDirection();
+            forward.setY(0.0D);
+        }
+        if (forward.lengthSquared() < 0.0001D) {
+            return location.add(xOffset, 0.0D, zOffset);
+        }
+
+        forward.normalize();
+        Vector right = new Vector(-forward.getZ(), 0.0D, forward.getX()).normalize();
+        return location.add(right.multiply(xOffset)).add(forward.multiply(zOffset));
     }
 
     private void removeDisplay(UUID viewerId, boolean fade) {

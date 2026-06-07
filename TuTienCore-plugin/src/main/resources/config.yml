@@ -69,6 +69,12 @@ thauthi:
   ignore-spectator: true
   update-interval-ticks: 2
   y-offset: 0.75
+  # offset-relative-to-viewer=true:
+  # x-offset am = ben trai man hinh nguoi soi, duong = ben phai.
+  # z-offset am = gan nguoi soi hon, duong = xa nguoi soi hon.
+  x-offset: -0.95
+  z-offset: 0.0
+  offset-relative-to-viewer: true
   teleport-duration: 3
   interpolation-duration: 3
   interpolation-delay: 0
