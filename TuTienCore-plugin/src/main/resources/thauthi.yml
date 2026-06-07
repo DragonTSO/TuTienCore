@@ -17,6 +17,18 @@ thauthi:
   x-offset: -0.95
   z-offset: 0.0
   offset-relative-to-viewer: true
+  head-mount:
+    enabled: true
+    # Neu vi tri text thuong cach mat player qua xa, text se mount len dau viewer nhu TargetTracker.
+    distance: 24.0
+    # Toa do local khi dang mount tren dau viewer.
+    x-offset: -1.15
+    y-offset: -0.35
+    z-offset: -2.5
+    scale: 1.0
+    teleport-duration: 1
+    interpolation-duration: 1
+    interpolation-delay: 0
   scale:
     default: 1.0
     distance-based: true

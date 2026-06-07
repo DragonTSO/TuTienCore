@@ -1,5 +1,11 @@
 package com.turtle.tutiencore.core.manager;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
@@ -46,6 +52,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -65,6 +72,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
+    private final PacketListenerAbstract passengerPacketListener = new PassengerPacketListener();
     private File configFile;
     private FileConfiguration settings;
     private FileConfiguration mobAssignments = new YamlConfiguration();
@@ -72,12 +80,14 @@ public final class ThauThiManager implements CommandExecutor, Listener {
     private final Map<UUID, DisplayState> displays = new ConcurrentHashMap<>();
     private BukkitTask task;
     private long tickCounter;
+    private boolean passengerPacketListenerRegistered;
 
     public ThauThiManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
         reload();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        registerPassengerPacketListener();
         start();
     }
 
@@ -88,6 +98,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
         settings = YamlConfiguration.loadConfiguration(configFile);
         loadMobAssignments();
+        registerPassengerPacketListener();
     }
 
     private void loadMobAssignments() {
@@ -144,6 +155,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
     public void stop() {
         stopTaskOnly();
+        unregisterPassengerPacketListener();
         enabledPlayers.clear();
         removeAllDisplays();
     }
@@ -152,6 +164,32 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         if (task != null) {
             task.cancel();
             task = null;
+        }
+    }
+
+    private void registerPassengerPacketListener() {
+        if (passengerPacketListenerRegistered || !isPacketEventsReady()) {
+            return;
+        }
+        try {
+            PacketEvents.getAPI().getEventManager().registerListener(passengerPacketListener);
+            passengerPacketListenerRegistered = true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Could not register Thau Thi passenger listener: " + ex.getMessage());
+        }
+    }
+
+    private void unregisterPassengerPacketListener() {
+        if (!passengerPacketListenerRegistered || !isPacketEventsReady()) {
+            passengerPacketListenerRegistered = false;
+            return;
+        }
+        try {
+            PacketEvents.getAPI().getEventManager().unregisterListener(passengerPacketListener);
+        } catch (RuntimeException ignored) {
+            // PacketEvents may already be shutting down.
+        } finally {
+            passengerPacketListenerRegistered = false;
         }
     }
 
@@ -274,7 +312,9 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         LivingEntity targetEntity = target.entity();
         UUID viewerId = viewer.getUniqueId();
         DisplayState state = displays.get(viewerId);
-        Location location = targetLocation(viewer, targetEntity);
+        Location normalLocation = targetLocation(viewer, targetEntity);
+        boolean headMounted = shouldHeadMount(viewer, normalLocation);
+        Location location = headMounted ? headMountLocation(viewer) : normalLocation;
         String text = buildText(viewer, target);
 
         if (state == null || state.display == null || !state.display.isValid()
@@ -295,18 +335,34 @@ public final class ThauThiManager implements CommandExecutor, Listener {
 
         TextDisplay display = state.display;
         display.setText(text);
-        display.setTeleportDuration(clampDuration(settings.getInt("thauthi.teleport-duration", 3)));
-        display.setInterpolationDuration(clampDuration(settings.getInt("thauthi.interpolation-duration", 3)));
+        display.setTeleportDuration(headMounted
+                ? clampDuration(settings.getInt("thauthi.head-mount.teleport-duration",
+                settings.getInt("thauthi.teleport-duration", 3)))
+                : clampDuration(settings.getInt("thauthi.teleport-duration", 3)));
+        display.setInterpolationDuration(headMounted
+                ? clampDuration(settings.getInt("thauthi.head-mount.interpolation-duration",
+                settings.getInt("thauthi.interpolation-duration", 3)))
+                : clampDuration(settings.getInt("thauthi.interpolation-duration", 3)));
         setOptional(display, "setInterpolationDelay", int.class,
-                Math.max(0, settings.getInt("thauthi.interpolation-delay", 0)));
+                Math.max(0, headMounted
+                        ? settings.getInt("thauthi.head-mount.interpolation-delay",
+                        settings.getInt("thauthi.interpolation-delay", 0))
+                        : settings.getInt("thauthi.interpolation-delay", 0)));
         byte opacity = parseOpacity(settings.getInt("thauthi.opacity", 230));
-        if (newTarget) {
+        if (headMounted) {
+            state.cancelFadeIn();
+            display.teleport(location);
+            display.setTextOpacity(opacity);
+            mountDisplayToViewerHead(viewer, state);
+        } else if (newTarget) {
+            unmountDisplay(viewer, state);
             animateIn(state, location, opacity);
         } else if (!state.animatingIn) {
+            unmountDisplay(viewer, state);
             display.teleport(location);
             display.setTextOpacity(opacity);
         }
-        applyScale(display, viewer, targetEntity);
+        applyScale(display, viewer, targetEntity, headMounted);
     }
 
     private TextDisplay spawnDisplay(Player viewer, Location location, String text) {
@@ -357,7 +413,25 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return location.add(right.multiply(xOffset)).add(forward.multiply(zOffset));
     }
 
-    private void applyScale(TextDisplay display, Player viewer, LivingEntity target) {
+    private boolean shouldHeadMount(Player viewer, Location normalLocation) {
+        if (!settings.getBoolean("thauthi.head-mount.enabled", true)) {
+            return false;
+        }
+        if (!isPacketEventsReady()) {
+            return false;
+        }
+        double threshold = settings.getDouble("thauthi.head-mount.distance", 24.0D);
+        if (threshold <= 0.0D || normalLocation.getWorld() != viewer.getWorld()) {
+            return false;
+        }
+        return viewer.getEyeLocation().distance(normalLocation) >= threshold;
+    }
+
+    private Location headMountLocation(Player viewer) {
+        return viewer.getLocation().clone().add(0.0D, viewer.getHeight(), 0.0D);
+    }
+
+    private void applyScale(TextDisplay display, Player viewer, LivingEntity target, boolean headMounted) {
         double scale = settings.getDouble("thauthi.scale.default", 1.0D);
         if (settings.getBoolean("thauthi.scale.distance-based", true)) {
             double minDistance = Math.max(0.0D, settings.getDouble("thauthi.scale.min-distance", 1.5D));
@@ -369,13 +443,119 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             progress = progress * progress * (3.0D - 2.0D * progress);
             scale = minScale + ((maxScale - minScale) * progress);
         }
+        if (headMounted) {
+            scale = settings.getDouble("thauthi.head-mount.scale", scale);
+        }
 
         float value = (float) Math.max(0.01D, scale);
+        Vector3f translation = headMounted
+                ? new Vector3f(
+                (float) settings.getDouble("thauthi.head-mount.x-offset", -1.15D),
+                (float) settings.getDouble("thauthi.head-mount.y-offset", -0.35D),
+                (float) settings.getDouble("thauthi.head-mount.z-offset", -2.5D))
+                : new Vector3f();
         display.setTransformation(new Transformation(
-                new Vector3f(),
+                translation,
                 new AxisAngle4f(),
                 new Vector3f(value, value, value),
                 new AxisAngle4f()));
+    }
+
+    private void mountDisplayToViewerHead(Player viewer, DisplayState state) {
+        if (viewer == null || !viewer.isOnline() || state.display == null || !state.display.isValid()) {
+            return;
+        }
+
+        User user = getPacketEventsUser(viewer);
+        if (user == null || user.getChannel() == null) {
+            return;
+        }
+
+        int displayEntityId = state.display.getEntityId();
+        int[] passengers = appendPassenger(getPassengerIds(viewer), displayEntityId);
+        user.sendPacket(new WrapperPlayServerSetPassengers(viewer.getEntityId(), passengers));
+        state.headMounted = true;
+        state.mountedVehicleUuid = viewer.getUniqueId();
+        state.mountedVehicleEntityId = viewer.getEntityId();
+    }
+
+    private void unmountDisplay(Player viewer, DisplayState state) {
+        if (state == null || !state.headMounted) {
+            return;
+        }
+
+        if (viewer != null && viewer.isOnline()) {
+            User user = getPacketEventsUser(viewer);
+            if (user != null && user.getChannel() != null) {
+                Entity vehicle = state.mountedVehicleUuid == null ? null : Bukkit.getEntity(state.mountedVehicleUuid);
+                int[] passengers = vehicle == null ? new int[0] : getPassengerIds(vehicle);
+                user.sendPacket(new WrapperPlayServerSetPassengers(
+                        state.mountedVehicleEntityId,
+                        removePassenger(passengers, state.display.getEntityId())));
+            }
+        }
+
+        state.headMounted = false;
+        state.mountedVehicleUuid = null;
+        state.mountedVehicleEntityId = -1;
+    }
+
+    private int[] getPassengerIds(Entity vehicle) {
+        List<Entity> passengers = vehicle.getPassengers();
+        int[] ids = new int[passengers.size()];
+        for (int index = 0; index < passengers.size(); index++) {
+            ids[index] = passengers.get(index).getEntityId();
+        }
+        return ids;
+    }
+
+    private int[] appendPassenger(int[] passengerIds, int passengerId) {
+        int[] source = passengerIds == null ? new int[0] : passengerIds;
+        for (int id : source) {
+            if (id == passengerId) {
+                return source;
+            }
+        }
+        int[] updated = Arrays.copyOf(source, source.length + 1);
+        updated[source.length] = passengerId;
+        return updated;
+    }
+
+    private int[] removePassenger(int[] passengerIds, int passengerId) {
+        int[] source = passengerIds == null ? new int[0] : passengerIds;
+        int count = 0;
+        for (int id : source) {
+            if (id != passengerId) {
+                count++;
+            }
+        }
+        if (count == source.length) {
+            return source;
+        }
+        int[] updated = new int[count];
+        int index = 0;
+        for (int id : source) {
+            if (id != passengerId) {
+                updated[index++] = id;
+            }
+        }
+        return updated;
+    }
+
+    private User getPacketEventsUser(Player player) {
+        try {
+            return PacketEvents.getAPI().getPlayerManager().getUser(player);
+        } catch (NoClassDefFoundError | ExceptionInInitializerError | RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private boolean isPacketEventsReady() {
+        try {
+            return Bukkit.getPluginManager().isPluginEnabled("packetevents") && PacketEvents.getAPI() != null;
+        } catch (NoClassDefFoundError | ExceptionInInitializerError | RuntimeException ex) {
+            return false;
+        }
     }
 
     private Location introStartLocation(Location finalLocation) {
@@ -461,6 +641,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         Player viewer = Bukkit.getPlayer(viewerId);
 
         TextDisplay display = state.display;
+        unmountDisplay(viewer, state);
         if (!fade || !display.isValid()) {
             state.cancelRemoval();
             if (display.isValid()) {
@@ -1247,13 +1428,47 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         return builder.toString();
     }
 
+    private final class PassengerPacketListener extends PacketListenerAbstract {
+        @Override
+        public void onPacketSend(PacketSendEvent event) {
+            if (event.getPacketType() != PacketType.Play.Server.SET_PASSENGERS) {
+                return;
+            }
+
+            UUID viewerId = event.getUser().getUUID();
+            if (viewerId == null) {
+                return;
+            }
+
+            DisplayState state = displays.get(viewerId);
+            if (state == null || !state.headMounted || state.display == null || !state.display.isValid()) {
+                return;
+            }
+
+            WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(event);
+            if (packet.getEntityId() != state.mountedVehicleEntityId) {
+                return;
+            }
+
+            int[] passengers = packet.getPassengers();
+            int[] updated = appendPassenger(passengers, state.display.getEntityId());
+            if (updated != passengers) {
+                packet.setPassengers(updated);
+                event.markForReEncode(true);
+            }
+        }
+    }
+
     private static final class DisplayState {
         private final TextDisplay display;
         private UUID targetUuid;
+        private UUID mountedVehicleUuid;
+        private int mountedVehicleEntityId = -1;
         private BukkitTask removeTask;
         private BukkitTask fadeInTask;
         private boolean removing;
         private boolean animatingIn;
+        private boolean headMounted;
 
         private DisplayState(TextDisplay display) {
             this.display = display;
