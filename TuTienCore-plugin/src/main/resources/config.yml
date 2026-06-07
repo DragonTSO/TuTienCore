@@ -100,6 +100,73 @@ thauthi:
   fade-out-teleport-duration: 8
   fade-out-interpolation-duration: 4
   fade-out-opacity: 0
+  effects:
+    enabled: true
+    # Sound name co the la sound vanilla hoac custom resourcepack, vi du: "turtle:thauthi_on".
+    toggle-on:
+      sound:
+        enabled: true
+        name: "minecraft:block.amethyst_block.chime"
+        category: MASTER
+        volume: 0.7
+        pitch: 1.25
+      particle:
+        enabled: true
+        type: ENCHANT
+        anchor: EYE
+        count: 14
+        x-offset: 0.28
+        y-offset: 0.18
+        z-offset: 0.28
+        speed: 0.02
+    toggle-off:
+      sound:
+        enabled: true
+        name: "minecraft:block.amethyst_block.hit"
+        category: MASTER
+        volume: 0.55
+        pitch: 0.85
+      particle:
+        enabled: true
+        type: SMOKE
+        anchor: EYE
+        count: 8
+        x-offset: 0.18
+        y-offset: 0.12
+        z-offset: 0.18
+        speed: 0.01
+    target-found:
+      sound:
+        enabled: true
+        name: "minecraft:block.note_block.harp"
+        category: MASTER
+        volume: 0.55
+        pitch: 1.6
+      particle:
+        enabled: true
+        type: END_ROD
+        anchor: EYE
+        count: 10
+        x-offset: 0.18
+        y-offset: 0.12
+        z-offset: 0.18
+        speed: 0.035
+    target-lost:
+      sound:
+        enabled: true
+        name: "minecraft:block.note_block.bass"
+        category: MASTER
+        volume: 0.45
+        pitch: 0.7
+      particle:
+        enabled: true
+        type: ASH
+        anchor: EYE
+        count: 8
+        x-offset: 0.16
+        y-offset: 0.1
+        z-offset: 0.16
+        speed: 0.01
   opacity: 230
   view-range: 24.0
   line-width: 190

@@ -11,6 +11,8 @@ import org.bukkit.Color;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -103,9 +105,11 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         UUID uuid = player.getUniqueId();
         if (enabledPlayers.remove(uuid)) {
             removeDisplay(uuid, false);
+            playClientEffect(player, "toggle-off");
             player.sendMessage(colorize(message("off", "&cĐã tắt Thấu Thị.")));
         } else {
             enabledPlayers.add(uuid);
+            playClientEffect(player, "toggle-on");
             player.sendMessage(colorize(message("on", "&aĐã bật Thấu Thị.")));
         }
         return true;
@@ -201,6 +205,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         boolean newTarget = state.targetUuid == null || !state.targetUuid.equals(targetUuid);
         if (newTarget) {
             state.targetUuid = targetUuid;
+            playClientEffect(viewer, "target-found");
         }
 
         TextDisplay display = state.display;
@@ -369,6 +374,7 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             return;
         }
         state.cancelFadeIn();
+        Player viewer = Bukkit.getPlayer(viewerId);
 
         TextDisplay display = state.display;
         if (!fade || !display.isValid()) {
@@ -385,6 +391,9 @@ public final class ThauThiManager implements CommandExecutor, Listener {
         }
 
         state.removing = true;
+        if (viewer != null && viewer.isOnline()) {
+            playClientEffect(viewer, "target-lost");
+        }
         state.targetUuid = null;
         int fallDuration = clampDuration(plugin.getConfig().getInt("thauthi.fade-out-teleport-duration",
                 plugin.getConfig().getInt("thauthi.fade-out-interpolation-duration", 4)));
@@ -408,6 +417,65 @@ public final class ThauThiManager implements CommandExecutor, Listener {
                 displays.remove(viewerId);
             }
         }, delay);
+    }
+
+    private void playClientEffect(Player player, String key) {
+        if (player == null || !player.isOnline()
+                || !plugin.getConfig().getBoolean("thauthi.effects.enabled", true)) {
+            return;
+        }
+
+        String basePath = "thauthi.effects." + key;
+        playClientSound(player, basePath + ".sound");
+        spawnClientParticle(player, basePath + ".particle");
+    }
+
+    private void playClientSound(Player player, String path) {
+        if (!plugin.getConfig().getBoolean(path + ".enabled", false)) {
+            return;
+        }
+
+        String name = plugin.getConfig().getString(path + ".name", "");
+        if (name == null || name.isBlank()) {
+            return;
+        }
+
+        SoundCategory category = soundCategory(plugin.getConfig().getString(path + ".category", "MASTER"));
+        float volume = (float) plugin.getConfig().getDouble(path + ".volume", 1.0D);
+        float pitch = (float) plugin.getConfig().getDouble(path + ".pitch", 1.0D);
+        player.playSound(player.getLocation(), name, category, volume, pitch);
+    }
+
+    private void spawnClientParticle(Player player, String path) {
+        if (!plugin.getConfig().getBoolean(path + ".enabled", false)) {
+            return;
+        }
+
+        Particle particle = particle(plugin.getConfig().getString(path + ".type", "ENCHANT"));
+        if (particle == null) {
+            return;
+        }
+
+        Location location = effectLocation(player, path);
+        int count = Math.max(0, plugin.getConfig().getInt(path + ".count", 12));
+        double offsetX = Math.max(0.0D, plugin.getConfig().getDouble(path + ".x-offset", 0.25D));
+        double offsetY = Math.max(0.0D, plugin.getConfig().getDouble(path + ".y-offset", 0.25D));
+        double offsetZ = Math.max(0.0D, plugin.getConfig().getDouble(path + ".z-offset", 0.25D));
+        double speed = Math.max(0.0D, plugin.getConfig().getDouble(path + ".speed", 0.02D));
+        try {
+            player.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, speed);
+        } catch (IllegalArgumentException ignored) {
+            // Some particles require extra data; ignore invalid config instead of spamming console.
+        }
+    }
+
+    private Location effectLocation(Player player, String path) {
+        String anchor = plugin.getConfig().getString(path + ".anchor", "EYE");
+        Location location = "FEET".equalsIgnoreCase(anchor) ? player.getLocation() : player.getEyeLocation();
+        return location.add(
+                plugin.getConfig().getDouble(path + ".location-x-offset", 0.0D),
+                plugin.getConfig().getDouble(path + ".location-y-offset", 0.0D),
+                plugin.getConfig().getDouble(path + ".location-z-offset", 0.0D));
     }
 
     private void removeAllDisplays() {
@@ -568,6 +636,26 @@ public final class ThauThiManager implements CommandExecutor, Listener {
             target.getClass().getMethod(methodName, parameterType).invoke(target, value);
         } catch (ReflectiveOperationException | LinkageError ignored) {
         }
+    }
+
+    private static SoundCategory soundCategory(String name) {
+        if (name != null) {
+            try {
+                return SoundCategory.valueOf(name.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return SoundCategory.MASTER;
+    }
+
+    private static Particle particle(String name) {
+        if (name != null) {
+            try {
+                return Particle.valueOf(name.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return null;
     }
 
     private static String colorize(String text) {
