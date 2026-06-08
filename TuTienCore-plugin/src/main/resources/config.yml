@@ -506,9 +506,9 @@ fly-sword:
       - essentials:fly
       - cmi:fly
     messages:
-      damaged: "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c."
-      pvp-damaged: "&cBan vua bi &e{attacker} &ctan cong, kiem bay bi tat trong &e{seconds}s&c."
-      locked-command: "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai."
+      damaged: "&cBạn vừa nhận sát thương, không thể bay trong &e{seconds}s&c."
+      pvp-damaged: "&cBạn vừa bị &e{attacker} &ctấn công, kiếm bay bị tắt trong &e{seconds}s&c."
+      locked-command: "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại."
   evolution:
     enabled: true
     default-level: 1

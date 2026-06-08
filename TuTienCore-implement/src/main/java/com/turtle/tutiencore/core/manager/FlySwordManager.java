@@ -251,7 +251,7 @@ public class FlySwordManager implements Listener {
         if (isFlightLocked(player)) {
             event.setCancelled(true);
             disableFlight(player);
-            sendCombatLockMessage(player, "locked-command", "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai.");
+            sendCombatLockMessage(player, "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
             return;
         }
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -291,7 +291,7 @@ public class FlySwordManager implements Listener {
 
         event.setCancelled(true);
         disableFlight(event.getPlayer());
-        sendCombatLockMessage(event.getPlayer(), "locked-command", "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai.");
+        sendCombatLockMessage(event.getPlayer(), "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
     }
 
     @EventHandler
@@ -556,10 +556,10 @@ public class FlySwordManager implements Listener {
         if (previousUntil == null || previousUntil <= now) {
             if (attacker != null) {
                 sendCombatLockMessage(player, "pvp-damaged",
-                        "&cBan vua bi &e{attacker} &ctan cong, kiem bay bi tat trong &e{seconds}s&c.",
+                        "&cBạn vừa bị &e{attacker} &ctấn công, kiếm bay bị tắt trong &e{seconds}s&c.",
                         attacker);
             } else {
-                sendCombatLockMessage(player, "damaged", "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c.");
+                sendCombatLockMessage(player, "damaged", "&cBạn vừa nhận sát thương, không thể bay trong &e{seconds}s&c.");
             }
         }
     }
