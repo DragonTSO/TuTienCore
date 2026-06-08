@@ -128,6 +128,7 @@ public class TuLuyenManager implements Listener {
                     if (reward.totalPoints <= 0) {
                         if (isAtTuViCap(player) && canContinueCultivatingAtCap(player)) {
                             Bukkit.getPluginManager().callEvent(createTuLuyenGainEvent(player, 0.0, reward.externalBonusIncluded));
+                            triggerTurtleIslandCultivationFire(player);
                             continue;
                         }
                         warnTuViCapReached(player);
@@ -147,6 +148,7 @@ public class TuLuyenManager implements Listener {
 
                     // Give Points via API, capped at the next breakthrough requirement even after external event edits.
                     TuTien.getApi().addTuVi(player.getUniqueId(), finalAmount);
+                    triggerTurtleIslandCultivationFire(player);
                     if (infusionManager != null) {
                         infusionManager.rollHeldTuluyenDrops(player, reward.turtleIslandEligible);
                     }
@@ -543,6 +545,16 @@ public class TuLuyenManager implements Listener {
 
     private boolean isTurtleIslandCultivationEligible(Player player, double islandBonus) {
         return islandBonus > 0.0 || turtleIslandHook.canReceiveCultivationBonus(player);
+    }
+
+    private void triggerTurtleIslandCultivationFire(Player player) {
+        if (player == null) {
+            return;
+        }
+        if (turtleIslandHook.isCultivationFireEventHookRegistered()) {
+            return;
+        }
+        turtleIslandHook.playCultivationFire(player);
     }
 
     static LightningBonusResult applyLightningBonus(double points, boolean enabled, double chancePercent, double multiplier, double rollPercent) {

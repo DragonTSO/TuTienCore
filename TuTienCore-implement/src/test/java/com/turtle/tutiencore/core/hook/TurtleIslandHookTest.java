@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,7 +73,30 @@ class TurtleIslandHookTest {
         ));
     }
 
-    public record FakeTurtleIslandApi(boolean allowed, double bonus) {
+    @Test
+    void playsCultivationFireFromOfficialProviderApi() {
+        AtomicBoolean played = new AtomicBoolean(false);
+        TurtleIslandProvider.setApi(new FakeTurtleIslandApi(true, 25.0) {
+            public void playCultivationFire(Player player) {
+                played.set(true);
+            }
+        });
+
+        assertTrue(TurtleIslandHook.invokeProviderCultivationFire(
+                player,
+                TurtleIslandProvider.class.getClassLoader()
+        ));
+        assertTrue(played.get());
+    }
+
+    public static class FakeTurtleIslandApi {
+        private final boolean allowed;
+        private final double bonus;
+
+        public FakeTurtleIslandApi(boolean allowed, double bonus) {
+            this.allowed = allowed;
+            this.bonus = bonus;
+        }
 
         public boolean canReceiveIslandCultivationBonus(Player player) {
             return allowed;
