@@ -1,0 +1,400 @@
+﻿#====================================================#
+#         SunshineHealthBars Mob Assignments         #
+#====================================================#
+#
+# In this file, you assign a health bar style to each of your mobs.
+# This works for both MythicMobs and regular vanilla Minecraft mobs.
+
+# --- How to Configure ---
+#
+# 1. For MythicMobs:
+#    Use the mob's internal name as the key (e.g., 'SkeletalKnight').
+#
+# 2. For Vanilla Mobs:
+#    Use the official Minecraft mob name in ALL CAPS (e.g., ZOMBIE, SKELETON).
+
+# --- Finding Bone Names for ModelEngine ---
+#
+# To anchor a health bar to a moving part of a custom model, you need the bone's name.
+# 1. Make sure at least one of your custom mobs is spawned and loaded in the world.
+# 2. Use the command: /sbinspect <model_id>
+#    (Example: /sbinspect skeletal_knight)
+# 3. The command will list all available bones for that model. Use one of these names
+#    in the 'mount-bone' option below.
+
+# --- Configuration Options ---
+#
+# name: (Optional) The name that will be displayed above the health bar.
+#
+# layout: (Required) The name of the layout file to use from the '/layouts/'
+#         folder (without the .yml extension).
+#
+# vertical-offset: (Required) The final height of the health bar, measured from
+#                  the mob's feet (or from the bone if 'mount-bone' is used).
+#
+# mount-bone: (Optional - For ModelEngine Only) Anchors the health bar directly to a
+#             model's bone. This makes the bar follow animations perfectly.
+#             Use the /sbinspect command to find available bone names.
+#
+# components: (Required) Defines which style files your layout components will use.
+#   health_bar: The design file from the 'components/health_bars/' folder.
+#   level_display: The design file from the 'components/level_displays/' folder.
+
+#---------------------------------------------#
+# --- ModelEngine & MythicMob Examples ---
+#---------------------------------------------#
+Dummy_Tutorial:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Bù nhìn'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+SoiHoang:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Sói hoang &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.0
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+GauRung:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Gấu rừng &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+RanDoc:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Rắn độc &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.0
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+NhenKhongLo:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Nhện khổng lồ &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.75
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HoTinh:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lHổ Tinh &7[Elite] &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+SoiVuong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854SÓI VƯƠNG &7[BOSS] &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+AmHon:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Âm hồn &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+CuongThi:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Cương thi &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.25
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+QuyLua:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Quỷ lửa &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.25
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+BachCot:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Bạch cốt &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 3
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HacQuyTuong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lHắc Quỷ Tướng &7[Elite] &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+MaSatKySi:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854KIẾM MA TU &7[BOSS] &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HoaYeu:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Hoả yêu &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+NhamThachQuai:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Nham thạch quái &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+ViemXa:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Viêm xà &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+ViemMaTuong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lViêm Ma Tướng &7[Elite] &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+ViemMaKiemTu:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854VIÊM MA KIẾM TU &7[BOSS] &8[&c🔥 Hoả&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+BangTinhLinh:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Băng tinh linh &8[&b❄ Băng&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+TuyetNhan:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Tuyết Nhân &8[&b❄ Băng&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 3
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+BangLang:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Băng Lang &8[&b❄ Băng&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+BangGiapTuong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lHắc Băng &7[Elite] &8[&b❄ Băng&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+TuyetSonHungBa:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854Tuyết Sơn Hùng Bá &7[BOSS] &8[&b❄ Băng&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuyetTocLinh:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Huyết Tộc Lính &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuyetBuc:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Huyết Bức &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.25
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuyetPhapSu:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Huyết Pháp Sư &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuyetDoi:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Huyết Dơi &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuyetTocCongTuoc:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lHuyết Công Tước &7[Elite] &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+KiemMaHuyetToc:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854Kiếm Ma Huyết Tộc &7[BOSS] &8[&8☽ Âm&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiLinh:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Lôi Linh &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiUng:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Lôi Ưng &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiNguyenTo:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Lôi Nguyên Tố &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiNguyenTo_Sao:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&7Lôi Nguyên Tố Bản Sao &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiDeTuong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&c&lLôi Đế Tướng &7[Elite] &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+LoiDinhThanhLong:
+  # This mob's health bar will be attached directly to its 'head' bone.
+  name: '&#F8F854Lôi Đình Thánh Long &7[BOSS] &8[&e★ Lôi&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+DocTrung:
+  name: '&7Độc Trùng &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 1.25
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+DocNhenHoang:
+  name: '&7Độc Nhện Hoàng &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.0
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+DocYeu:
+  name: '&7Độc Yêu &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.5
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+HuThucTrung:
+  name: '&7Hủ Thực Trùng &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.25
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'
+VanDocVuong:
+  name: '&2&lVạn Độc Vương &7[Elite] &8[&a☘ Mộc&8]'
+  layout: 'layout-vanilla-3'
+  vertical-offset: 2.0
+  mount-bone: 'head'
+  components:
+    health_bar: 'health-bar-sunshine'
+    level_display: 'level-display-sunshine'

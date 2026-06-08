@@ -501,6 +501,9 @@ fly-sword:
     disable-flying: true
     disable-allow-flight: true
     block-fly-command: true
+    block-toggle-flight: true
+    enforce-flight-state: true
+    toggle-message-cooldown-ticks: 20
     command-labels:
       - fly
       - essentials:fly

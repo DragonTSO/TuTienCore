@@ -68,19 +68,13 @@ death-tips:
     # Chỉ dùng khi rotate-around: true.
     degrees-per-second: 55.0
     # Pitch camera đi từ giá trị này về pitch lúc player chết/head đang nhìn.
-    start-pitch: 100.0
-    # Mỗi bước thời gian pitch sẽ tiến gần về pitch của head/player từng lượng này.
+    start-pitch: 100
+    step-ticks: 1
     pitch-step-per-tick: 0.1
     # 0.01 = cứ 0.01 giây thật sẽ trừ pitch-step-per-tick.
-    pitch-step-seconds: 0.01
-    # Khi vừa tới hướng head/player, camera giật lên thêm từng này pitch rồi quay lại head.
-    # 0 = tắt hiệu ứng giật.
-    head-jerk-pitch: 2.0
-    # true = tính pitch theo thời gian thật, TPS thấp vẫn giữ đúng tốc độ config.
-    pitch-use-realtime: true
-    step-ticks: 1
-    teleport-duration: 2
-    interpolation-duration: 2
+    pitch-step-seconds: 0.001
+    teleport-duration: 1
+    interpolation-duration: 1
     # Client đôi khi bỏ qua packet spectator target ngay tick đầu sau respawn.
     # Các mốc này sẽ clear target rồi set lại Display, giống hiệu ứng bấm shift refresh.
     target-retry-ticks: [1, 3, 6, 10]
@@ -97,25 +91,22 @@ death-tips:
     enabled: true
     title: "&c&lTrang bi chua du manh"
     subtitle: "&7%tip%"
-    # true = chỉ bắt đầu hiện/fade text sau khi camera pitch đã tới hướng head/player.
+    duration-ticks: 80
+    update-interval-ticks: 1
     wait-for-pitch: true
-    # Subtitle bắt đầu mờ/thấp hơn, rồi trượt lên gần title và rõ dần.
     subtitle-intro-ticks: 16
     subtitle-start-opacity: 0
     subtitle-start-y-offset: -0.60
     subtitle-end-y-offset: -0.28
-    # Sau khi text xuất hiện, chờ từng này tick rồi mới bắt đầu fade mất.
     fade-delay-ticks: 10
-    # Thời gian fade mất sau khi hết fade-delay-ticks.
-    duration-ticks: 80
-    update-interval-ticks: 1
     # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
     follow-player-camera: true
     distance: 2.4
-    y-offset: -0.05
+    y-offset: -2
     rise-distance: 0.55
-    # Giữ scale cố định để subtitle không bị hiệu ứng nhỏ-to.
     start-scale: 0.9
+    # Scale cố định của subtitle trong lúc đang hiển thị.
+    subtitle-scale: 0.55
     start-opacity: 230
     end-opacity: 0
     teleport-duration: 1

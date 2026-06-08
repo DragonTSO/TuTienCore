@@ -1,0 +1,401 @@
+#
+# ╔═══════════════════════════════════════════════╗
+# ║       SKYBLOCK DUNGEON - MENU RANK            ║
+# ╚═══════════════════════════════════════════════╝
+#
+# Hệ thống Rank (10 bậc):
+# Tân Binh → Hộ Vệ → Long Môn → Long Sư → Long Tướng
+# → Chân Long → Thiên Long → Thánh Long → Thần Long → Kỵ Sĩ Rồng
+#
+
+open_command:
+  - ranks
+  - rank
+register_command: true
+size: 54
+
+menu_title: '&8Rank | MineRua.com'
+
+update_interval: 200
+
+items:
+
+  'border':
+    material: BLACK_STAINED_GLASS_PANE
+    slots:
+      - 0-8
+      - 9
+      - 17
+      - 18
+      - 26
+      - 27
+      - 35
+      - 36
+      - 44
+      - 45-53
+    display_name: '&7'
+    lore: []
+
+  'back_button':
+    material: ARROW
+    slot: 45
+    display_name: '&e←&f Về Mục Thiên Cơ Các'
+    lore:
+      - '&8Click để quay lại menu chính'
+    click_commands:
+      - '[openguimenu] main_menu'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+  'player_info':
+    material: head-%player_name%
+    slot: 4
+    display_name: '&e⭐&f Thông tin bản thân'
+    lore:
+      - ''
+      - '&7Rank: &e%luckperms_prefix%'
+      - ''
+      - '&8Hãy nhìn vào rank hiện tại của bạn'
+      - '&8& xem nâng cấp rank tiếp theo là rank gì.'
+    update: true
+
+  'v0':
+    material: LEATHER_CHESTPLATE
+    slot: 10
+    display_name: '&7⭐ &fVIP 0'
+    lore:
+      - '&8(Rank mặc định)'
+      - '&7Là người chơi F2P'
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - &fTu vi bonus: &70%'
+      - '&7 - &fLinh thạch farm từ quái bí cảnh: &7+0%'
+      - '&7 - &fBonus Khí vận Luyện khí: &7+0%'
+    item_flags:
+      - HIDE_ATTRIBUTES
+    left_click_commands:
+      - '[sound] UI_BUTTON_CLICK'
+
+  'v1':
+    material: CHAINMAIL_CHESTPLATE
+    slot: 11
+    display_name: '&f⭐ &fVIP 1'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +10%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +5%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x0.25 &8(Là'
+      - '   &8cộng x0.25 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat'
+      - '&7 - &f/nick'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &7VIP 0'
+      - '&7 -&f Cổ thạch: &e50 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v1'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+
+  'v2':
+    material: IRON_CHESTPLATE
+    slot: 12
+    display_name: '&#55FF55⭐ &f<gradient:#55FF55:#AAFFAA>VIP 2</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +30%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +10%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x0.5 &8(Là'
+      - '   &8cộng x0.5 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat'
+      - '&7 - &f/nick'
+      - '&7 - &f/back &8(Mới)'
+      - '&7 - &f/enderchest &8(Mới)'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &fVIP 1'
+      - '&7 -&f Cổ thạch: &e50 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v2'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  'v3':
+    material: GOLDEN_CHESTPLATE
+    slot: 13
+    display_name: '&#55FF55⭐ &f<gradient:#00AA00:#55FF55>VIP 3</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +50%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +20%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x0.75 &8(Là'
+      - '   &8cộng x0.75 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat'
+      - '&7 - &f/nick'
+      - '&7 - &f/back &8'
+      - '&7 - &f/enderchest'
+      - '&7 - &f/heal &8(5 phút 1 lần) &8(Mới)'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#55FF55:#AAFFAA>VIP 2</gradient>'
+      - '&7 -&f Cổ thạch: &e100 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v3'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  5. LONG TƯỚNG [V] - Slot 14
+  # =============================================
+  'v4':
+    material: DIAMOND_CHESTPLATE
+    slot: 14
+    display_name: '&#55FFFF⭐ &f<gradient:#55FFFF:#AAFFFF>VIP 4</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +80%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +30%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x1 &8(Là'
+      - '   &8cộng x1 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat...'
+      - '&7 - &f/fix &8(1 tiếng 1 lần) &8(Mới)'
+      - '&7 - &f/craft &8(Mới)'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#00AA00:#55FF55>VIP 3</gradient>'
+      - '&7 -&f Cổ thạch: &e300 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v4'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  6. CHÂN LONG [VI] - Slot 15
+  # =============================================
+  'v5':
+    material: BLAZE_ROD
+    slot: 15
+    display_name: '&#00AAAA⭐ &f<gradient:#00AAAA:#55FFFF>VIP 5</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +100%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +50%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x1.5 &8(Là'
+      - '   &8cộng x1.5 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat...'
+      - '&7 - &f/fix all &8(Mới)'
+      - '&7 - &f/feed &8(Mới)'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#55FFFF:#AAFFFF>VIP 4</gradient>'
+      - '&7 -&f Cổ thạch: &e500 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v5'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+  'v6':
+    material: NETHERITE_CHESTPLATE
+    slot: 16
+    display_name: '&#FF55FF⭐ &f<gradient:#FF55FF:#FFAAFF>VIP 6</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +120%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +70%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x2 &8(Là'
+      - '   &8cộng x2 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &f/hat...'
+      - '&7 - &f/pweather &8(Mới)'
+      - '&7 - &f/ptime &8(Mới)'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#00AAAA:#55FFFF>VIP 5</gradient>'
+      - '&7 -&f Cổ thạch: &e1,000 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v6'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  8. THÁNH LONG [VIII] - Slot 28
+  # =============================================
+# =============================================
+  #  7. VIP 7 - Slot 21
+  # =============================================
+  'v7':
+    material: DRAGON_HEAD
+    slot: 21
+    display_name: '&#AA00AA⭐ &f<gradient:#AA00AA:#FF55FF>VIP 7</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +150%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +100%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x3 &8(Là'
+      - '   &8cộng x3 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &fTừ VIP 6...'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#FF55FF:#FFAAFF>VIP 6</gradient>'
+      - '&7 -&f Cổ thạch: &e3,000 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v7'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  8. VIP 8 - Slot 22
+  # =============================================
+  'v8':
+    material: TOTEM_OF_UNDYING
+    slot: 22
+    display_name: '&#FF3333⭐ &f<gradient:#FF3333:#FFEA00>VIP 8</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +200%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +150%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x5 &8(Là'
+      - '   &8cộng x5 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &fTừ VIP 6...'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#AA00AA:#FF55FF>VIP 7</gradient>'
+      - '&7 -&f Cổ thạch: &e5,000 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v8'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  9. VIP 9 - Slot 23
+  # =============================================
+  'v9':
+    material: END_CRYSTAL
+    slot: 23
+    display_name: '&#FF3333⭐ &f<gradient:#FF3333:#FF7777>VIP 9</gradient>'
+    lore:
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ:'
+      - '&7 - <#ffde26>Tu vi bonus: +300%'
+      - '&7 - <#ffde26>Bonus L.thạch farm từ quái bí cảnh: +250%'
+      - '&7 - <#ffde26>Bonus Khí vận Luyện khí: x7 &8(Là'
+      - '   &8cộng x7 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &fTừ VIP 6...'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#FFD700:#FFEA00>VIP 8</gradient>'
+      - '&7 -&f Cổ thạch: &e15,000 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v9'
+      - '[sound] entity.item.pickup 1 1.2'
+      - '[sound] ui.button.click 0.8 1'
+
+  # =============================================
+  #  10. VIP 10 (RANK TỐI THƯỢNG) - Slot 24
+  # =============================================
+  'v10':
+    material: DRAGON_EGG
+    slot: 31
+    display_name: '&#FF3333⭐ &f<gradient:#FF0000:#FFD700>VIP 10</gradient>'
+    lore:
+      - '&8Quá mạnh!!!'
+      - ''
+      - '&8đặᴄ ǫᴜʏềɴ ᴛốɪ ᴛʜượɴɢ:'
+      - '&7 - <#F8F85C>Tu vi bonus: +500%'
+      - '&7 - <#F8F85C>Bonus L.thạch farm từ quái bí cảnh: +400%'
+      - '&7 - <#F8F85C>Bonus Khí vận Luyện khí: x10 &8(Là'
+      - '   &8cộng x10 vào khí vận gốc)'
+      - ''
+      - '&8ʟệɴʜ đặᴄ ʙɪệᴛ:'
+      - '&7 - &fTừ VIP 6...'
+      - ''
+      - '&8ʏêᴜ ᴄầᴜ:'
+      - '&7 -&f Rank: &f<gradient:#FF3333:#FF7777>VIP 9</gradient>'
+      - '&7 -&f Cổ thạch: &e25,000 &fꐔ'
+      - ''
+      - '&fꐝ ᴄʟɪᴄᴋ ᴠàᴏ để ᴍᴜᴀ'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    left_click_commands:
+      - '[close]'
+      - '[player] rankup v10'
+      - '[sound] ui.toast.challenge_complete'

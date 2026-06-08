@@ -1,0 +1,518 @@
+TANG_LUC_DAN_1:
+  base:
+    material: SLIME_BALL
+    name: '&7Tăng Lực Đan I'
+    displayed-type: Đan dược
+    tooltip-style: common
+    tier: PHAMPHAM
+    required-level: 1.0
+    tutien-realm-requirement: '1'
+    weapon-damage: 3.0
+    critical-strike-chance: 0.3
+    dan-duoc-duration: 600.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Loại đan: &ftrang bị có thời hạn.'
+
+PHAM_HUYET_DAN:
+  base:
+    material: SLIME_BALL
+    name: '&7Phàm Huyết Đan'
+    displayed-type: Đan dược
+    tooltip-style: common
+    tier: PHAMPHAM
+    required-level: 1.0
+    tutien-realm-requirement: '1'
+    max-health: 6.0
+    defense: 0.75
+    dan-duoc-duration: 720.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Loại đan: &ftrang bị có thời hạn.'
+
+DUONG_TUC_DAN:
+  base:
+    material: GLOW_BERRIES
+    name: '&aDưỡng Tức Đan'
+    displayed-type: Đan dược
+    tooltip-style: uncommon
+    tier: HAPHAM
+    required-level: 2.0
+    tutien-realm-requirement: '1'
+    max-health: 4.0
+    defense: 0.5
+    dan-duoc-duration: 600.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fđỡ đòn nhẹ, đi farm'
+    - '&7<shift:12>an toàn hơn.'
+
+LINH_LUC_DAN:
+  base:
+    material: SLIME_BALL
+    displayed-type: Đan dược
+    tooltip-style: uncommon
+    tier: HAPHAM
+    required-level: 3.0
+    tutien-realm-requirement: '1'
+    max-mana: 20.0
+    mana-regeneration: 0.4
+    dan-duoc-duration: 720.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng linh lực cho'
+    - '&7<shift:12>lúc dùng skill.'
+    name: '&aLinh lực đan'
+
+THAN_HANH_DAN:
+  base:
+    material: SLIME_BALL
+    displayed-type: Đan dược
+    tooltip-style: uncommon
+    tier: HAPHAM
+    required-level: 4.0
+    tutien-realm-requirement: '1'
+    movement-speed: 0.015
+    dan-duoc-duration: 480.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fdi chuyển nhanh hơn'
+    - '&7<shift:12>khi làm nhiệm vụ.'
+    name: '&aThân Hành Đan'
+
+TU_VI_DAN:
+  base:
+    material: EXPERIENCE_BOTTLE
+    name: <#0078d7>Tụ Vi Đan
+    displayed-type: Đan dược
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    required-level: 6.0
+    tutien-realm-requirement: '1'
+    max-mana: 10.0
+    dan-duoc-tuvi-bonus: 6.0
+    dan-duoc-duration: 600.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng nhẹ Tu Vi nhận từ tu luyện.'
+
+KHI_VAN_DAN:
+  base:
+    material: AMETHYST_SHARD
+    name: <#0078d7>Khí Vận Đan
+    displayed-type: Đan dược
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    required-level: 8.0
+    tutien-realm-requirement: '1'
+    critical-strike-chance: 1.0
+    dan-duoc-forge-luck-bonus: 6.0
+    dan-duoc-duration: 480.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng nhẹ khí vận khi'
+    - '&7<shift:12>luyện khí.'
+HOANG_KIM_DAN:
+  base:
+    material: SLIME_BALL
+    name: <#0078d7>Hoàng Kim Đan
+    displayed-type: Đan dược
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    required-level: 8.0
+    tutien-realm-requirement: '1'
+    dan-duoc-mythic-money-bonus: 8.0
+    dan-duoc-duration: 480.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng nhẹ Linh Thạch'
+    - '&7<shift:12>rơi từ quái.'
+
+KIM_CUONG_HO_THE_DAN:
+  base:
+    material: DIAMOND
+    name: <#d485ff>Kim Cương Hộ Thể Đan
+    displayed-type: Đan dược
+    tooltip-style: epic
+    tier: THUONGPHAM
+    required-level: 12.0
+    tutien-realm-requirement: '2'
+    max-health: 6.0
+    defense: 2.0
+    dan-duoc-duration: 600.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fgiữ máu khi đi tầng'
+    - '&7<shift:12>khó hơn.'
+
+TAM_NHAN_DAN:
+  base:
+    material: ENDER_EYE
+    name: <#d485ff>Tâm Nhãn Đan
+    displayed-type: Đan dược
+    tooltip-style: epic
+    tier: THUONGPHAM
+    required-level: 14.0
+    tutien-realm-requirement: '2'
+    weapon-damage: 2.0
+    critical-strike-chance: 2.0
+    critical-strike-power: 5.0
+    dan-duoc-duration: 420.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng chí mạng ngắn hạn'
+    - '&7<shift:12>khi đánh boss.'
+HOI_LINH_DAN:
+  base:
+    material: SLIME_BALL
+    name: '&aHồi Linh Đan'
+    displayed-type: Đan dược
+    tooltip-style: uncommon
+    tier: HAPHAM
+    required-level: 5.0
+    tutien-realm-requirement: '1'
+    max-mana: 8.0
+    mana-regeneration: 0.25
+    health-regeneration: 0.2
+    dan-duoc-duration: 540.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fhồi nhẹ máu và linh lực'
+    - '&7<shift:12>khi farm lâu.'
+
+KHAI_MACH_DAN:
+  base:
+    material: PRISMARINE_CRYSTALS
+    name: <#0078d7>Khai Mạch Đan
+    displayed-type: Đan dược
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    required-level: 7.0
+    tutien-realm-requirement: '1'
+    max-mana: 16.0
+    mana-regeneration: 0.25
+    skill-damage: 2.0
+    dan-duoc-duration: 480.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fmở mạch linh lực,'
+    - '&7<shift:12>hợp khi dùng skill liên tục.'
+
+TRUY_KICH_DAN:
+  base:
+    material: SLIME_BALL
+    name: <#0078d7>Truy Kích Đan
+    displayed-type: Đan dược
+    tooltip-style: rare
+    tier: TRUNGPHAM
+    required-level: 9.0
+    tutien-realm-requirement: '1'
+    pve-damage: 3.0
+    movement-speed: 0.012
+    critical-strike-chance: 0.7
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng tốc và sát thương'
+    - '&7<shift:12>khi đi săn quái.'
+
+NGOC_COT_DAN:
+  base:
+    material: DIAMOND
+    name: <#d485ff>Ngọc Cốt Đan
+    displayed-type: Đan dược
+    tooltip-style: epic
+    tier: THUONGPHAM
+    required-level: 15.0
+    tutien-realm-requirement: '2'
+    max-health: 12.0
+    defense: 1.6
+    damage-reduction: 1.5
+    dan-duoc-duration: 480.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng chống chịu vừa phải'
+    - '&7<shift:12>cho tầng khó.'
+
+TAM_TUC_DAN:
+  base:
+    material: SLIME_BALL
+    name: <#d485ff>Tâm Tức Đan
+    displayed-type: Đan dược
+    tooltip-style: epic
+    tier: THUONGPHAM
+    required-level: 16.0
+    tutien-realm-requirement: '2'
+    max-mana: 18.0
+    skill-damage: 2.0
+    cooldown-reduction: 2.0
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fgiảm nhẹ hồi chiêu,'
+    - '&7<shift:12>hợp lối đánh thần thông.'
+
+VAN_TAI_DAN:
+  base:
+    material: GOLD_INGOT
+    name: <#ffde26>Vân Tài Đan
+    displayed-type: Đan dược
+    tooltip-style: legendary
+    tier: CUCPHAM
+    required-level: 20.0
+    tutien-realm-requirement: '3'
+    dan-duoc-mythic-money-bonus: 12.0
+    dan-duoc-forge-luck-bonus: 4.0
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng Linh Thạch rơi,'
+    - '&7<shift:12>kèm chút khí vận luyện khí.'
+
+TINH_TU_DAN:
+  base:
+    material: ECHO_SHARD
+    name: <#ffde26>Tĩnh Tu Đan
+    displayed-type: Đan dược
+    tooltip-style: legendary
+    tier: CUCPHAM
+    required-level: 22.0
+    tutien-realm-requirement: '3'
+    max-mana: 20.0
+    mana-regeneration: 0.4
+    dan-duoc-tuvi-bonus: 12.0
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &ftăng Tu Vi nhận được'
+    - '&7<shift:12>trong thời gian ngắn.'
+
+CHIEN_Y_DAN:
+  base:
+    material: BLAZE_POWDER
+    name: <#ffde26>Chiến Ý Đan
+    displayed-type: Đan dược
+    tooltip-style: legendary
+    tier: CUCPHAM
+    required-level: 24.0
+    tutien-realm-requirement: '3'
+    weapon-damage: 4.0
+    pve-damage: 4.0
+    critical-strike-power: 6.0
+    dan-duoc-duration: 300.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Công dụng: &fbùng sát thương ngắn'
+    - '&7<shift:12>khi đánh boss hoặc elite.'
+
+
+
+
+CRATE_LINH_TUY_DAN:
+  base:
+    material: ECHO_SHARD
+    name: <#d485ff>Linh Tuỷ Đan
+    
+    tooltip-style: epic
+    tier: THUONGPHAM
+    required-level: 12.0
+    tutien-realm-requirement: '2'
+    max-mana: 18.0
+    mana-regeneration: 0.35
+    skill-damage: 2.0
+    dan-duoc-tuvi-bonus: 7.0
+    dan-duoc-duration: 420.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&8<shift:12>ᴄó ở &6ᴋʜí đᴀɴ ᴛɪêɴ ʀươɴɢ'
+    - ''
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Loại đan: &ftrang bị có thời hạn.'
+    - '&7<shift:12>Công dụng: &fhỗ trợ tu luyện và dùng skill.'
+
+CRATE_VAN_MENH_DAN:
+  base:
+    material: NETHER_STAR
+    name: <#ffde26>Vận Mệnh Đan
+    
+    tooltip-style: legendary
+    tier: CUCPHAM
+    required-level: 18.0
+    tutien-realm-requirement: '3'
+    dan-duoc-mythic-money-bonus: 10.0
+    dan-duoc-forge-luck-bonus: 6.0
+    critical-strike-chance: 1.0
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&8<shift:12>ᴄó ở &6ᴋʜí đᴀɴ ᴛɪêɴ ʀươɴɢ'
+    - ''
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Loại đan: &ftrang bị có thời hạn.'
+    - '&7<shift:12>Công dụng: &ftăng tài nguyên vừa phải.'
+
+CRATE_HUYEN_THAN_DAN:
+  base:
+    material: SLIME_BALL
+    name: <#ffde26>Huyền Thân Đan
+    
+    tooltip-style: legendary
+    tier: CUCPHAM
+    required-level: 18.0
+    tutien-realm-requirement: '3'
+    max-health: 14.0
+    defense: 2.2
+    pve-damage: 2.0
+    damage-reduction: 1.5
+    dan-duoc-duration: 360.0
+    unstackable: true
+    hide-enchants: true
+    disable-crafting: true
+    disable-smelting: true
+    disable-smithing: true
+    disable-enchanting: true
+    disable-repairing: true
+    lore:
+    - '&8<shift:12>ᴄó ở &6ᴋʜí đᴀɴ ᴛɪêɴ ʀươɴɢ'
+    - ''
+    - '&f<shift:12>/trangbi &7để trang bị đan này.'
+    - '&7<shift:12>Loại đan: &ftrang bị có thời hạn.'
+    - '&7<shift:12>Công dụng: &ftăng sống sót và sát thương PvE.'

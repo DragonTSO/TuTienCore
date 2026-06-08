@@ -16,16 +16,24 @@ consumable:
   consume-amount: 1
 
 messages:
-  only-player: "&cChi player moi dung duoc lenh nay."
-  invalid-item: "&cItem nay khong dung type yeu cau."
-  requirement-failed: "&cBan chua du dieu kien de trang bi item nay."
-  expired-item: "&cItem nay da het thoi gian hieu luc."
-  duration-expired: "&e%slot% &cda het thoi gian hieu luc."
-  consumable-used: "&aDa dung dan duoc. Hieu luc: &e%duration%"
-  consumable-no-stats: "&cDan nay chua co chi so MythicLib de kich hoat."
-  consumable-invalid-duration: "&cDan nay chua co thoi gian hieu luc."
-  equipped: "&aDa trang bi &f%slot%&a."
-  unequipped: "&eDa thao &f%slot%&e."
+  only-player: "&cChỉ người chơi mới dùng được lệnh này."
+  invalid-item: "&cVật phẩm này không phù hợp với ô trang bị."
+  requirement-failed: "&cCảnh giới hoặc cấp độ chưa đủ để trang bị vật phẩm này."
+  expired-item: "&cLinh lực trong vật phẩm đã cạn, không thể trang bị."
+  duration-expired: "&8[&6Trang Bị&8] &e%slot_display% &7đã hết hiệu lực."
+  consumable-used: "&8[&6Đan Dược&8] &f%item% &7tan thành linh khí. &aHiệu lực: &e%duration%&7."
+  consumable-no-stats: "&cĐan này chưa có chỉ số để kích hoạt."
+  consumable-invalid-duration: "&cĐan này chưa có thời gian hiệu lực."
+  equipped: "&8[&aTrang Bị&8] &7Đã trang bị &f%slot_display%&7."
+  unequipped: "&8[&eTrang Bị&8] &7Đã tháo &f%slot_display%&7."
+  equipped-slot:
+    accessory: "&8[&dTrang Sức&8] &f%item% &7đã nhập mạch, linh quang bắt đầu cộng hưởng."
+    fly_sword: "&8[&bPhi Kiếm&8] &f%item% &7đã nhận chủ, kiếm ý xoay quanh đạo thân."
+    dan_duoc: "&8[&6Đan Dược&8] &f%item% &7đã vận chuyển dược lực. &eHiệu lực: &f%duration%&7."
+  unequipped-slot:
+    accessory: "&8[&dTrang Sức&8] &7Đã tháo &f%item%&7, linh quang dần tán."
+    fly_sword: "&8[&bPhi Kiếm&8] &7Đã thu hồi &f%item%&7, kiếm khí lắng xuống."
+    dan_duoc: "&8[&6Đan Dược&8] &7Đã ngừng vận chuyển &f%item%&7, dược lực tạm tán."
   no-offhand-item: "&cHay cam item MMOItems o offhand."
   no-upgrade: "&cItem offhand nay chua co cau hinh tien hoa."
   upgrade-ready: "&aCo the tien hoa item nay."
@@ -104,6 +112,7 @@ gui:
 slots:
   accessory:
     slot: 20
+    display-name: "Trang Sức"
     # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
     # true = cong them stats config ben duoi neu ban muon bonus rieng.
     use-config-stats: false
@@ -115,8 +124,22 @@ slots:
       lore:
         - "&7Dat item MMOItems type &dACCESSORY"
         - "&7vao day de nhan chi so."
+  fly_sword:
+    slot: 22
+    display-name: "Phi Kiếm"
+    # Item phi kiếm quyết định model fly-sword và cộng stat MMOItems khi trang bị.
+    use-config-stats: false
+    accepted-types:
+      - FLY_SWORD
+    empty:
+      material: DIAMOND_SWORD
+      name: "&bPhi Kiếm"
+      lore:
+        - "&7Đặt item có loại &fPhi Kiếm"
+        - "&7vào đây để đổi kiếm bay và nhận chỉ số."
   dan_duoc:
     slot: 24
+    display-name: "Đan Dược"
     # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
     # true = cong them stats config ben duoi neu ban muon bonus rieng.
     use-config-stats: false
@@ -156,10 +179,10 @@ offhand:
     name: ""
     lore:
       - ""
-      - "&e  Chuột phải &7để mở thông tin/trang bị."
-      - "&e  Chuột trái &7để mở nâng cấp."
+      - "&f   ꐣ → mở thông tin/trang bị"
+      - "&f   ꐝ → mở tiến hoá"
       - ""
-      - "&c  Không thể tháo khỏi tay phụ."
+      - "&c   Không thể tháo khỏi tay phụ."
   info-item-types:
     - OFF_CATALYST
   info-items:

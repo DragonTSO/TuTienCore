@@ -1,0 +1,751 @@
+Name: Hỏa Thần Bảo Rương
+Description: []
+ItemProvider:
+  Provider: vanilla
+  Data:
+    Value: '{count:1,id:"minecraft:chest"}'
+    DataVersion: 4671
+ItemStackable: false
+Permission_Required: false
+Preview:
+  Enabled: true
+  Id: default
+Animation:
+  Enabled: true
+  Id: modelengine
+OpeningCooldown:
+  Enabled: false
+  Value: 0
+OpeningLimits:
+  Amount: 1
+Block:
+  Positions:
+  - -32,62,-51,spawn
+  Pushback:
+    Enabled: true
+  Hologram:
+    Enabled: true
+    Template: default
+    Y_Offset: 0.0
+  Effect:
+    Enabled: true
+    Model: vortex
+    Particle:
+      Name: COPPER_FIRE_FLAME
+  ModelEngine:
+    Enabled: true
+    Model: coffre_4
+    Idle_Animation: idle
+    Open_Animation: opening
+    Y_Offset: 0.0
+    Scale: 1.0
+    Yaw: -90.0
+Milestones:
+  Repeatable: false
+_dataver: 600
+Post-Open:
+  Commands: []
+Rewards:
+  Rarities:
+    phampham:
+      Name: '&f★&7☆☆☆☆☆'
+      Weight: 50
+    hapham:
+      Name: '&a★★&7☆☆☆☆'
+      Weight: 25
+    thuongpham:
+      Name: <#0078d7>★★★&7☆☆☆
+      Weight: 10
+    cucpham:
+      Name: <#d485ff>★★★★&7☆☆
+      Weight: 8
+    tienpham:
+      Name: <#ffde26>★★★★★&7☆
+      Weight: 2
+    thanpham:
+      Name: <#F8F85C>★★★★★★+
+      Weight: 0.5
+  List:
+    hong_mong_nam_minh_ly_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:NAM_MINH_LY_HOA_MYTHIC
+            Amount: 1
+    hong_mong_thai_duong_chan_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:THAI_DUONG_CHAN_HOA_MYTHIC
+            Amount: 1
+    hong_mong_tu_vi_thien_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:TU_VI_THIEN_HOA_MYTHIC
+            Amount: 1
+    hong_mong_cuu_thien_huyen_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:CUU_THIEN_HUYEN_HOA_MYTHIC
+            Amount: 1
+    hong_mong_u_minh_quy_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:U_MINH_QUY_HOA_MYTHIC
+            Amount: 1
+    hong_mong_thai_so_thanh_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:THAI_SO_THANH_HOA_MYTHIC
+            Amount: 1
+    hong_mong_u_la_bang_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:U_LA_BANG_VIEM_MYTHIC
+            Amount: 1
+    hong_mong_cuu_tu_luan_hoi_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:CUU_TU_LUAN_HOI_VIEM_MYTHIC
+            Amount: 1
+    hong_mong_bich_hai_thanh_thien_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:BICH_HAI_THANH_THIEN_VIEM_MYTHIC
+            Amount: 1
+    hong_mong_hong_lien_thuc_cot_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 10.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:HONG_LIEN_THUC_COT_VIEM_MYTHIC
+            Amount: 1
+    thien_hoa_nam_minh_ly_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:NAM_MINH_LY_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_thai_duong_chan_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:THAI_DUONG_CHAN_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_tu_vi_thien_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:TU_VI_THIEN_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_cuu_thien_huyen_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:CUU_THIEN_HUYEN_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_u_minh_quy_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:U_MINH_QUY_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_thai_so_thanh_hoa:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:THAI_SO_THANH_HOA_LEGENDARY
+            Amount: 1
+    thien_hoa_u_la_bang_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:U_LA_BANG_VIEM_LEGENDARY
+            Amount: 1
+    thien_hoa_cuu_tu_luan_hoi_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:CUU_TU_LUAN_HOI_VIEM_LEGENDARY
+            Amount: 1
+    thien_hoa_bich_hai_thanh_thien_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:BICH_HAI_THANH_THIEN_VIEM_LEGENDARY
+            Amount: 1
+    thien_hoa_hong_lien_thuc_cot_viem:
+      Type: ITEM
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:blaze_powder"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Custom_Preview: false
+      Placeholder_Apply: false
+      ItemsData:
+        '0':
+          Provider: mmoitems
+          Data:
+            ID: LUA_THAN:HONG_LIEN_THUC_COT_VIEM_LEGENDARY
+            Amount: 1
+    phieu_linh_thach_50k:
+      Type: COMMAND
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:paper"}'
+          DataVersion: 4671
+      Weight: 35.0
+      Rarity: phampham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Name: <#0078d7><b>Phiếu Linh Thạch 50K</b></#0078d7>
+      Description:
+      - '<gray>Mệnh giá: </gray><#5EC8FF><b>50K Linh Thạch</b></#5EC8FF>'
+      - <gray>Chuột phải để Sử Dụng</gray>
+      Commands:
+      - mmoitems give CONSUMABLE PHIEU_LINH_THACH_50K %player_name% 1
+    phieu_linh_thach_100k:
+      Type: COMMAND
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:paper"}'
+          DataVersion: 4671
+      Weight: 25.0
+      Rarity: hapham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Name: <#d485ff><b>Phiếu Linh Thạch 100K</b></#d485ff>
+      Description:
+      - '<gray>Mệnh giá: </gray><#D485FF><b>100K Linh Thạch</b></#D485FF>'
+      - <gray>Chuột phải để Sử Dụng</gray>
+      Commands:
+      - mmoitems give CONSUMABLE PHIEU_LINH_THACH_100K %player_name% 1
+    phieu_linh_thach_200k:
+      Type: COMMAND
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{count:1,id:"minecraft:paper"}'
+          DataVersion: 4671
+      Weight: 15.0
+      Rarity: thuongpham
+      Broadcast: false
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Name: <#d485ff><b>Phiếu Linh Thạch 200K</b></#d485ff>
+      Description:
+      - '<gray>Mệnh giá: </gray><#D485FF><b>200K Linh Thạch</b></#D485FF>'
+      - <gray>Chuột phải để Sử Dụng</gray>
+      Commands:
+      - mmoitems give CONSUMABLE PHIEU_LINH_THACH_200K %player_name% 1
+    phieu_linh_thach_500k:
+      Type: COMMAND
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{components:{"minecraft:enchantment_glint_override":true},count:1,id:"minecraft:paper"}'
+          DataVersion: 4671
+      Weight: 4.0
+      Rarity: cucpham
+      Broadcast: true
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Name: <#ffde26><b>Phiếu Linh Thạch 500K</b></#ffde26>
+      Description:
+      - '<gray>Mệnh giá: </gray><#FFDE26><b>500K Linh Thạch</b></#FFDE26>'
+      - <gray>Tỉ lệ thấp hơn các phiếu thường.</gray>
+      - <gray>Chuột phải để Sử Dụng</gray>
+      Commands:
+      - mmoitems give CONSUMABLE PHIEU_LINH_THACH_500K %player_name% 1
+    phieu_linh_thach_1m:
+      Type: COMMAND
+      PreviewData:
+        Provider: vanilla
+        Data:
+          Value: '{components:{"minecraft:enchantment_glint_override":true},count:1,id:"minecraft:paper"}'
+          DataVersion: 4671
+      Weight: 1.0
+      Rarity: tienpham
+      Broadcast: true
+      Limits:
+        Enabled: false
+        CooldownType: DAILY
+        GlobalAmount: -1
+        PlayerAmount: -1
+        GlobalCooldown: 0
+        PlayerCooldown: 0
+      Ignored_For_Permissions: []
+      Required_Permissions: []
+      Name: <#F8F85C><b>Phiếu Linh Thạch 1M</b></#F8F85C>
+      Description:
+      - '<gray>Mệnh giá: </gray><#F8F85C><b>1M Linh Thạch</b></#F8F85C>'
+      - <gray>Tỉ lệ cực thấp trong crate.</gray>
+      - <gray>Chuột phải để Sử Dụng</gray>
+      Commands:
+      - mmoitems give CONSUMABLE PHIEU_LINH_THACH_1M %player_name% 1
+CostOptions:
+  key_hoa_than:
+    Enabled: true
+    Name: hoa_than Key
+    Icon:
+      Provider: vanilla
+      Data:
+        Value: '{count:1,id:"minecraft:trial_key"}'
+        DataVersion: 4671
+    Entries:
+      '0':
+        Type: key
+        Key: hoa_than
+        Amount: 1
+
+

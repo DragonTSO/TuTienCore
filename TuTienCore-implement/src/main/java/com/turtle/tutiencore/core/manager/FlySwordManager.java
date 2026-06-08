@@ -52,6 +52,7 @@ public class FlySwordManager implements Listener {
     private final Map<UUID, String> flySwordAnimations = new HashMap<>();
     private final Map<UUID, Location> lastFlySwordLocations = new HashMap<>();
     private final Map<UUID, Long> flightLockedUntil = new HashMap<>();
+    private final Map<UUID, Long> flightLockMessageCooldowns = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
@@ -80,6 +81,9 @@ public class FlySwordManager implements Listener {
     private boolean combatLockDisableFlying;
     private boolean combatLockDisableAllowFlight;
     private boolean combatLockBlockFlyCommand;
+    private boolean combatLockBlockToggleFlight;
+    private boolean combatLockEnforceFlightState;
+    private long combatLockToggleMessageCooldownMillis;
     private Set<String> combatLockCommandLabels = new HashSet<>();
 
     public FlySwordManager(JavaPlugin plugin) {
@@ -121,6 +125,9 @@ public class FlySwordManager implements Listener {
         combatLockDisableFlying = plugin.getConfig().getBoolean("fly-sword.combat-lock.disable-flying", true);
         combatLockDisableAllowFlight = plugin.getConfig().getBoolean("fly-sword.combat-lock.disable-allow-flight", true);
         combatLockBlockFlyCommand = plugin.getConfig().getBoolean("fly-sword.combat-lock.block-fly-command", true);
+        combatLockBlockToggleFlight = plugin.getConfig().getBoolean("fly-sword.combat-lock.block-toggle-flight", true);
+        combatLockEnforceFlightState = plugin.getConfig().getBoolean("fly-sword.combat-lock.enforce-flight-state", true);
+        combatLockToggleMessageCooldownMillis = Math.max(0L, plugin.getConfig().getLong("fly-sword.combat-lock.toggle-message-cooldown-ticks", 20L)) * 50L;
         combatLockCommandLabels = new HashSet<>();
         List<String> labels = plugin.getConfig().getStringList("fly-sword.combat-lock.command-labels");
         if (labels.isEmpty()) {
@@ -242,16 +249,18 @@ public class FlySwordManager implements Listener {
             followTask = null;
         }
         flightLockedUntil.clear();
+        flightLockMessageCooldowns.clear();
         cleanupAll();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onToggleFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
-        if (isFlightLocked(player)) {
+        if (combatLockBlockToggleFlight && isFlightLocked(player)) {
             event.setCancelled(true);
             disableFlight(player);
-            sendCombatLockMessage(player, "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
+            Bukkit.getScheduler().runTask(plugin, () -> disableFlight(player));
+            sendCombatLockMessageThrottled(player, "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
             return;
         }
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -291,7 +300,7 @@ public class FlySwordManager implements Listener {
 
         event.setCancelled(true);
         disableFlight(event.getPlayer());
-        sendCombatLockMessage(event.getPlayer(), "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
+        sendCombatLockMessageThrottled(event.getPlayer(), "locked-command", "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại.");
     }
 
     @EventHandler
@@ -553,6 +562,8 @@ public class FlySwordManager implements Listener {
         long now = System.currentTimeMillis();
         Long previousUntil = flightLockedUntil.put(player.getUniqueId(), now + combatLockDurationMillis);
         disableFlight(player);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> disableFlight(player), 1L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> disableFlight(player), 5L);
         if (previousUntil == null || previousUntil <= now) {
             if (attacker != null) {
                 sendCombatLockMessage(player, "pvp-damaged",
@@ -606,11 +617,22 @@ public class FlySwordManager implements Listener {
         long now = System.currentTimeMillis();
         for (UUID uuid : new ArrayList<>(flightLockedUntil.keySet())) {
             Long lockedUntil = flightLockedUntil.get(uuid);
-            if (lockedUntil == null || lockedUntil > now) {
+            if (lockedUntil == null) {
+                flightLockedUntil.remove(uuid);
+                flightLockMessageCooldowns.remove(uuid);
                 continue;
             }
-            flightLockedUntil.remove(uuid);
+
             Player player = Bukkit.getPlayer(uuid);
+            if (lockedUntil > now) {
+                if (combatLockEnforceFlightState && player != null && player.isOnline()) {
+                    disableFlight(player);
+                }
+                continue;
+            }
+
+            flightLockedUntil.remove(uuid);
+            flightLockMessageCooldowns.remove(uuid);
             if (player != null && player.isOnline()) {
                 applyAutoFlight(player);
             }
@@ -632,6 +654,21 @@ public class FlySwordManager implements Listener {
 
     private void sendCombatLockMessage(Player player, String key, String fallback) {
         sendCombatLockMessage(player, key, fallback, null);
+    }
+
+    private void sendCombatLockMessageThrottled(Player player, String key, String fallback) {
+        if (player == null) {
+            return;
+        }
+        if (combatLockToggleMessageCooldownMillis > 0L) {
+            long now = System.currentTimeMillis();
+            Long nextAllowed = flightLockMessageCooldowns.get(player.getUniqueId());
+            if (nextAllowed != null && nextAllowed > now) {
+                return;
+            }
+            flightLockMessageCooldowns.put(player.getUniqueId(), now + combatLockToggleMessageCooldownMillis);
+        }
+        sendCombatLockMessage(player, key, fallback);
     }
 
     private void sendCombatLockMessage(Player player, String key, String fallback, Player attacker) {
