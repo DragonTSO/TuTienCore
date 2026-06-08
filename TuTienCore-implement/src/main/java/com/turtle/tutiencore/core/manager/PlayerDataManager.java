@@ -731,6 +731,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     // --- TOP SYSTEM ---
     private List<Map.Entry<String, Double>> topCache = new ArrayList<>();
     private long lastTopUpdate = 0;
+    private List<Map.Entry<String, Long>> topTuLuyenTimeCache = new ArrayList<>();
+    private long lastTopTuLuyenTimeUpdate = 0;
 
     public void updateTop() {
         saveAll(); // Ensure memory is flushed to config first
@@ -763,5 +765,40 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             updateTop(); // Initial synchronous update if empty
         }
         return topCache;
+    }
+
+    public void updateTopTuLuyenTime() {
+        saveAll(); // Ensure memory is flushed to config first
+        Map<String, Long> allTimes = new HashMap<>();
+
+        synchronized (configLock) {
+            for (String key : config.getKeys(false)) {
+                long seconds = Math.max(0L, config.getLong(key + ".tuluyen.total-seconds",
+                        config.getLong(key + ".tuluyen.total-time", 0L)));
+                String name = config.getString(key + ".name", "Unknown");
+                allTimes.put(name, seconds);
+            }
+        }
+
+        topTuLuyenTimeCache = allTimes.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .collect(Collectors.toList());
+        lastTopTuLuyenTimeUpdate = System.currentTimeMillis();
+    }
+
+    @Override
+    public List<Map.Entry<String, Long>> getTopTuLuyenTime() {
+        // Update top cache every 5 minutes max
+        if (System.currentTimeMillis() - lastTopTuLuyenTimeUpdate > 300000) {
+            if (Bukkit.isPrimaryThread()) {
+                updateTopTuLuyenTime();
+            } else {
+                Bukkit.getScheduler().runTask(plugin, this::updateTopTuLuyenTime);
+            }
+        }
+        if (topTuLuyenTimeCache.isEmpty() && lastTopTuLuyenTimeUpdate == 0) {
+            updateTopTuLuyenTime(); // Initial synchronous update if empty
+        }
+        return topTuLuyenTimeCache;
     }
 }

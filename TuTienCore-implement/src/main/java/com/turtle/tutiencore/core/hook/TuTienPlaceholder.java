@@ -86,6 +86,12 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
                 || params.equalsIgnoreCase("tuluyen_time_compact")) {
             return formatDurationCompact(TuTien.getApi().getTuLuyenTotalSeconds(player.getUniqueId()));
         }
+        else if (params.equalsIgnoreCase("tuluyen_total_format")
+                || params.equalsIgnoreCase("tuluyen_time_format")
+                || params.equalsIgnoreCase("tuluyen_total_formatted")
+                || params.equalsIgnoreCase("tuluyen_time_formatted")) {
+            return formatConfiguredDuration(plugin.getConfig(), TuTien.getApi().getTuLuyenTotalSeconds(player.getUniqueId()));
+        }
         else if (params.equalsIgnoreCase("tuluyen_session_seconds")) {
             return String.valueOf(TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
         }
@@ -94,6 +100,10 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         }
         else if (params.equalsIgnoreCase("tuluyen_session_compact")) {
             return formatDurationCompact(TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_session_format")
+                || params.equalsIgnoreCase("tuluyen_session_formatted")) {
+            return formatConfiguredDuration(plugin.getConfig(), TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
         }
 
         // ==========================================
@@ -147,6 +157,9 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         // ==========================================
         // Top Placeholders
         // ==========================================
+        else if (params.startsWith("top_tuluyen_")) {
+            return handleTopTuLuyen(params.substring("top_tuluyen_".length()));
+        }
         else if (params.startsWith("top_")) {
             String[] parts = params.split("_");
             if (parts.length >= 3) {
@@ -192,6 +205,58 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         return null; // Unknown placeholder
     }
 
+    private String handleTopTuLuyen(String params) {
+        String[] parts = params.split("_");
+        if (parts.length < 2) {
+            return null;
+        }
+
+        int rank;
+        try {
+            rank = Integer.parseInt(parts[parts.length - 1]);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+        if (rank <= 0) {
+            return "";
+        }
+
+        StringBuilder typeBuilder = new StringBuilder(parts[0]);
+        for (int i = 1; i < parts.length - 1; i++) {
+            typeBuilder.append('_').append(parts[i]);
+        }
+        String type = typeBuilder.toString().toLowerCase(java.util.Locale.ROOT);
+
+        java.util.List<java.util.Map.Entry<String, Long>> topList = TuTien.getApi().getTopTuLuyenTime();
+        int index = rank - 1;
+        String emptyName = plugin.getConfig().getString("placeholders.tuluyen-time.empty-name", "---");
+        long seconds = 0L;
+        String name = emptyName;
+        if (index < topList.size()) {
+            java.util.Map.Entry<String, Long> entry = topList.get(index);
+            name = entry.getKey();
+            seconds = Math.max(0L, entry.getValue());
+        }
+
+        if (type.equals("name")) {
+            return name;
+        }
+        if (type.equals("seconds") || type.equals("time_seconds")) {
+            return String.valueOf(seconds);
+        }
+        if (type.equals("time") || type.equals("hms")) {
+            return formatDurationHms(seconds);
+        }
+        if (type.equals("compact")) {
+            return formatDurationCompact(seconds);
+        }
+        if (type.equals("format") || type.equals("formatted")) {
+            return formatTopTuLuyen(plugin.getConfig(), rank, name, seconds);
+        }
+
+        return null;
+    }
+
     private boolean isReadyForNextBreakthrough(UUID uuid) {
         PlayerRealm pr = realmManager.getPlayerRealm(uuid);
         if (pr.getSubRealm() != SubRealm.VIEN_MAN) {
@@ -230,6 +295,53 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
     static String formatNextTuViRequired(FileConfiguration config, String value) {
         String displayName = config.getString("placeholders.dotpha-next-tuvi-required.display-name", "{value}");
         return ChatColor.translateAlternateColorCodes('&', displayName.replace("{value}", value));
+    }
+
+    static String formatConfiguredDuration(FileConfiguration config, long totalSeconds) {
+        String displayName = config.getString("placeholders.tuluyen-time.format", "{compact}");
+        return ChatColor.translateAlternateColorCodes('&', applyDurationPlaceholders(displayName, totalSeconds));
+    }
+
+    static String formatTopTuLuyen(FileConfiguration config, int rank, String name, long totalSeconds) {
+        String displayName = config.getString("placeholders.tuluyen-time.top-format",
+                "&e#{rank} &f{name} &7- &a{compact}");
+        return ChatColor.translateAlternateColorCodes('&',
+                applyDurationPlaceholders(displayName, totalSeconds)
+                        .replace("{rank}", String.valueOf(rank))
+                        .replace("{name}", name == null || name.isBlank()
+                                ? config.getString("placeholders.tuluyen-time.empty-name", "---")
+                                : name));
+    }
+
+    private static String applyDurationPlaceholders(String text, long totalSeconds) {
+        long safeSeconds = Math.max(0L, totalSeconds);
+        long days = safeSeconds / 86400L;
+        long hoursOfDay = (safeSeconds % 86400L) / 3600L;
+        long minutesOfHour = (safeSeconds % 3600L) / 60L;
+        long secondsOfMinute = safeSeconds % 60L;
+        long totalHours = safeSeconds / 3600L;
+        long totalMinutes = safeSeconds / 60L;
+
+        return text
+                .replace("{total_seconds}", String.valueOf(safeSeconds))
+                .replace("{seconds_total}", String.valueOf(safeSeconds))
+                .replace("{total_minutes}", String.valueOf(totalMinutes))
+                .replace("{minutes_total}", String.valueOf(totalMinutes))
+                .replace("{total_hours}", String.valueOf(totalHours))
+                .replace("{hours_total}", String.valueOf(totalHours))
+                .replace("{days}", String.valueOf(days))
+                .replace("{hours}", String.valueOf(hoursOfDay))
+                .replace("{minutes}", String.valueOf(minutesOfHour))
+                .replace("{seconds}", String.valueOf(secondsOfMinute))
+                .replace("{hh}", pad2(totalHours))
+                .replace("{mm}", pad2(minutesOfHour))
+                .replace("{ss}", pad2(secondsOfMinute))
+                .replace("{hms}", formatDurationHms(safeSeconds))
+                .replace("{compact}", formatDurationCompact(safeSeconds));
+    }
+
+    private static String pad2(long value) {
+        return value < 10L ? "0" + value : String.valueOf(value);
     }
 
     private String formatCompact(double number) {

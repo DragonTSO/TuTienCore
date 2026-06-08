@@ -347,6 +347,14 @@ afk-kick:
 # ==========================================
 
 placeholders:
+  tuluyen-time:
+    # Placeholder ho tro: {total_seconds}, {seconds_total}, {total_minutes}, {minutes_total},
+    # {total_hours}, {hours_total}, {days}, {hours}, {minutes}, {seconds}, {hh}, {mm}, {ss},
+    # {hms}, {compact}. {hh} la tong gio co padding 2 chu so.
+    format: "{compact}"
+    # Placeholder them cho top-format: {rank}, {name}.
+    top-format: "&e#{rank} &f{name} &7- &a{compact}"
+    empty-name: "---"
   dotpha-ready:
     # Output của %tutien_dotpha_ready% khi người chơi đủ điều kiện đột phá.
     ready-display-name: "V"

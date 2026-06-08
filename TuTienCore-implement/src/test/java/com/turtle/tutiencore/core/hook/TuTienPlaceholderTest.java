@@ -31,4 +31,20 @@ class TuTienPlaceholderTest {
 
         assertEquals("50,000", TuTienPlaceholder.formatNextTuViRequired(config, "50,000"));
     }
+
+    @Test
+    void formatsConfiguredTuLuyenDuration() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("placeholders.tuluyen-time.format", "&a{hms} &7({compact})");
+
+        assertEquals("§a01:01:05 §7(1h 1m)", TuTienPlaceholder.formatConfiguredDuration(config, 3665));
+    }
+
+    @Test
+    void formatsTopTuLuyenLine() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("placeholders.tuluyen-time.top-format", "&e#{rank} &f{name} &7- &a{hh}:{mm}:{ss}");
+
+        assertEquals("§e#2 §fBlabbb §7- §a01:01:05", TuTienPlaceholder.formatTopTuLuyen(config, 2, "Blabbb", 3665));
+    }
 }

@@ -61,6 +61,12 @@ public interface TuTienAPI {
      */
     List<Map.Entry<String, Double>> getTopTuVi();
 
+    /**
+     * Get the top players by total /tuluyen time.
+     * @return List of entries mapping Player Name to total /tuluyen seconds
+     */
+    List<Map.Entry<String, Long>> getTopTuLuyenTime();
+
     // ==========================================
     // REALM (Cảnh Giới)
     // ==========================================
