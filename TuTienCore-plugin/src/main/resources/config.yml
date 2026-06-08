@@ -398,9 +398,28 @@ cultivation-effects:
   # Double Helix - Vòng xoay năng lượng quanh người
   helix:
     enabled: true
-  # Energy Burst - Tia năng lượng bắn ra từ tâm
+  # Spirit Gate Rays - vong tron nho o xa player roi phong ray vao player
   rays:
     enabled: true
+    # Moi interval tick task se tao 1-2 "cong linh khi" o xa player.
+    # Cong la mot vong tron nho, sau do phong ray vao player.
+    interval: 2
+    count-min: 1
+    count-max: 2
+    distance-min: 2.8
+    distance-max: 4.2
+    y-min: 0.8
+    y-max: 2.4
+    target-y-offset: 1.15
+    circle-radius: 0.35
+    circle-points: 18
+    circle-size: 0.65
+    circle-rotation-speed: 0.22
+    ray-points: 16
+    ray-start-size: 0.35
+    ray-end-size: 1.1
+    ray-spiral-radius: 0.055
+    end-rod-trail: true
   # Lightning Arcs - Sét điện quanh người
   lightning:
     enabled: false

@@ -272,7 +272,8 @@ public class TuLuyenParticleTask {
         }
 
         // === LAYER 2: Energy Burst Rays (every 8 ticks — reduced from 3) ===
-        if (configManager.isCultRaysEnabled() && (int) globalTick % 4 == 0) {
+        int rayInterval = Math.max(1, plugin.getConfig().getInt("cultivation-effects.rays.interval", 2));
+        if (configManager.isCultRaysEnabled() && (int) globalTick % rayInterval == 0) {
             spawnEnergyBurstRays(world, base, colors);
         }
 
@@ -337,33 +338,105 @@ public class TuLuyenParticleTask {
      * LAYER 2: Energy Inward Rays — Tia năng lượng hấp thụ từ ngoài vào tâm
      */
     private void spawnEnergyBurstRays(World world, Location base, int[][] colors) {
-        Location chest = base.clone().add(0, 1.2, 0);
-        int rayCount = 3 + random.nextInt(3); // 3-5 rays
+        String path = "cultivation-effects.rays.";
+        Location chest = base.clone().add(0, plugin.getConfig().getDouble(path + "target-y-offset", 1.15), 0);
+
+        int minCount = Math.max(1, plugin.getConfig().getInt(path + "count-min", 1));
+        int maxCount = Math.max(minCount, plugin.getConfig().getInt(path + "count-max", 2));
+        int rayCount = minCount + random.nextInt(maxCount - minCount + 1);
+
+        double minDistance = Math.max(0.5D, plugin.getConfig().getDouble(path + "distance-min", 2.8D));
+        double maxDistance = Math.max(minDistance, plugin.getConfig().getDouble(path + "distance-max", 4.2D));
+        double minY = plugin.getConfig().getDouble(path + "y-min", 0.8D);
+        double maxY = Math.max(minY, plugin.getConfig().getDouble(path + "y-max", 2.4D));
+
+        double circleRadius = Math.max(0.05D, plugin.getConfig().getDouble(path + "circle-radius", 0.35D));
+        int circlePoints = Math.max(6, plugin.getConfig().getInt(path + "circle-points", 18));
+        float circleSize = (float) Math.max(0.05D, plugin.getConfig().getDouble(path + "circle-size", 0.65D));
+        double circleRotation = globalTick * plugin.getConfig().getDouble(path + "circle-rotation-speed", 0.22D);
+
+        int rayPoints = Math.max(4, plugin.getConfig().getInt(path + "ray-points", 16));
+        float rayStartSize = (float) Math.max(0.05D, plugin.getConfig().getDouble(path + "ray-start-size", 0.35D));
+        float rayEndSize = (float) Math.max(rayStartSize, plugin.getConfig().getDouble(path + "ray-end-size", 1.1D));
+        double spiralRadius = Math.max(0.0D, plugin.getConfig().getDouble(path + "ray-spiral-radius", 0.055D));
+        boolean endRodTrail = plugin.getConfig().getBoolean(path + "end-rod-trail", true);
 
         for (int i = 0; i < rayCount; i++) {
             double angle = random.nextDouble() * Math.PI * 2;
-            double pitch = (random.nextDouble() - 0.3) * Math.PI * 0.6;
+            double distance = minDistance + random.nextDouble() * (maxDistance - minDistance);
+            double y = minY + random.nextDouble() * (maxY - minY);
+            Location gateCenter = base.clone().add(
+                    Math.cos(angle) * distance,
+                    y,
+                    Math.sin(angle) * distance
+            );
 
-            double dirX = Math.cos(angle) * Math.cos(pitch);
-            double dirY = Math.sin(pitch) * 0.5 + 0.2;
-            double dirZ = Math.sin(angle) * Math.cos(pitch);
+            Vector inward = chest.toVector().subtract(gateCenter.toVector());
+            if (inward.lengthSquared() < 0.0001D) {
+                continue;
+            }
+            inward.normalize();
 
-            double rayLength = 2.0 + random.nextDouble() * 2.5;
-            int points = (int) (rayLength * 3);
+            Vector up = new Vector(0, 1, 0);
+            if (Math.abs(inward.dot(up)) > 0.96D) {
+                up = new Vector(1, 0, 0);
+            }
+            Vector right = inward.clone().crossProduct(up).normalize();
+            Vector ringUp = right.clone().crossProduct(inward).normalize();
 
-            for (int j = 0; j < points; j++) {
-                // Reverse: start from outer end, move toward chest
-                double dist = ((points - j) / (double) points) * rayLength;
-                Location rayLoc = chest.clone().add(dirX * dist, dirY * dist, dirZ * dist);
+            spawnSpiritGateCircle(world, gateCenter, right, ringUp, circleRadius, circlePoints,
+                    circleRotation + i, circleSize, colors);
+            spawnGateRay(world, gateCenter, chest, right, ringUp, inward, rayPoints,
+                    rayStartSize, rayEndSize, spiralRadius, endRodTrail, colors);
+        }
+    }
 
-                // Dim at outer edge, brighter as it approaches center
-                float progress = j / (float) points; // 0 = outer, 1 = center
-                float fade = 0.3f + progress * 0.7f;
-                int r = (int) (colors[0][0] * fade);
-                int g = (int) (colors[0][1] * fade);
-                int b = (int) (colors[0][2] * fade);
+    private void spawnSpiritGateCircle(World world, Location center, Vector right, Vector up,
+                                       double radius, int points, double rotation,
+                                       float size, int[][] colors) {
+        for (int i = 0; i < points; i++) {
+            double angle = (Math.PI * 2 * i / points) + rotation;
+            Vector offset = right.clone().multiply(Math.cos(angle) * radius)
+                    .add(up.clone().multiply(Math.sin(angle) * radius));
+            Location loc = center.clone().add(offset);
 
-                spawnColoredDust(world, rayLoc, r, g, b, (0.5f + progress * 0.8f));
+            int[] color = i % 2 == 0 ? colors[1] : colors[0];
+            spawnColoredDust(world, loc, color[0], color[1], color[2], size);
+        }
+    }
+
+    private void spawnGateRay(World world, Location from, Location to, Vector right, Vector up, Vector inward,
+                              int points, float startSize, float endSize, double spiralRadius,
+                              boolean endRodTrail, int[][] colors) {
+        for (int i = 0; i <= points; i++) {
+            double progress = i / (double) points;
+            Location loc = new Location(world,
+                    from.getX() + (to.getX() - from.getX()) * progress,
+                    from.getY() + (to.getY() - from.getY()) * progress,
+                    from.getZ() + (to.getZ() - from.getZ()) * progress
+            );
+
+            if (spiralRadius > 0.0D) {
+                double spiralAngle = globalTick * 0.45D + i * 0.9D;
+                double fadeOut = 1.0D - progress;
+                Vector spiral = right.clone().multiply(Math.cos(spiralAngle) * spiralRadius * fadeOut)
+                        .add(up.clone().multiply(Math.sin(spiralAngle) * spiralRadius * fadeOut));
+                loc.add(spiral);
+            }
+
+            float glow = (float) (0.35D + progress * 0.65D);
+            int r = clampColor(colors[0][0] * glow + colors[1][0] * (1.0D - glow) * 0.35D);
+            int g = clampColor(colors[0][1] * glow + colors[1][1] * (1.0D - glow) * 0.35D);
+            int b = clampColor(colors[0][2] * glow + colors[1][2] * (1.0D - glow) * 0.35D);
+            float size = startSize + (endSize - startSize) * (float) progress;
+            spawnColoredDust(world, loc, r, g, b, size);
+
+            if (endRodTrail && i % 3 == 0) {
+                try {
+                    world.spawnParticle(Particle.END_ROD, loc, 0,
+                            inward.getX(), inward.getY(), inward.getZ(), 0.08D + progress * 0.08D);
+                } catch (Exception ignored) {
+                }
             }
         }
     }
@@ -556,6 +629,10 @@ public class TuLuyenParticleTask {
                         r / 255.0, g / 255.0, b / 255.0, 1);
             } catch (Exception ignored) {}
         }
+    }
+
+    private int clampColor(double value) {
+        return Math.max(0, Math.min(255, (int) Math.round(value)));
     }
 
     public void stopAuraTask() {
