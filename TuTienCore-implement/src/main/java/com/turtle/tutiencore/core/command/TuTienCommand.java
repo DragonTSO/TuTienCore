@@ -5,7 +5,6 @@ import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
-import com.turtle.tutiencore.core.manager.BreakthroughManager;
 import com.turtle.tutiencore.core.manager.DeathTipManager;
 import com.turtle.tutiencore.core.manager.EquipmentMenuManager;
 import com.turtle.tutiencore.core.manager.FlySwordManager;
@@ -30,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 public class TuTienCommand implements CommandExecutor, TabCompleter {
 
@@ -39,7 +37,6 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
     private final ConfigManager config;
     private final DotPhaCommand dotPhaCommand;
     private final FlySwordManager flySwordManager;
-    private final BreakthroughManager breakthroughManager;
     private final RealmManager realmManager;
     private final PlayerHologramManager playerHologramManager;
     private final ActionBarManager actionBarManager;
@@ -54,7 +51,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
 
     public TuTienCommand(TuLuyenManager tuLuyenManager, ZoneManager zoneManager, ConfigManager config,
             DotPhaCommand dotPhaCommand, FlySwordManager flySwordManager, RealmManager realmManager,
-            BreakthroughManager breakthroughManager, PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
+            PlayerHologramManager playerHologramManager, ActionBarManager actionBarManager,
             InfusionManager infusionManager, AfkKickManager afkKickManager, DeathTipManager deathTipManager,
             RegionRespawnManager regionRespawnManager, EquipmentMenuManager equipmentMenuManager,
             HotbarCommandItemManager hotbarCommandItemManager, ThauThiManager thauThiManager, Runnable commandAliasReloader) {
@@ -63,7 +60,6 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         this.config = config;
         this.dotPhaCommand = dotPhaCommand;
         this.flySwordManager = flySwordManager;
-        this.breakthroughManager = breakthroughManager;
         this.realmManager = realmManager;
         this.playerHologramManager = playerHologramManager;
         this.actionBarManager = actionBarManager;
@@ -98,7 +94,6 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§c/ttc create <zoneName> §7- Create Zone");
                 sender.sendMessage("§c/ttc edit <zoneName> §7- Edit AFK Zone TuVi bonus");
                 sender.sendMessage("§c/ttc zonecenter <zoneName> §7- Set Center for particles");
-                sender.sendMessage("§c/ttc setdotpha §7- Đặt Đài Đột Phá tại vị trí hiện tại");
                 sender.sendMessage("§c/ttc admin tuvi <give|remove|set|check|reset|resetall> <player> [amount]");
             }
             return true;
@@ -216,22 +211,6 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("setdotpha") || args[0].equalsIgnoreCase("setbreakthrough")
-                || args[0].equalsIgnoreCase("setdotphaarena")) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cLệnh này chỉ dùng được trong game.");
-                return true;
-            }
-
-            breakthroughManager.setBreakthroughArenaLocation(player.getLocation());
-            Location location = player.getLocation();
-            player.sendMessage("§aĐã đặt Đài Đột Phá tại §e"
-                    + location.getWorld().getName() + " "
-                    + formatLocation(location) + "§a.");
-            player.sendMessage("§7Người chơi sẽ được kéo tới đây khi đột phá và trả về vị trí cũ khi hoàn tất.");
-            return true;
-        }
-
         if (args[0].equalsIgnoreCase("admin") && args.length >= 2 && args[1].equalsIgnoreCase("tuvi")) {
             if (args.length < 4 && !args[2].equalsIgnoreCase("resetall")) {
                 sender.sendMessage(config.getMessage("admin.usage-admin-tuvi", "§cCách dùng: /ttc admin tuvi <give|remove|set|check|reset|resetall> <player> [amount]"));
@@ -315,7 +294,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> options = new ArrayList<>(Arrays.asList("tuluyen", "flysword"));
             if (sender.hasPermission("tutiencore.admin")) {
-                options.addAll(Arrays.asList("reload", "wand", "create", "edit", "zonecenter", "setdotpha", "admin"));
+                options.addAll(Arrays.asList("reload", "wand", "create", "edit", "zonecenter", "admin"));
             }
             return filter(options, args[0]);
         }
@@ -365,8 +344,4 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         return result;
     }
 
-    private String formatLocation(Location location) {
-        return String.format(Locale.ROOT, "x=%.2f y=%.2f z=%.2f yaw=%.1f pitch=%.1f",
-                location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
-    }
 }

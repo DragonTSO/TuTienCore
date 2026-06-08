@@ -222,6 +222,34 @@ public interface TuTienAPI {
      */
     Collection<UUID> getTuLuyenPlayers();
 
+    /**
+     * Get total online cultivation time accumulated by a player.
+     * @param uuid Player's UUID
+     * @return Total seconds spent in /tuluyen
+     */
+    long getTuLuyenTotalSeconds(UUID uuid);
+
+    /**
+     * Set total online cultivation time for a player.
+     * @param uuid Player's UUID
+     * @param seconds Total seconds spent in /tuluyen
+     */
+    void setTuLuyenTotalSeconds(UUID uuid, long seconds);
+
+    /**
+     * Add online cultivation time to a player.
+     * @param uuid Player's UUID
+     * @param seconds Seconds to add
+     */
+    void addTuLuyenTotalSeconds(UUID uuid, long seconds);
+
+    /**
+     * Get the current /tuluyen session duration.
+     * @param uuid Player's UUID
+     * @return Current session seconds, or 0 if not cultivating
+     */
+    long getTuLuyenSessionSeconds(UUID uuid);
+
     // ==========================================
     // UTILITY
     // ==========================================

@@ -32,6 +32,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private FileConfiguration config;
     private final Object configLock = new Object();
     private final Map<UUID, Double> tuviCache = new HashMap<>();
+    private final Map<UUID, Long> tuLuyenTotalSecondsCache = new HashMap<>();
     private final Map<UUID, List<OwnedInfusion>> infusionInventoryCache = new HashMap<>();
     private final Map<UUID, String> equippedInfusionIdCache = new HashMap<>();
 
@@ -81,6 +82,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
                 config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
             }
+            for (Map.Entry<UUID, Long> entry : tuLuyenTotalSecondsCache.entrySet()) {
+                writeTuLuyenTime(entry.getKey(), entry.getValue());
+            }
             Set<UUID> uuids = new HashSet<>();
             uuids.addAll(infusionInventoryCache.keySet());
             uuids.addAll(equippedInfusionIdCache.keySet());
@@ -96,6 +100,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             if (tuviCache.containsKey(uuid)) {
                 config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
             }
+            if (tuLuyenTotalSecondsCache.containsKey(uuid)) {
+                writeTuLuyenTime(uuid, tuLuyenTotalSecondsCache.get(uuid));
+            }
             if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                 writeInfusionState(uuid);
             }
@@ -108,6 +115,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             if (tuviCache.containsKey(uuid)) {
                 config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
             }
+            if (tuLuyenTotalSecondsCache.containsKey(uuid)) {
+                writeTuLuyenTime(uuid, tuLuyenTotalSecondsCache.get(uuid));
+            }
             if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                 writeInfusionState(uuid);
             }
@@ -119,6 +129,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         synchronized (configLock) {
             double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
             tuviCache.put(uuid, tuvi);
+            tuLuyenTotalSecondsCache.put(uuid, readTuLuyenTotalSeconds(uuid));
 
             InfusionState state = readInfusionState(uuid);
             infusionInventoryCache.put(uuid, new ArrayList<>(state.inventory()));
@@ -183,6 +194,20 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     public String getEquippedInfusionId(UUID uuid) {
         return equippedInfusionIdCache.get(uuid);
+    }
+
+    private long readTuLuyenTotalSeconds(UUID uuid) {
+        String path = uuid.toString() + ".tuluyen";
+        if (config.contains(path + ".total-seconds")) {
+            return Math.max(0L, config.getLong(path + ".total-seconds", 0L));
+        }
+
+        // Legacy-friendly fallback if a previous/manual config used total-time.
+        return Math.max(0L, config.getLong(path + ".total-time", 0L));
+    }
+
+    private void writeTuLuyenTime(UUID uuid, long seconds) {
+        config.set(uuid.toString() + ".tuluyen.total-seconds", Math.max(0L, seconds));
     }
 
     private InfusionState readInfusionState(UUID uuid) {
@@ -642,6 +667,36 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         return uuids;
     }
 
+    @Override
+    public long getTuLuyenTotalSeconds(UUID uuid) {
+        Long cached = tuLuyenTotalSecondsCache.get(uuid);
+        if (cached != null) {
+            return Math.max(0L, cached);
+        }
+        synchronized (configLock) {
+            return readTuLuyenTotalSeconds(uuid);
+        }
+    }
+
+    @Override
+    public void setTuLuyenTotalSeconds(UUID uuid, long seconds) {
+        tuLuyenTotalSecondsCache.put(uuid, Math.max(0L, seconds));
+    }
+
+    @Override
+    public void addTuLuyenTotalSeconds(UUID uuid, long seconds) {
+        if (seconds <= 0L) {
+            return;
+        }
+        tuLuyenTotalSecondsCache.put(uuid, getTuLuyenTotalSeconds(uuid) + seconds);
+    }
+
+    @Override
+    public long getTuLuyenSessionSeconds(UUID uuid) {
+        if (tuLuyenManager == null) return 0L;
+        return tuLuyenManager.getSessionSeconds(uuid);
+    }
+
     // ==========================================
     // UTILITY
     // ==========================================
@@ -668,6 +723,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     public void onQuit(PlayerQuitEvent event) {
         savePlayer(event.getPlayer().getUniqueId());
         tuviCache.remove(event.getPlayer().getUniqueId());
+        tuLuyenTotalSecondsCache.remove(event.getPlayer().getUniqueId());
         infusionInventoryCache.remove(event.getPlayer().getUniqueId());
         equippedInfusionIdCache.remove(event.getPlayer().getUniqueId());
     }

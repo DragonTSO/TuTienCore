@@ -317,6 +317,15 @@ afk-kick:
 # %tutien_tuvi_int%        - Tu Vi số nguyên (VD: 15)
 # %tutien_tuvi_formatted%  - Tu Vi có dấu phẩy (VD: 1,500)
 # %tutien_tuvi_compact%    - Tu Vi dạng gọn (VD: 1.5k, 2M)
+#
+# Thời gian tu luyện:
+# %tutien_tuluyen_active%          - true/false đang /tuluyen
+# %tutien_tuluyen_time_seconds%    - Tổng thời gian tu luyện, tính bằng giây
+# %tutien_tuluyen_time%            - Tổng thời gian dạng HH:mm:ss
+# %tutien_tuluyen_time_compact%    - Tổng thời gian rút gọn, ví dụ 1h 20m
+# %tutien_tuluyen_session_seconds% - Thời gian phiên /tuluyen hiện tại, tính bằng giây
+# %tutien_tuluyen_session_time%    - Thời gian phiên hiện tại dạng HH:mm:ss
+# %tutien_tuluyen_session_compact% - Thời gian phiên hiện tại rút gọn
 # 
 # Cảnh Giới (Realm):
 # %tutien_canhgioi_full%   - ★ CHÍNH: display-name từ realms.yml (VD: §a「Luyện Khí」)
@@ -612,17 +621,6 @@ breakthrough:
   # PlaceholderAPI placeholder dùng làm Thực Lực khi /dotpha đại cảnh giới.
   # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
   thuc-luc-placeholder: ""
-  # Đài Đột Phá: admin đứng tại vị trí muốn dùng rồi chạy /ttc setdotpha.
-  # Nếu world để trống, người chơi sẽ đột phá tại vị trí hiện tại như cũ.
-  arena:
-    lock-movement: true
-    location:
-      world: ""
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      yaw: 0.0
-      pitch: 0.0
   # Khi đột phá Đại Cảnh Giới, người chơi trong bán kính này cũng bị sét đánh.
   # damage-multiplier là tỉ lệ damage so với người đang đột phá.
   nearby-lightning:
@@ -695,9 +693,6 @@ breakthrough:
       pitch: 0.5
   # MythicMobs mob chạy từ lúc bắt đầu và trong suốt quá trình đột phá.
   # Mob tự gắn ModelEngine model và chạy state "spawn", không dùng idle.
-  ascent:
-    blocks-per-tick: 0.055
-    max-height: 28.0
   active-animation: "spawn"
   active-mobs:
     - "TuTienCore_Dien1_Spawn"

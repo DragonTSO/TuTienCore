@@ -108,6 +108,10 @@ public class TuLuyenManager implements Listener {
                     }
 
                     long tick = sessionTicks.merge(player.getUniqueId(), 1L, Long::sum);
+                    if (tick % TICKS_PER_SECOND == 0L) {
+                        TuTien.getApi().addTuLuyenTotalSeconds(player.getUniqueId(), 1L);
+                    }
+
                     int effectiveInterval = getEffectiveTuLuyenInterval(player);
                     TuLuyenReward previewReward = calculateReward(player, false);
                     updateVisuals(player, previewReward, tick, effectiveInterval);
@@ -200,6 +204,11 @@ public class TuLuyenManager implements Listener {
 
     public boolean isTuLuyenHologramVisible(Player player) {
         return player != null && isTuLuyen(player) && holograms.containsKey(player.getUniqueId());
+    }
+
+    public long getSessionSeconds(UUID uuid) {
+        long ticks = sessionTicks.getOrDefault(uuid, 0L);
+        return Math.max(0L, ticks / TICKS_PER_SECOND);
     }
 
     public void setActionBarSuppressor(MMOCoreActionBarSuppressor actionBarSuppressor) {

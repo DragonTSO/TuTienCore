@@ -69,6 +69,34 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
         }
 
         // ==========================================
+        // Thoi gian Tu Luyen
+        // ==========================================
+        else if (params.equalsIgnoreCase("tuluyen_active")) {
+            return TuTien.getApi().isTuLuyen(player.getUniqueId()) ? "true" : "false";
+        }
+        else if (params.equalsIgnoreCase("tuluyen_total_seconds")
+                || params.equalsIgnoreCase("tuluyen_time_seconds")) {
+            return String.valueOf(TuTien.getApi().getTuLuyenTotalSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_total_time")
+                || params.equalsIgnoreCase("tuluyen_time")) {
+            return formatDurationHms(TuTien.getApi().getTuLuyenTotalSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_total_compact")
+                || params.equalsIgnoreCase("tuluyen_time_compact")) {
+            return formatDurationCompact(TuTien.getApi().getTuLuyenTotalSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_session_seconds")) {
+            return String.valueOf(TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_session_time")) {
+            return formatDurationHms(TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
+        }
+        else if (params.equalsIgnoreCase("tuluyen_session_compact")) {
+            return formatDurationCompact(TuTien.getApi().getTuLuyenSessionSeconds(player.getUniqueId()));
+        }
+
+        // ==========================================
         // Cảnh Giới Placeholder (MAIN)
         // ==========================================
         else if (params.equalsIgnoreCase("canhgioi_full")) {
@@ -206,5 +234,32 @@ public class TuTienPlaceholder extends PlaceholderExpansion {
 
     private String formatCompact(double number) {
         return RealmManager.formatNumber((long) number);
+    }
+
+    private static String formatDurationHms(long totalSeconds) {
+        long safeSeconds = Math.max(0L, totalSeconds);
+        long hours = safeSeconds / 3600L;
+        long minutes = (safeSeconds % 3600L) / 60L;
+        long seconds = safeSeconds % 60L;
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    private static String formatDurationCompact(long totalSeconds) {
+        long safeSeconds = Math.max(0L, totalSeconds);
+        long days = safeSeconds / 86400L;
+        long hours = (safeSeconds % 86400L) / 3600L;
+        long minutes = (safeSeconds % 3600L) / 60L;
+        long seconds = safeSeconds % 60L;
+
+        if (days > 0L) {
+            return days + "d " + hours + "h";
+        }
+        if (hours > 0L) {
+            return hours + "h " + minutes + "m";
+        }
+        if (minutes > 0L) {
+            return minutes + "m " + seconds + "s";
+        }
+        return seconds + "s";
     }
 }

@@ -1,6 +1,5 @@
 package com.turtle.tutiencore.core.manager;
 
-import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -56,37 +55,4 @@ class BreakthroughManagerSuccessModelConfigTest {
         assertEquals(10.0, BreakthroughManager.calculateNearbyPlayerDamage(10.0, 2.0));
     }
 
-    @Test
-    void movementLockKeepsExactPositionButAllowsViewRotation() {
-        Location locked = new Location(null, 10.0, 64.0, -5.0, 0.0f, 0.0f);
-        Location attempted = new Location(null, 12.0, 70.0, -8.0, 90.0f, 35.0f);
-
-        Location constrained = BreakthroughManager.constrainBreakthroughMovement(locked, attempted);
-
-        assertEquals(10.0, constrained.getX());
-        assertEquals(64.0, constrained.getY());
-        assertEquals(-5.0, constrained.getZ());
-        assertEquals(90.0f, constrained.getYaw());
-        assertEquals(35.0f, constrained.getPitch());
-    }
-
-    @Test
-    void controlledAscentRaisesOnlyUntilMaxHeight() {
-        Location locked = new Location(null, 10.0, 64.0, -5.0, 0.0f, 0.0f);
-
-        Location raised = BreakthroughManager.advanceBreakthroughLockLocation(locked, 2.0, 65.0);
-
-        assertEquals(65.0, raised.getY());
-        assertEquals(10.0, raised.getX());
-        assertEquals(-5.0, raised.getZ());
-    }
-
-    @Test
-    void controlledAscentStepScalesGentlyWithPhase() {
-        double firstPhase = BreakthroughManager.calculateControlledAscentStep(1, 0.055, 2L);
-        double latePhase = BreakthroughManager.calculateControlledAscentStep(6, 0.055, 2L);
-
-        assertEquals(0.0968, firstPhase, 0.0001);
-        assertEquals(0.1408, latePhase, 0.0001);
-    }
 }
