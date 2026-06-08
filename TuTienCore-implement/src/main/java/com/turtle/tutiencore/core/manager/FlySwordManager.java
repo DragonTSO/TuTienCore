@@ -11,9 +11,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -27,6 +29,7 @@ import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
@@ -267,7 +270,7 @@ public class FlySwordManager implements Listener {
         if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0D) {
             return;
         }
-        lockFlightAfterDamage(player);
+        lockFlightAfterDamage(player, resolvePlayerDamager(event));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -539,7 +542,7 @@ public class FlySwordManager implements Listener {
         return autoFlightWorlds.contains(world) || autoFlightWorlds.contains("*");
     }
 
-    private void lockFlightAfterDamage(Player player) {
+    private void lockFlightAfterDamage(Player player, Player attacker) {
         if (!combatLockEnabled || combatLockDurationMillis <= 0L || player == null || !player.isOnline()) {
             return;
         }
@@ -551,8 +554,33 @@ public class FlySwordManager implements Listener {
         Long previousUntil = flightLockedUntil.put(player.getUniqueId(), now + combatLockDurationMillis);
         disableFlight(player);
         if (previousUntil == null || previousUntil <= now) {
-            sendCombatLockMessage(player, "damaged", "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c.");
+            if (attacker != null) {
+                sendCombatLockMessage(player, "pvp-damaged",
+                        "&cBan vua bi &e{attacker} &ctan cong, kiem bay bi tat trong &e{seconds}s&c.",
+                        attacker);
+            } else {
+                sendCombatLockMessage(player, "damaged", "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c.");
+            }
         }
+    }
+
+    private Player resolvePlayerDamager(EntityDamageEvent event) {
+        if (!(event instanceof EntityDamageByEntityEvent damageByEntity)) {
+            return null;
+        }
+
+        if (damageByEntity.getDamager() instanceof Player attacker) {
+            return attacker.equals(event.getEntity()) ? null : attacker;
+        }
+
+        if (damageByEntity.getDamager() instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player attacker) {
+                return attacker.equals(event.getEntity()) ? null : attacker;
+            }
+        }
+
+        return null;
     }
 
     private boolean isFlightLocked(Player player) {
@@ -603,13 +631,24 @@ public class FlySwordManager implements Listener {
     }
 
     private void sendCombatLockMessage(Player player, String key, String fallback) {
+        sendCombatLockMessage(player, key, fallback, null);
+    }
+
+    private void sendCombatLockMessage(Player player, String key, String fallback, Player attacker) {
         String message = plugin.getConfig().getString("fly-sword.combat-lock.messages." + key, fallback);
         if (message == null || message.isBlank()) {
             return;
         }
+        long seconds = remainingFlightLockSeconds(player);
+        String attackerName = attacker == null ? "" : attacker.getName();
+        String attackerDisplayName = attacker == null ? "" : attacker.getDisplayName();
         player.sendMessage(color(message
-                .replace("{seconds}", String.valueOf(remainingFlightLockSeconds(player)))
-                .replace("%seconds%", String.valueOf(remainingFlightLockSeconds(player)))));
+                .replace("{seconds}", String.valueOf(seconds))
+                .replace("%seconds%", String.valueOf(seconds))
+                .replace("{attacker}", attackerName)
+                .replace("%attacker%", attackerName)
+                .replace("{attacker_display}", attackerDisplayName)
+                .replace("%attacker_display%", attackerDisplayName)));
     }
 
     private long remainingFlightLockSeconds(Player player) {

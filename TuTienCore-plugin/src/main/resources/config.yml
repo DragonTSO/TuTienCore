@@ -507,6 +507,7 @@ fly-sword:
       - cmi:fly
     messages:
       damaged: "&cBan vua nhan sat thuong, khong the bay trong &e{seconds}s&c."
+      pvp-damaged: "&cBan vua bi &e{attacker} &ctan cong, kiem bay bi tat trong &e{seconds}s&c."
       locked-command: "&cBan dang bi khoa bay, cho &e{seconds}s &cde /fly lai."
   evolution:
     enabled: true
