@@ -3,60 +3,46 @@ package com.turtle.tutiencore.core.task;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.model.CuboidZone;
-
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.WrappedParticle;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class SphereParticleTask {
+
+    private static final double VIEW_DISTANCE_SQUARED = 40.0D * 40.0D;
 
     private final JavaPlugin plugin;
     private final ZoneManager zoneManager;
     private final ConfigManager configManager;
-    private final ProtocolManager protocolManager;
     private BukkitRunnable task;
-    private double rotationAngle = 0;
 
     public SphereParticleTask(JavaPlugin plugin, ZoneManager zoneManager, ConfigManager configManager) {
         this.plugin = plugin;
         this.zoneManager = zoneManager;
         this.configManager = configManager;
-        if (plugin.getServer().getPluginManager().isPluginEnabled("ProtocolLib")) {
-            this.protocolManager = ProtocolLibrary.getProtocolManager();
-        } else {
-            this.protocolManager = null;
-        }
     }
 
     public void start() {
-        if (!configManager.isSphereEnabled()) return;
+        stop();
+        if (!configManager.isSphereEnabled()) {
+            return;
+        }
 
-        int interval = configManager.getSphereInterval();
+        int interval = Math.max(1, configManager.getSphereInterval());
         task = new BukkitRunnable() {
             @Override
             public void run() {
-                rotationAngle += 0.1;
-                if (rotationAngle > Math.PI * 2) rotationAngle -= Math.PI * 2;
-
                 for (CuboidZone zone : zoneManager.getAllZones()) {
-                    Location loc = zone.getCenter();
-                    if (loc == null || loc.getWorld() == null) continue;
-
-                    // Ideally only player near enough should see to optimize
-                    drawSphere(loc);
+                    drawWhiteAsh(zone);
                 }
             }
         };
-        task.runTaskTimerAsynchronously(plugin, 0L, interval);
+        task.runTaskTimer(plugin, 0L, interval);
     }
 
     public void stop() {
@@ -66,43 +52,58 @@ public class SphereParticleTask {
         }
     }
 
-    private void drawSphere(Location center) {
-        if (protocolManager == null) return;
-        double radius = configManager.getSphereRadius();
-        int points = configManager.getSpherePoints();
-        double phi = (1 + Math.sqrt(5)) / 2;
+    private void drawWhiteAsh(CuboidZone zone) {
+        Location pos1 = zone.getPos1();
+        Location pos2 = zone.getPos2();
+        if (pos1 == null || pos2 == null || pos1.getWorld() == null || !pos1.getWorld().equals(pos2.getWorld())) {
+            return;
+        }
 
-        for (int i = 0; i < points; i++) {
-            double theta = Math.acos(1 - 2.0 * (i + 0.5) / points);
-            double lambda = 2 * Math.PI * i / phi + rotationAngle;
+        World world = pos1.getWorld();
+        Location center = midpoint(pos1, pos2);
+        WhiteAshParticleSettings settings = resolveWhiteAshParticleSettings(configManager.getSpherePoints());
+        ThreadLocalRandom random = ThreadLocalRandom.current();
 
-            double x = center.getX() + radius * Math.sin(theta) * Math.cos(lambda);
-            double y = center.getY() + radius * Math.cos(theta) + 1.5;
-            double z = center.getZ() + radius * Math.sin(theta) * Math.sin(lambda);
+        double minX = Math.min(pos1.getBlockX(), pos2.getBlockX()) + 0.15D;
+        double maxX = Math.max(pos1.getBlockX(), pos2.getBlockX()) + 0.85D;
+        double minY = Math.min(pos1.getBlockY(), pos2.getBlockY()) + 0.8D;
+        double maxY = Math.max(pos1.getBlockY(), pos2.getBlockY()) + 1.8D;
+        double minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ()) + 0.15D;
+        double maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ()) + 0.85D;
 
-            for (Player player : center.getWorld().getPlayers()) {
-                if (player.getLocation().distanceSquared(center) > 1600) continue; // 40 blocks
-                sendDustPacket(player, x, y, z, configManager.getSphereColorR(), configManager.getSphereColorG(), configManager.getSphereColorB());
+        for (int i = 0; i < settings.points(); i++) {
+            double x = randomBetween(random, minX, maxX);
+            double y = randomBetween(random, minY, maxY);
+            double z = randomBetween(random, minZ, maxZ);
+            for (Player player : world.getPlayers()) {
+                if (player.getLocation().distanceSquared(center) > VIEW_DISTANCE_SQUARED) {
+                    continue;
+                }
+                player.spawnParticle(Particle.WHITE_ASH, x, y, z, settings.count(),
+                        settings.offsetX(), settings.offsetY(), settings.offsetZ(), settings.extra());
             }
         }
     }
 
-    private void sendDustPacket(Player player, double x, double y, double z, int r, int g, int b) {
-        try {
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.WORLD_PARTICLES);
-            Particle.DustOptions dustOptions = new Particle.DustOptions(Color.fromRGB(r, g, b), 1.0f);
-            WrappedParticle<?> wrappedParticle = WrappedParticle.create(Particle.DUST, dustOptions);
-            packet.getNewParticles().write(0, wrappedParticle);
-            packet.getBooleans().write(0, true);
-            packet.getDoubles().write(0, x);
-            packet.getDoubles().write(1, y);
-            packet.getDoubles().write(2, z);
-            packet.getFloat().write(0, 0f);
-            packet.getFloat().write(1, 0f);
-            packet.getFloat().write(2, 0f);
-            packet.getFloat().write(3, 0f);
-            packet.getIntegers().write(0, 1);
-            protocolManager.sendServerPacket(player, packet);
-        } catch (Exception e) { }
+    static WhiteAshParticleSettings resolveWhiteAshParticleSettings(int configuredPoints) {
+        int basePoints = Math.max(1, configuredPoints);
+        return new WhiteAshParticleSettings(basePoints * 2, 2, 0.28D, 0.20D, 0.28D, 0.02D);
+    }
+
+    private Location midpoint(Location pos1, Location pos2) {
+        return new Location(pos1.getWorld(),
+                (pos1.getX() + pos2.getX()) / 2.0D,
+                (pos1.getY() + pos2.getY()) / 2.0D,
+                (pos1.getZ() + pos2.getZ()) / 2.0D);
+    }
+
+    private double randomBetween(ThreadLocalRandom random, double min, double max) {
+        if (max <= min) {
+            return min;
+        }
+        return random.nextDouble(min, max);
+    }
+
+    record WhiteAshParticleSettings(int points, int count, double offsetX, double offsetY, double offsetZ, double extra) {
     }
 }

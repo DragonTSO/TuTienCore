@@ -1,11 +1,11 @@
 # ==========================================
-# TuTienCore — Canh Gioi GUI Configuration
+# TuTienCore — Cảnh Giới GUI Configuration
 # ==========================================
-# /canhgioi: hien thi 10 canh gioi dau, den Chan Tien.
-# Material realm item duoc quyet dinh theo trang thai:
-# - current: dang o canh gioi nay
-# - past: da dot pha qua
-# - future: chua dot pha
+# /canhgioi: hiển thị 10 cảnh giới đầu, đến Chân Tiên.
+# Material realm item được quyết định theo trạng thái:
+# - current: đang ở cảnh giới này
+# - past: đã đột phá qua
+# - future: chưa đột phá
 
 title: "&0✦ Lộ Trình Cảnh Giới ✦"
 size: 54

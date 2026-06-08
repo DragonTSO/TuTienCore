@@ -25,8 +25,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,6 +96,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§c/ttc reload §7- Reload configuration");
                 sender.sendMessage("§c/ttc wand §7- Get Zone Wand");
                 sender.sendMessage("§c/ttc create <zoneName> §7- Create Zone");
+                sender.sendMessage("§c/ttc edit <zoneName> §7- Edit AFK Zone TuVi bonus");
                 sender.sendMessage("§c/ttc zonecenter <zoneName> §7- Set Center for particles");
                 sender.sendMessage("§c/ttc setdotpha §7- Đặt Đài Đột Phá tại vị trí hiện tại");
                 sender.sendMessage("§c/ttc admin tuvi <give|remove|set|check|reset|resetall> <player> [amount]");
@@ -136,6 +135,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("reload")) {
             config.load();
+            zoneManager.loadZones();
             realmManager.reload();
             dotPhaCommand.loadConfig();
             flySwordManager.loadConfig();
@@ -158,11 +158,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         if (args[0].equalsIgnoreCase("wand")) {
             if (!(sender instanceof Player)) return true;
             Player player = (Player) sender;
-            ItemStack wand = new ItemStack(zoneManager.getWandMaterial());
-            ItemMeta meta = wand.getItemMeta();
-            meta.setDisplayName("§bTuTien Zone Wand");
-            wand.setItemMeta(meta);
-            player.getInventory().addItem(wand);
+            player.getInventory().addItem(zoneManager.createWandItem());
             player.sendMessage(config.getMessage("admin.wand-received", "§aĐã nhận Gậy Tạo Zone. Chuột trái: pos1, Chuột phải: pos2."));
             return true;
         }
@@ -187,6 +183,17 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             }
             zoneManager.createZone(zoneName, pos1, pos2);
             player.sendMessage(config.getMessage("admin.zone-created", "§aTạo thành công Khu vực: %zone%").replace("%zone%", zoneName));
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("edit")) {
+            if (!(sender instanceof Player)) return true;
+            Player player = (Player) sender;
+            if (args.length < 2) {
+                player.sendMessage(config.getMessage("admin.usage-zone-edit", "&cCách dùng: /ttc edit <zoneName>"));
+                return true;
+            }
+            zoneManager.openEditGui(player, args[1]);
             return true;
         }
 
@@ -308,7 +315,7 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> options = new ArrayList<>(Arrays.asList("tuluyen", "flysword"));
             if (sender.hasPermission("tutiencore.admin")) {
-                options.addAll(Arrays.asList("reload", "wand", "create", "zonecenter", "setdotpha", "admin"));
+                options.addAll(Arrays.asList("reload", "wand", "create", "edit", "zonecenter", "setdotpha", "admin"));
             }
             return filter(options, args[0]);
         }
@@ -323,6 +330,9 @@ public class TuTienCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("tutiencore.admin")
                     && (args[0].equalsIgnoreCase("create") || args[0].equalsIgnoreCase("zonecenter"))) {
                 return Collections.emptyList();
+            }
+            if (sender.hasPermission("tutiencore.admin") && args[0].equalsIgnoreCase("edit")) {
+                return filter(new ArrayList<>(zoneManager.getZoneIds()), args[1]);
             }
         }
 

@@ -10,7 +10,7 @@
 mmoitems:
   enabled: true
   type: "LUA_THAN"
-  # Item id trong MMOItems. Vi du: NAM_MINH_LY_HOA_COMMON.
+  # Item id trong MMOItems. Ví dụ: NAM_MINH_LY_HOA_COMMON.
   id-format: "{type}_{rarity}"
 
 gui:

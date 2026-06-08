@@ -186,6 +186,26 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return total;
     }
 
+    public EquippedMmoItem getEquippedMmoItem(Player player, String slotId) {
+        if (player == null || slotId == null || slotId.isBlank() || !config.getBoolean("enabled", true)) {
+            return null;
+        }
+
+        String resolvedSlotId = resolveSlotId(slotId);
+        if (resolvedSlotId == null) {
+            return null;
+        }
+
+        loadPlayer(player.getUniqueId());
+        ItemStack item = equipped.getOrDefault(player.getUniqueId(), Map.of()).get(resolvedSlotId);
+        String type = mmoType(item);
+        String id = mmoId(item);
+        if (type == null || id == null) {
+            return null;
+        }
+        return new EquippedMmoItem(type, id);
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
@@ -309,7 +329,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             ItemStack current = playerItems.remove(slot.id());
             if (current != null) {
                 giveOrDrop(player, current);
-                player.sendMessage(message("unequipped").replace("%slot%", slot.id()));
+                sendEquipmentMessage(player, "unequipped", slot, current);
             }
         } else {
             ItemStack cursor = event.getCursor();
@@ -330,7 +350,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             cursor.setAmount(cursor.getAmount() - 1);
             event.setCursor(cursor.getAmount() <= 0 ? null : cursor);
             if (old != null) giveOrDrop(player, old);
-            player.sendMessage(message("equipped").replace("%slot%", slot.id()));
+            sendEquipmentMessage(player, "equipped", slot, one);
         }
 
         applyStats(player);
@@ -787,8 +807,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 || normalized.equals("chuot trai de mo nang cap.")
                 || normalized.equals("chuot trai de mo tien hoa.")
                 || normalized.equals("khong the thao khoi tay phu.")
-                || line.contains("\uA423")
-                || line.contains("\uA41D")
+                || line.contains("ꐣ")
+                || line.contains("ꐝ")
                 || (normalized.contains("vat pham") && normalized.contains("tay phu") && normalized.contains("he thong"))
                 || (normalized.contains("de mo") && normalized.contains("thong tin"))
                 || (normalized.contains("de mo") && normalized.contains("trang bi"))
@@ -947,7 +967,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         refreshOpenEquipmentSlot(player, slot);
         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7F, 1.4F);
-        player.sendMessage(message("duration-expired").replace("%slot%", slot.id()));
+        player.sendMessage(applyEquipmentMessagePlaceholders(message("duration-expired"),
+                slot.id(), slotDisplayName(slot), displayName(item, slotDisplayName(slot)), "0s"));
     }
 
     private boolean prepareTimedItemForEquip(EquipSlot slot, ItemStack item) {
@@ -1110,8 +1131,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
         applyConsumableStats(player, stats, durationSeconds);
         consumeMainHandItem(player);
-        player.sendMessage(message("consumable-used", "&aDa dung dan duoc. Hieu luc: &e%duration%")
-                .replace("%duration%", formatDuration(durationSeconds)));
+        player.sendMessage(applyEquipmentMessagePlaceholders(
+                message("consumable-used", "&aDa dung dan duoc. Hieu luc: &e%duration%"),
+                "dan_duoc", slotDisplayName("dan_duoc", "Đan dược"),
+                displayName(item, "Đan dược"), formatDuration(durationSeconds)));
         return true;
     }
 
@@ -1429,6 +1452,19 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private EquipSlot slotAt(int guiSlot) {
         for (EquipSlot slot : slots.values()) {
             if (slot.guiSlot() == guiSlot) return slot;
+        }
+        return null;
+    }
+
+    private String resolveSlotId(String slotId) {
+        String trimmed = slotId.trim();
+        if (slots.containsKey(trimmed)) {
+            return trimmed;
+        }
+        for (String configuredSlotId : slots.keySet()) {
+            if (configuredSlotId.equalsIgnoreCase(trimmed)) {
+                return configuredSlotId;
+            }
         }
         return null;
     }
@@ -1775,6 +1811,61 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return meta.getDisplayName();
     }
 
+    private void sendEquipmentMessage(Player player, String action, EquipSlot slot, ItemStack item) {
+        String fallback = "equipped".equals(action)
+                ? "&aDa trang bi &f%slot_display%&a."
+                : "&eDa thao &f%slot_display%&e.";
+        String template = message(action + "-slot." + slot.id(), message(action, fallback));
+        long durationSeconds = equipmentMessageDurationSeconds(slot, item);
+        String duration = durationSeconds > 0L ? formatDuration(durationSeconds) : "vĩnh viễn";
+        player.sendMessage(applyEquipmentMessagePlaceholders(
+                template,
+                slot.id(),
+                slotDisplayName(slot),
+                displayName(item, slotDisplayName(slot)),
+                duration
+        ));
+    }
+
+    private long equipmentMessageDurationSeconds(EquipSlot slot, ItemStack item) {
+        if (slot == null || !slot.duration().enabled()) {
+            return 0L;
+        }
+
+        long remaining = remainingDurationSeconds(item);
+        if (remaining > 0L) {
+            return remaining;
+        }
+
+        long total = persistentDurationSeconds(item, durationTotalKey);
+        if (total > 0L) {
+            return total;
+        }
+
+        return initialDurationSeconds(slot, item);
+    }
+
+    private String slotDisplayName(EquipSlot slot) {
+        if (slot == null) {
+            return "";
+        }
+        return slotDisplayName(slot.id(), slot.id());
+    }
+
+    private String slotDisplayName(String slotId, String fallback) {
+        return color(config.getString("slots." + slotId + ".display-name", fallback));
+    }
+
+    static String applyEquipmentMessagePlaceholders(String message, String slotId, String slotDisplayName,
+                                                   String itemName, String duration) {
+        String safeMessage = message == null ? "" : message;
+        return safeMessage
+                .replace("%slot%", slotId == null ? "" : slotId)
+                .replace("%slot_display%", slotDisplayName == null ? "" : slotDisplayName)
+                .replace("%item%", itemName == null ? "" : itemName)
+                .replace("%duration%", duration == null ? "" : duration);
+    }
+
     private void fill(Inventory inventory) {
         ItemStack filler = named(
                 Material.matchMaterial(config.getString("gui.filler.material", "BLACK_STAINED_GLASS_PANE")),
@@ -2065,6 +2156,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         boolean accepts(String type) {
             return type != null && acceptedTypes.contains(type);
         }
+    }
+
+    public record EquippedMmoItem(String type, String id) {
     }
 
     private record DurationSettings(

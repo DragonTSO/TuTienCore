@@ -83,6 +83,7 @@ public class BreakthroughManager implements Listener {
         BukkitRunnable auraTask;
         BukkitRunnable stormTask; // Continuous ambient lightning storm
         BukkitRunnable activeAnimationTask;
+        BukkitRunnable ascentTask;
         final List<ActiveMob> activeBreakthroughMobs = new ArrayList<>();
         Location startLocation;
         Location returnLocation;
@@ -358,9 +359,15 @@ public class BreakthroughManager implements Listener {
     // Lightning AOE radius (40x40 = ±20 blocks from center)
     private static final int LIGHTNING_RADIUS = 20;
     static final String ACTIVE_BREAKTHROUGH_MOBS_KEY = "breakthrough.active-mobs";
+    private static final String ACTIVE_BREAKTHROUGH_ANIMATION_KEY = "breakthrough.active-animation";
     private static final int ACTIVE_BREAKTHROUGH_ANIMATION_REPLAY_TICKS = 90;
+    private static final int ACTIVE_BREAKTHROUGH_MOB_SYNC_TICKS = 10;
+    private static final double ACTIVE_BREAKTHROUGH_MOB_SYNC_DISTANCE_SQUARED = 0.36D;
     // Max levitation level (increases over time)
     private static final int MAX_LEVITATION_LEVEL = 6;
+    private static final long CONTROLLED_ASCENT_INTERVAL_TICKS = 2L;
+    private static final double DEFAULT_ASCENT_BLOCKS_PER_TICK = 0.055D;
+    private static final double DEFAULT_ASCENT_MAX_HEIGHT = 28.0D;
     // Damage scaling: at max height, damage = baseDmg * this multiplier
     private static final double MAX_HEIGHT_DMG_MULTIPLIER = 2.5;
     private static final String ARENA_LOCATION_PATH = "breakthrough.arena.location";
@@ -410,7 +417,7 @@ public class BreakthroughManager implements Listener {
                             10, 40, 10
                     );
                     // Start Levitation
-                    applyLevitation(player, session, 1);
+                    applyBreakthroughAscent(player, session, 1);
                     // BẮT ĐẦU ambient storm SAU countdown
                     startAmbientStorm(player, session);
                     // BẮT ĐẦU lightning phase
@@ -445,7 +452,7 @@ public class BreakthroughManager implements Listener {
                     int levPhase = (boltsFired * MAX_LEVITATION_LEVEL) / session.totalBolts;
                     int newLevel = Math.min(levPhase + 1, MAX_LEVITATION_LEVEL);
                     if (newLevel > session.currentLevitationLevel) {
-                        applyLevitation(player, session, newLevel);
+                        applyBreakthroughAscent(player, session, newLevel);
                         player.sendMessage("§c§l⚠ Thiên Lôi mạnh hơn! §e(Levitation " + newLevel + ")");
                     }
 
@@ -479,6 +486,107 @@ public class BreakthroughManager implements Listener {
 
     private boolean shouldSuppressCinematicUi(Player player) {
         return player != null && player.getGameMode() == GameMode.SPECTATOR;
+    }
+
+    private void applyBreakthroughAscent(Player player, BreakthroughSession session, int level) {
+        session.currentLevitationLevel = Math.max(1, level);
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+
+        if (session.lockLocation != null && isArenaMovementLockEnabled()) {
+            startControlledAscent(player, session);
+            return;
+        }
+
+        applyLevitation(player, session, session.currentLevitationLevel);
+    }
+
+    private void startControlledAscent(Player player, BreakthroughSession session) {
+        if (session.ascentTask != null) {
+            return;
+        }
+
+        session.ascentTask = new BukkitRunnable() {
+            int ticksSinceMobSync;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !activeSessions.containsKey(session.playerId) || session.lockLocation == null) {
+                    stopControlledAscent(session);
+                    cancel();
+                    return;
+                }
+
+                if (session.startLocation == null) {
+                    session.startLocation = session.lockLocation.clone();
+                }
+
+                double maxY = session.startLocation.getY() + getBreakthroughAscentMaxHeight();
+                double step = calculateControlledAscentStep(
+                        session.currentLevitationLevel,
+                        getBreakthroughAscentBlocksPerTick(),
+                        CONTROLLED_ASCENT_INTERVAL_TICKS
+                );
+                Location nextLock = advanceBreakthroughLockLocation(session.lockLocation, step, maxY);
+                updateBreakthroughLock(player, session, nextLock);
+
+                ticksSinceMobSync += CONTROLLED_ASCENT_INTERVAL_TICKS;
+                if (ticksSinceMobSync >= ACTIVE_BREAKTHROUGH_MOB_SYNC_TICKS) {
+                    ticksSinceMobSync = 0;
+                    syncActiveBreakthroughMobs(session, nextLock);
+                }
+            }
+        };
+        session.ascentTask.runTaskTimer(plugin, 0L, CONTROLLED_ASCENT_INTERVAL_TICKS);
+    }
+
+    private void stopControlledAscent(BreakthroughSession session) {
+        if (session.ascentTask != null) {
+            session.ascentTask.cancel();
+            session.ascentTask = null;
+        }
+    }
+
+    private double getBreakthroughAscentBlocksPerTick() {
+        return Math.max(0.0D, plugin.getConfig().getDouble("breakthrough.ascent.blocks-per-tick", DEFAULT_ASCENT_BLOCKS_PER_TICK));
+    }
+
+    private double getBreakthroughAscentMaxHeight() {
+        return Math.max(0.0D, plugin.getConfig().getDouble("breakthrough.ascent.max-height", DEFAULT_ASCENT_MAX_HEIGHT));
+    }
+
+    static double calculateControlledAscentStep(int level, double blocksPerTick, long intervalTicks) {
+        double phaseMultiplier = 0.8D + (Math.max(1, level) * 0.08D);
+        return Math.max(0.0D, blocksPerTick) * Math.max(1L, intervalTicks) * phaseMultiplier;
+    }
+
+    static Location advanceBreakthroughLockLocation(Location locked, double deltaY, double maxY) {
+        Location advanced = locked.clone();
+        double cappedMaxY = Math.max(locked.getY(), maxY);
+        advanced.setY(Math.min(locked.getY() + Math.max(0.0D, deltaY), cappedMaxY));
+        return advanced;
+    }
+
+    private void updateBreakthroughLock(Player player, BreakthroughSession session, Location nextLock) {
+        boolean changed = hasPositionChanged(session.lockLocation, nextLock);
+        session.lockLocation = nextLock.clone();
+        movementLocks.put(session.playerId, session.lockLocation.clone());
+        if (changed) {
+            player.teleport(session.lockLocation);
+        }
+        player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+    }
+
+    private boolean hasPositionChanged(Location from, Location to) {
+        if (from == null || to == null) {
+            return true;
+        }
+        if (from.getWorld() == null || to.getWorld() == null || !from.getWorld().equals(to.getWorld())) {
+            return true;
+        }
+        return Math.abs(from.getX() - to.getX()) > 0.001
+                || Math.abs(from.getY() - to.getY()) > 0.001
+                || Math.abs(from.getZ() - to.getZ()) > 0.001;
     }
 
     /**
@@ -920,6 +1028,7 @@ public class BreakthroughManager implements Listener {
 
         UUID uuid = player.getUniqueId();
         activeSessions.remove(uuid);
+        stopControlledAscent(session);
         cleanupActiveBreakthroughMobs(session);
         if (session.isMajor) {
             // Major realm breakthrough success
@@ -1081,6 +1190,7 @@ public class BreakthroughManager implements Listener {
         if (session.stormTask != null) {
             session.stormTask.cancel();
         }
+        stopControlledAscent(session);
         // Remove all breakthrough effects
         cleanupBreakthroughEffects(player);
         cleanupActiveBreakthroughMobs(session);
@@ -1150,6 +1260,7 @@ public class BreakthroughManager implements Listener {
         if (session.stormTask != null) {
             session.stormTask.cancel();
         }
+        stopControlledAscent(session);
         if (session.activeAnimationTask != null) {
             session.activeAnimationTask.cancel();
         }
@@ -1390,6 +1501,8 @@ public class BreakthroughManager implements Listener {
 
         session.activeAnimationTask = new BukkitRunnable() {
             int ticks;
+            int ticksSinceMobSync;
+            boolean playedInitialAnimation;
 
             @Override
             public void run() {
@@ -1399,7 +1512,15 @@ public class BreakthroughManager implements Listener {
                 }
 
                 ticks += 2;
-                followPlayerWithActiveMobs(player, session);
+                if (!playedInitialAnimation) {
+                    playedInitialAnimation = true;
+                    replayActiveBreakthroughAnimation(session);
+                }
+                ticksSinceMobSync += 2;
+                if (ticksSinceMobSync >= ACTIVE_BREAKTHROUGH_MOB_SYNC_TICKS) {
+                    ticksSinceMobSync = 0;
+                    syncActiveBreakthroughMobs(session, session.lockLocation != null ? session.lockLocation : player.getLocation());
+                }
                 if (ticks >= ACTIVE_BREAKTHROUGH_ANIMATION_REPLAY_TICKS) {
                     ticks = 0;
                     replayActiveBreakthroughAnimation(session);
@@ -1409,14 +1530,17 @@ public class BreakthroughManager implements Listener {
         session.activeAnimationTask.runTaskTimer(plugin, 2L, 2L);
     }
 
-    private void followPlayerWithActiveMobs(Player player, BreakthroughSession session) {
-        Location loc = player.getLocation();
+    private void syncActiveBreakthroughMobs(BreakthroughSession session, Location loc) {
+        if (loc == null) {
+            return;
+        }
+
         for (ActiveMob activeMob : session.activeBreakthroughMobs) {
             try {
                 if (activeMob == null || activeMob.isDead()) continue;
 
                 org.bukkit.entity.Entity entity = BukkitAdapter.adapt(activeMob.getEntity());
-                if (entity != null && entity.isValid()) {
+                if (entity != null && entity.isValid() && shouldSyncBreakthroughMob(entity, loc)) {
                     entity.teleport(loc);
                 }
             } catch (Throwable t) {
@@ -1425,7 +1549,21 @@ public class BreakthroughManager implements Listener {
         }
     }
 
+    private boolean shouldSyncBreakthroughMob(org.bukkit.entity.Entity entity, Location loc) {
+        Location entityLocation = entity.getLocation();
+        if (entityLocation.getWorld() == null || loc.getWorld() == null || !entityLocation.getWorld().equals(loc.getWorld())) {
+            return true;
+        }
+        return entityLocation.distanceSquared(loc) > ACTIVE_BREAKTHROUGH_MOB_SYNC_DISTANCE_SQUARED;
+    }
+
     private void replayActiveBreakthroughAnimation(BreakthroughSession session) {
+        String animation = plugin.getConfig().getString(ACTIVE_BREAKTHROUGH_ANIMATION_KEY, "spawn");
+        if (animation == null || animation.trim().isEmpty() || animation.equalsIgnoreCase("none")) {
+            return;
+        }
+        final String animationName = animation.trim();
+
         for (ActiveMob activeMob : session.activeBreakthroughMobs) {
             try {
                 if (activeMob == null || activeMob.isDead()) continue;
@@ -1435,7 +1573,7 @@ public class BreakthroughManager implements Listener {
                 if (modeledEntity == null || modeledEntity.isDestroyed()) continue;
 
                 for (ActiveModel activeModel : modeledEntity.getModels().values()) {
-                    activeModel.getAnimationHandler().playAnimation("spawn", 0.1, 0.1, 1.0, true);
+                    activeModel.getAnimationHandler().playAnimation(animationName, 0.1, 0.1, 1.0, true);
                 }
             } catch (Throwable t) {
                 plugin.getLogger().warning("Failed to replay breakthrough ModelEngine animation: " + t.getMessage());
@@ -1586,18 +1724,13 @@ public class BreakthroughManager implements Listener {
     }
 
     static Location constrainBreakthroughMovement(Location locked, Location to) {
-        return constrainBreakthroughMovement(locked, to, true);
-    }
-
-    private static Location constrainBreakthroughMovement(Location locked, Location to, boolean allowVerticalMotion) {
         Location fixed = locked.clone();
-        fixed.setY(allowVerticalMotion ? to.getY() : locked.getY());
         fixed.setYaw(to.getYaw());
         fixed.setPitch(to.getPitch());
         return fixed;
     }
 
-    private boolean isLockedMovementAllowed(Location locked, Location to, boolean allowVerticalMotion) {
+    private boolean isLockedMovementAllowed(Location locked, Location to) {
         if (locked.getWorld() == null || to.getWorld() == null || !locked.getWorld().equals(to.getWorld())) {
             return false;
         }
@@ -1605,7 +1738,7 @@ public class BreakthroughManager implements Listener {
         boolean sameHorizontal = Math.abs(locked.getX() - to.getX()) < 0.001
                 && Math.abs(locked.getZ() - to.getZ()) < 0.001;
         boolean sameVertical = Math.abs(locked.getY() - to.getY()) < 0.001;
-        return sameHorizontal && (allowVerticalMotion || sameVertical);
+        return sameHorizontal && sameVertical;
     }
 
     // ==========================================
@@ -1620,19 +1753,13 @@ public class BreakthroughManager implements Listener {
             return;
         }
 
-        BreakthroughSession session = activeSessions.get(event.getPlayer().getUniqueId());
-        boolean allowVerticalMotion = session != null
-                && session.currentLevitationLevel > 0
-                && event.getPlayer().hasPotionEffect(PotionEffectType.LEVITATION);
-
-        if (isLockedMovementAllowed(locked, to, allowVerticalMotion)) {
+        if (isLockedMovementAllowed(locked, to)) {
             return;
         }
 
-        Location fixed = constrainBreakthroughMovement(locked, to, allowVerticalMotion);
+        Location fixed = constrainBreakthroughMovement(locked, to);
         event.setTo(fixed);
-        org.bukkit.util.Vector velocity = event.getPlayer().getVelocity();
-        event.getPlayer().setVelocity(new org.bukkit.util.Vector(0.0, velocity.getY(), 0.0));
+        event.getPlayer().setVelocity(new org.bukkit.util.Vector(0.0, 0.0, 0.0));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -1667,6 +1794,7 @@ public class BreakthroughManager implements Listener {
             if (session.stormTask != null) {
                 session.stormTask.cancel();
             }
+            stopControlledAscent(session);
             if (session.activeAnimationTask != null) {
                 session.activeAnimationTask.cancel();
             }

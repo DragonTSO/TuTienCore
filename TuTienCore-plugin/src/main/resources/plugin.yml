@@ -5,26 +5,26 @@ api-version: '1.21'
 depend: [TurtleCore, ProtocolLib, packetevents]
 softdepend: [PlaceholderAPI, Vault, PlayerPoints, LuckPerms, ModelEngine, MythicMobs, MMOCore, FancyHolograms, WorldGuard, SuperiorSkyblock2, TurtleIsland, TuTienLevel]
 loadbefore: [BetterteamsAddon, MMOItems]
-description: Tu Tien sitting mechanic and particles
+description: Cơ chế ngồi thiền tu luyện và hiệu ứng hạt Tu Tiên
 
 commands:
   ttc:
-    description: TuTienCore Main Command
+    description: Lệnh chính TuTienCore
     usage: /ttc
   tuluyen:
-    description: Vao trang thai ngoi thien tu luyen
+    description: Vào trạng thái ngồi thiền tu luyện
     usage: /tuluyen
     permission: tutiencore.use
   dotpha:
-    description: Mo menu dot pha canh gioi (Thien Loi Kiep)
+    description: Mở menu đột phá cảnh giới (Thiên Lôi Kiếp)
     usage: /dotpha
     permission: tutiencore.use
   canhgioi:
-    description: Mo menu canh gioi va quan ly canh gioi admin
+    description: Mở menu cảnh giới và quản lý cảnh giới admin
     usage: /canhgioi
     permission: tutiencore.use
   tuvi:
-    description: Quan ly Tu Vi nguoi choi
+    description: Quản lý Tu Vi người chơi
     usage: /tuvi set/add/take/reset/resetall <player> [amount]
     permission: tutiencore.admin
   nhapthan:
@@ -36,73 +36,73 @@ commands:
     usage: /luathan give <player> <type> <rarity>
     permission: tutiencore.use
   trangbi:
-    description: Mo menu trang bi Tu Tien
+    description: Mở menu trang bị Tu Tiên
     usage: /trangbi
     permission: tutiencore.use
   rankup:
-    description: Nang cap VIP rank bang Co thach
+    description: Nâng cấp VIP rank bằng Cổ thạch
     usage: /rankup [rank]
     permission: tutiencore.rankup
   thauthi:
-    description: Bat/tat Thau Thi de soi thong tin player dang nhin
+    description: Bật/tắt Thấu Thị để soi thông tin player đang nhìn
     usage: /thauthi
     permission: tutiencore.thauthi
 
 permissions:
   tutiencore.use:
-    description: Allows using /tuluyen and /dotpha
+    description: Cho phép dùng /tuluyen và /dotpha
     default: true
   tutiencore.admin:
-    description: Admin permission for TuTienCore
+    description: Quyền admin TuTienCore
     default: op
   tutiencore.rankup:
-    description: Allows using /rankup
+    description: Cho phép dùng /rankup
     default: true
   tutiencore.thauthi:
-    description: Allows using /thauthi
+    description: Cho phép dùng /thauthi
     default: false
   tutiencore.nhapthan.give:
-    description: Allows granting legacy Nhap Than to players
+    description: Cho phép cấp Nhập Thần cũ cho người chơi
     default: op
   tutiencore.luathan.give:
-    description: Allows granting Lua Than item stacks to players
+    description: Cho phép cấp stack vật phẩm Lửa Thần cho người chơi
     default: op
   tutiencore.tuluyen.vip:
-    description: Allows offline Tu Vi accumulation and claim GUI
+    description: Cho phép tích Tu Vi offline và mở GUI nhận thưởng
     default: false
   tutiencore.afk.bypass:
-    description: Bypass TuTienCore AFK kick
+    description: Bỏ qua kick AFK TuTienCore
     default: op
   tutiencore.vip.0:
-    description: TuTienCore VIP rank 0
+    description: Hạng VIP TuTienCore 0
     default: false
   tutiencore.vip.1:
-    description: TuTienCore VIP rank 1
+    description: Hạng VIP TuTienCore 1
     default: false
   tutiencore.vip.2:
-    description: TuTienCore VIP rank 2
+    description: Hạng VIP TuTienCore 2
     default: false
   tutiencore.vip.3:
-    description: TuTienCore VIP rank 3
+    description: Hạng VIP TuTienCore 3
     default: false
   tutiencore.vip.4:
-    description: TuTienCore VIP rank 4
+    description: Hạng VIP TuTienCore 4
     default: false
   tutiencore.vip.5:
-    description: TuTienCore VIP rank 5
+    description: Hạng VIP TuTienCore 5
     default: false
   tutiencore.vip.6:
-    description: TuTienCore VIP rank 6
+    description: Hạng VIP TuTienCore 6
     default: false
   tutiencore.vip.7:
-    description: TuTienCore VIP rank 7
+    description: Hạng VIP TuTienCore 7
     default: false
   tutiencore.vip.8:
-    description: TuTienCore VIP rank 8
+    description: Hạng VIP TuTienCore 8
     default: false
   tutiencore.vip.9:
-    description: TuTienCore VIP rank 9
+    description: Hạng VIP TuTienCore 9
     default: false
   tutiencore.vip.10:
-    description: TuTienCore VIP rank 10
+    description: Hạng VIP TuTienCore 10
     default: false

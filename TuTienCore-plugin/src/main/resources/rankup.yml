@@ -1,23 +1,23 @@
 rankup:
   enabled: true
   require-sequential: true
-  # true = VIP2 len VIP3 se giu buff VIP2 va cong them buff VIP3.
-  # false = chi giu buff cua rank moi nhat.
+  # true = VIP2 lên VIP3 sẽ giữ buff VIP2 và cộng thêm buff VIP3.
+  # false = chỉ giữ buff của rank mới nhất.
   stack-bonuses: true
-  # Alias cu de tuong thich config da tao truoc do.
+  # Alias cũ để tương thích config đã tạo trước đó.
   preserve-current-rank-perks: true
 
   broadcast:
     enabled: true
-    # true = lay format mac dinh tu plugins/TurtleBroadcast/config.yml neu file ton tai.
+    # true = lấy format mặc định từ plugins/TurtleBroadcast/config.yml nếu file tồn tại.
     use-turtlebroadcast-format: true
-    # De trong se tu dung plugins/TurtleBroadcast/config.yml.
-    # Co the set duong dan rieng, vi du: "TurtleBroadcast/config.yml" hoac duong dan absolute.
+    # Để trống sẽ tự dùng plugins/TurtleBroadcast/config.yml.
+    # Có thể set đường dẫn riêng, ví dụ: "TurtleBroadcast/config.yml" hoặc đường dẫn absolute.
     turtlebroadcast-config: ""
-    # -1 = dung line-delay-ticks cua TurtleBroadcast/default.
+    # -1 = dùng line-delay-ticks của TurtleBroadcast/default.
     line-delay-ticks: -1
-    # De rong tung dong thi se dung format cua TurtleBroadcast.
-    # Format ho tro {message}, {line-icon}, {first-line-icon}, {chained-line-icon}.
+    # Để rỗng từng dòng thì sẽ dùng format của TurtleBroadcast.
+    # Format hỗ trợ {message}, {line-icon}, {first-line-icon}, {chained-line-icon}.
     format:
       first-line-icon: ""
       chained-line-icon: ""

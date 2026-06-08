@@ -10,6 +10,7 @@ public class CuboidZone {
     private Location pos1;
     private Location pos2;
     private Location center;
+    private double tuViBonusPercent;
 
     public CuboidZone(String id, Location pos1, Location pos2) {
         this.id = id;
@@ -39,6 +40,7 @@ public class CuboidZone {
         map.put("pos1", pos1);
         map.put("pos2", pos2);
         map.put("center", center);
+        map.put("tuvi-bonus-percent", tuViBonusPercent);
         return map;
     }
 
@@ -46,9 +48,15 @@ public class CuboidZone {
         Location p1 = (Location) map.get("pos1");
         Location p2 = (Location) map.get("pos2");
         Location center = map.containsKey("center") ? (Location) map.get("center") : null;
+        double tuViBonusPercent = 0.0D;
+        Object rawBonus = map.get("tuvi-bonus-percent");
+        if (rawBonus instanceof Number number) {
+            tuViBonusPercent = number.doubleValue();
+        }
         
         CuboidZone zone = new CuboidZone(id, p1, p2);
         zone.setCenter(center);
+        zone.setTuViBonusPercent(tuViBonusPercent);
         return zone;
     }
 
@@ -70,5 +78,13 @@ public class CuboidZone {
 
     public void setCenter(Location center) {
         this.center = center;
+    }
+
+    public double getTuViBonusPercent() {
+        return tuViBonusPercent;
+    }
+
+    public void setTuViBonusPercent(double tuViBonusPercent) {
+        this.tuViBonusPercent = Math.max(0.0D, tuViBonusPercent);
     }
 }

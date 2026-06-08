@@ -7,6 +7,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
@@ -46,16 +47,25 @@ import java.util.UUID;
 
 public class FlySwordManager implements Listener {
 
+    private static final Map<String, String> DEFAULT_EQUIPPED_MODELS = Map.of(
+            "FLY_SWORD.THANH_PHONG_KIEM", "kiembay",
+            "FLY_SWORD.DINH_BA_KIEM", "kiembay_dinhba",
+            "FLY_SWORD.HA_CAM_KIEM", "kiembay_hacam",
+            "FLY_SWORD.NETHER_KIEM", "kiembay_nether"
+    );
+
     private final JavaPlugin plugin;
     private final Map<UUID, ArmorStand> flyingPlayers = new HashMap<>();
     private final Map<UUID, com.ticxo.modelengine.api.model.ActiveModel> flySwordModels = new HashMap<>();
     private final Map<UUID, String> flySwordAnimations = new HashMap<>();
+    private final Map<UUID, String> flySwordModelIds = new HashMap<>();
     private final Map<UUID, Location> lastFlySwordLocations = new HashMap<>();
     private final Map<UUID, Long> flightLockedUntil = new HashMap<>();
     private final Map<UUID, Long> flightLockMessageCooldowns = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
+    private EquipmentMenuManager equipmentMenuManager;
 
     private boolean enabled;
     private String modelId;
@@ -75,6 +85,8 @@ public class FlySwordManager implements Listener {
     private boolean autoFlightRequirePermission;
     private boolean autoFlightDisableOutsideWorld;
     private String autoFlightPermission;
+    private boolean equippedSwordEnabled;
+    private String equippedSwordSlot;
     private Set<String> autoFlightWorlds = new HashSet<>();
     private boolean combatLockEnabled;
     private long combatLockDurationMillis;
@@ -87,12 +99,21 @@ public class FlySwordManager implements Listener {
     private Set<String> combatLockCommandLabels = new HashSet<>();
 
     public FlySwordManager(JavaPlugin plugin) {
+        this(plugin, null);
+    }
+
+    public FlySwordManager(JavaPlugin plugin, EquipmentMenuManager equipmentMenuManager) {
         this.plugin = plugin;
+        this.equipmentMenuManager = equipmentMenuManager;
         this.dataFile = new File(plugin.getDataFolder(), "fly-swords.yml");
         loadData();
         loadConfig();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startFollowTask();
+    }
+
+    public void setEquipmentMenuManager(EquipmentMenuManager equipmentMenuManager) {
+        this.equipmentMenuManager = equipmentMenuManager;
     }
 
     public void loadConfig() {
@@ -114,6 +135,8 @@ public class FlySwordManager implements Listener {
         autoFlightRequirePermission = plugin.getConfig().getBoolean("fly-sword.auto-flight.require-permission", false);
         autoFlightPermission = plugin.getConfig().getString("fly-sword.auto-flight.permission", permission);
         autoFlightDisableOutsideWorld = plugin.getConfig().getBoolean("fly-sword.auto-flight.disable-outside-world", true);
+        equippedSwordEnabled = plugin.getConfig().getBoolean("fly-sword.equipped.enabled", true);
+        equippedSwordSlot = plugin.getConfig().getString("fly-sword.equipped.slot", "fly_sword");
         autoFlightWorlds = new HashSet<>();
         for (String world : plugin.getConfig().getStringList("fly-sword.auto-flight.worlds")) {
             if (world != null && !world.isBlank()) {
@@ -403,6 +426,7 @@ public class FlySwordManager implements Listener {
             modeledEntity.addModel(activeModel, true);
             flyingPlayers.put(player.getUniqueId(), stand);
             flySwordModels.put(player.getUniqueId(), activeModel);
+            flySwordModelIds.put(player.getUniqueId(), playerModelId);
             lastFlySwordLocations.put(player.getUniqueId(), player.getLocation().clone());
             updateSwordAnimation(player, false);
             updateSwordPosition(player, stand, player.getLocation());
@@ -416,6 +440,7 @@ public class FlySwordManager implements Listener {
         ArmorStand stand = flyingPlayers.remove(player.getUniqueId());
         flySwordModels.remove(player.getUniqueId());
         flySwordAnimations.remove(player.getUniqueId());
+        flySwordModelIds.remove(player.getUniqueId());
         lastFlySwordLocations.remove(player.getUniqueId());
         if (stand == null) return;
 
@@ -444,7 +469,19 @@ public class FlySwordManager implements Listener {
                     if (player == null || !player.isOnline() || !player.isFlying() || shouldHideWhileSpectator(player)
                             || stand == null || stand.isDead()) {
                         if (player != null) stop(player, false);
-                        else flyingPlayers.remove(uuid);
+                        else removeCachedSword(uuid);
+                        continue;
+                    }
+                    String desiredModel = getModelId(player);
+                    if (desiredModel == null || desiredModel.isBlank()) {
+                        stop(player, false);
+                        continue;
+                    }
+                    if (!desiredModel.equals(flySwordModelIds.get(uuid))) {
+                        stop(player, true);
+                        if (player.isOnline() && player.isFlying() && !shouldHideWhileSpectator(player)) {
+                            start(player);
+                        }
                         continue;
                     }
                     updateSwordPosition(player, stand, player.getLocation());
@@ -453,6 +490,14 @@ public class FlySwordManager implements Listener {
             }
         };
         followTask.runTaskTimer(plugin, 1L, 1L);
+    }
+
+    private void removeCachedSword(UUID uuid) {
+        flyingPlayers.remove(uuid);
+        flySwordModels.remove(uuid);
+        flySwordAnimations.remove(uuid);
+        flySwordModelIds.remove(uuid);
+        lastFlySwordLocations.remove(uuid);
     }
 
     private void updateSwordPosition(Player player, ArmorStand stand, Location baseLocation) {
@@ -722,7 +767,52 @@ public class FlySwordManager implements Listener {
 
     private String getModelId(Player player) {
         int level = getLevel(player.getUniqueId());
-        return plugin.getConfig().getString("fly-sword.evolution.levels." + level + ".model", modelId);
+        EquipmentMenuManager.EquippedMmoItem equippedItem = getEquippedSword(player);
+        String equippedType = equippedItem == null ? null : equippedItem.type();
+        String equippedId = equippedItem == null ? null : equippedItem.id();
+        return resolveModelId(plugin.getConfig(), modelId, level, equippedType, equippedId);
+    }
+
+    private EquipmentMenuManager.EquippedMmoItem getEquippedSword(Player player) {
+        if (!equippedSwordEnabled || equipmentMenuManager == null || equippedSwordSlot == null || equippedSwordSlot.isBlank()) {
+            return null;
+        }
+        return equipmentMenuManager.getEquippedMmoItem(player, equippedSwordSlot);
+    }
+
+    static String resolveModelId(FileConfiguration config, String defaultModel, int level, String equippedType, String equippedId) {
+        String equippedModel = resolveEquippedModelId(config, equippedType, equippedId);
+        if (equippedModel != null && !equippedModel.isBlank()) {
+            return equippedModel;
+        }
+
+        String levelModel = config.getString("fly-sword.evolution.levels." + level + ".model", defaultModel);
+        return levelModel == null || levelModel.isBlank() ? defaultModel : levelModel;
+    }
+
+    private static String resolveEquippedModelId(FileConfiguration config, String equippedType, String equippedId) {
+        if (config == null || !config.getBoolean("fly-sword.equipped.enabled", true)) {
+            return null;
+        }
+        String type = normalizeKey(equippedType);
+        String id = normalizeKey(equippedId);
+        if (type.isBlank() || id.isBlank()) {
+            return null;
+        }
+
+        String path = "fly-sword.equipped.models." + type + "." + id;
+        String model = config.getString(path + ".model");
+        if (model == null || model.isBlank()) {
+            model = config.getString(path);
+        }
+        if (model == null || model.isBlank()) {
+            model = DEFAULT_EQUIPPED_MODELS.get(type + "." + id);
+        }
+        return model == null || model.isBlank() ? null : model;
+    }
+
+    private static String normalizeKey(String value) {
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
     }
 
     private EvolutionTarget nextEvolution(int currentLevel) {

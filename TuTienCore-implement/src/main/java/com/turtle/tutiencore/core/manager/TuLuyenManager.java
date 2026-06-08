@@ -10,6 +10,7 @@ import com.turtle.tutiencore.api.event.TuViGainEvent;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import com.turtle.tutiencore.core.model.CuboidZone;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -22,6 +23,7 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -49,9 +51,21 @@ public class TuLuyenManager implements Listener {
     private static final long TICKS_PER_SECOND = 20L;
     private static final long TULUYEN_QUEST_TRIGGER_TICKS = 30L * 60L * TICKS_PER_SECOND;
     private static final String TULUYEN_QUEST_TRIGGER_NAME = "daily_tuluyen_30m";
+    private static final String FLY_SWORD_TYPE = "FLY_SWORD";
+    private static final String FLY_SWORD_BUFF_PATH = "fly-sword.tuvi-buffs";
+    private static final String DEFAULT_FLY_SWORD_SLOT = "fly_sword";
+    private static final FlySwordTuViBuff NO_FLY_SWORD_BUFF =
+            new FlySwordTuViBuff(0.0D, 0.0D, false, 0.0D, false);
+    private static final Map<String, FlySwordTuViBuff> DEFAULT_FLY_SWORD_BUFFS = Map.of(
+            "FLY_SWORD.THANH_PHONG_KIEM", new FlySwordTuViBuff(50.0D, 0.0D, false, 0.0D, false),
+            "FLY_SWORD.DINH_BA_KIEM", new FlySwordTuViBuff(75.0D, 0.0D, true, 25.0D, false),
+            "FLY_SWORD.HA_CAM_KIEM", new FlySwordTuViBuff(100.0D, 30.0D, false, 0.0D, false),
+            "FLY_SWORD.NETHER_KIEM", new FlySwordTuViBuff(150.0D, 0.0D, false, 0.0D, true)
+    );
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
+    private final ZoneManager zoneManager;
     private final TuLuyenParticleTask lineTask;
     private final RealmManager realmManager;
     private final InfusionManager infusionManager;
@@ -63,6 +77,7 @@ public class TuLuyenManager implements Listener {
     private final Map<UUID, BossBar> bossBars = new HashMap<>();
     private final Map<UUID, Object> holograms = new HashMap<>();
     private final Map<UUID, Long> sessionTicks = new HashMap<>();
+    private final Map<UUID, Long> autoFlySwordTicks = new HashMap<>();
     private final Map<UUID, Long> capWarningTimes = new HashMap<>();
     private BukkitRunnable task;
 
@@ -70,6 +85,7 @@ public class TuLuyenManager implements Listener {
                           RealmManager realmManager, InfusionManager infusionManager, EquipmentMenuManager equipmentMenuManager) {
         this.plugin = plugin;
         this.configManager = config;
+        this.zoneManager = zoneManager;
         this.lineTask = lineTask;
         this.realmManager = realmManager;
         this.infusionManager = infusionManager;
@@ -92,14 +108,15 @@ public class TuLuyenManager implements Listener {
                     }
 
                     long tick = sessionTicks.merge(player.getUniqueId(), 1L, Long::sum);
+                    int effectiveInterval = getEffectiveTuLuyenInterval(player);
                     TuLuyenReward previewReward = calculateReward(player, false);
-                    updateVisuals(player, previewReward, tick);
+                    updateVisuals(player, previewReward, tick, effectiveInterval);
 
                     if (shouldTriggerTuLuyenQuestMilestone(tick, TULUYEN_QUEST_TRIGGER_TICKS)) {
                         triggerTuLuyenQuestObjective(player);
                     }
 
-                    if (tick % Math.max(1, configManager.getTuLuyenInterval()) != 0) {
+                    if (tick % effectiveInterval != 0) {
                         continue;
                     }
 
@@ -154,6 +171,7 @@ public class TuLuyenManager implements Listener {
                                 net.md_5.bungee.api.chat.TextComponent.fromLegacyText(msg));
                     }
                 }
+                processAutoFlySwordCultivation();
             }
         };
         task.runTaskTimer(plugin, 1L, 1L);
@@ -169,6 +187,7 @@ public class TuLuyenManager implements Listener {
         }
         tuLuyenPlayers.clear();
         sessionTicks.clear();
+        autoFlySwordTicks.clear();
         capWarningTimes.clear();
         for (UUID uuid : new ArrayList<>(bossBars.keySet())) {
             clearVisuals(uuid);
@@ -243,6 +262,7 @@ public class TuLuyenManager implements Listener {
     public void stopTuLuyen(Player player) {
         ArmorStand stand = tuLuyenPlayers.remove(player.getUniqueId());
         sessionTicks.remove(player.getUniqueId());
+        autoFlySwordTicks.remove(player.getUniqueId());
         capWarningTimes.remove(player.getUniqueId());
         clearVisuals(player.getUniqueId());
         if (stand != null) {
@@ -309,6 +329,7 @@ public class TuLuyenManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        autoFlySwordTicks.remove(event.getPlayer().getUniqueId());
         if (isTuLuyen(event.getPlayer())) {
             stopTuLuyen(event.getPlayer());
         }
@@ -384,7 +405,9 @@ public class TuLuyenManager implements Listener {
         double permissionBonus = getTuViBonus(player);
         double islandBonus = getTurtleIslandCultivationBonusPercent(player);
         double equipmentBonus = getEquipmentTuViBonus(player);
-        double bonus = permissionBonus + islandBonus + equipmentBonus;
+        FlySwordTuViBuff flySwordBuff = getEquippedFlySwordBuff(player);
+        double flySwordBonus = flySwordBuff.tuViBonusPercent();
+        double bonus = permissionBonus + islandBonus + equipmentBonus + flySwordBonus;
         double environmentBonus = getEnvironmentBonus(player);
         double infusionBonus = getInfusionTuViBonus(player);
         boolean islandEligible = rollLightning && isTurtleIslandCultivationEligible(player, islandBonus);
@@ -394,9 +417,11 @@ public class TuLuyenManager implements Listener {
                 configManager.getLightningBonusChancePercent(), configManager.getLightningBonusMultiplier(),
                 ThreadLocalRandom.current().nextDouble(100.0))
                 : new LightningBonusResult(totalPoints, false);
-        double cappedPoints = getCappedTuViReward(player, lightning.points());
+        double completionPoints = applyFlySwordCompletionBonus(lightning.points(), flySwordBuff.completionBonusPercent());
+        double cappedPoints = getCappedTuViReward(player, completionPoints);
         return new TuLuyenReward(basePoints, permissionBonus, islandBonus, bonus, environmentBonus,
-                infusionBonus, equipmentBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
+                infusionBonus, equipmentBonus, flySwordBonus, flySwordBuff.completionBonusPercent(),
+                cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
     }
 
     private double getEquipmentTuViBonus(Player player) {
@@ -404,6 +429,96 @@ public class TuLuyenManager implements Listener {
             return 0.0D;
         }
         return Math.max(0.0D, equipmentMenuManager.getEquippedSystemStatBonus(player, EquipmentMenuManager.DAN_DUOC_TU_VI_BONUS_STAT));
+    }
+
+    private FlySwordTuViBuff getEquippedFlySwordBuff(Player player) {
+        if (equipmentMenuManager == null || player == null || !plugin.getConfig().getBoolean(FLY_SWORD_BUFF_PATH + ".enabled", true)) {
+            return NO_FLY_SWORD_BUFF;
+        }
+
+        String slot = plugin.getConfig().getString(FLY_SWORD_BUFF_PATH + ".slot",
+                plugin.getConfig().getString("fly-sword.equipped.slot", DEFAULT_FLY_SWORD_SLOT));
+        EquipmentMenuManager.EquippedMmoItem equippedItem = equipmentMenuManager.getEquippedMmoItem(player, slot);
+        if (equippedItem == null) {
+            return NO_FLY_SWORD_BUFF;
+        }
+        return resolveFlySwordBuff(plugin.getConfig(), equippedItem.type(), equippedItem.id());
+    }
+
+    static double resolveFlySwordTuViBonusPercent(FileConfiguration config, String type, String id) {
+        return resolveFlySwordBuff(config, type, id).tuViBonusPercent();
+    }
+
+    private static FlySwordTuViBuff resolveFlySwordBuff(FileConfiguration config, String type, String id) {
+        String normalizedType = normalizeMmoKey(type);
+        String normalizedId = normalizeMmoKey(id);
+        if (!FLY_SWORD_TYPE.equals(normalizedType) || normalizedId.isBlank()) {
+            return NO_FLY_SWORD_BUFF;
+        }
+
+        String key = normalizedType + "." + normalizedId;
+        FlySwordTuViBuff defaultBuff = DEFAULT_FLY_SWORD_BUFFS.getOrDefault(key, NO_FLY_SWORD_BUFF);
+        if (config == null || !config.getBoolean(FLY_SWORD_BUFF_PATH + ".enabled", true)) {
+            return NO_FLY_SWORD_BUFF;
+        }
+
+        String path = FLY_SWORD_BUFF_PATH + ".swords." + normalizedType + "." + normalizedId;
+        double tuViBonusPercent = Math.max(0.0D,
+                config.getDouble(path + ".tuvi-bonus-percent", defaultBuff.tuViBonusPercent()));
+        double completionBonusPercent = Math.max(0.0D,
+                config.getDouble(path + ".completion-bonus-percent", defaultBuff.completionBonusPercent()));
+        boolean weatherSpeedEnabled = config.getBoolean(path + ".weather-speed.enabled", defaultBuff.weatherSpeedEnabled());
+        double weatherSpeedReductionPercent = Math.max(0.0D, config.getDouble(path + ".weather-speed.interval-reduction-percent",
+                config.getDouble(FLY_SWORD_BUFF_PATH + ".weather-speed.interval-reduction-percent",
+                        defaultBuff.weatherSpeedReductionPercent())));
+        boolean autoTuLuyenEnabled = config.getBoolean(path + ".auto-tu-luyen.enabled", defaultBuff.autoTuLuyenEnabled());
+
+        return new FlySwordTuViBuff(tuViBonusPercent, completionBonusPercent, weatherSpeedEnabled,
+                weatherSpeedReductionPercent, autoTuLuyenEnabled);
+    }
+
+    private static String normalizeMmoKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim()
+                .toUpperCase(Locale.ROOT)
+                .replace('-', '_')
+                .replace(' ', '_');
+    }
+
+    private int getEffectiveTuLuyenInterval(Player player) {
+        int baseInterval = Math.max(1, configManager.getTuLuyenInterval());
+        FlySwordTuViBuff buff = getEquippedFlySwordBuff(player);
+        if (!buff.weatherSpeedEnabled()) {
+            return baseInterval;
+        }
+        return resolveWeatherSpeedInterval(baseInterval, buff.weatherSpeedReductionPercent(), isFlySwordWeatherSpeedActive(player));
+    }
+
+    static int resolveWeatherSpeedInterval(int baseInterval, double reductionPercent, boolean active) {
+        int safeBaseInterval = Math.max(1, baseInterval);
+        if (!active || reductionPercent <= 0.0D) {
+            return safeBaseInterval;
+        }
+        double multiplier = Math.max(0.0D, 1.0D - Math.min(100.0D, reductionPercent) / 100.0D);
+        return Math.max(1, (int) Math.round(safeBaseInterval * multiplier));
+    }
+
+    private boolean isFlySwordWeatherSpeedActive(Player player) {
+        if (player == null || player.getWorld() == null) {
+            return false;
+        }
+        boolean includeThunder = plugin.getConfig().getBoolean(FLY_SWORD_BUFF_PATH + ".weather-speed.include-thunder", true);
+        boolean includeRain = plugin.getConfig().getBoolean(FLY_SWORD_BUFF_PATH + ".weather-speed.include-rain", true);
+        return (includeThunder && player.getWorld().isThundering()) || (includeRain && player.getWorld().hasStorm());
+    }
+
+    static double applyFlySwordCompletionBonus(double totalReward, double completionBonusPercent) {
+        if (totalReward <= 0.0D || completionBonusPercent <= 0.0D) {
+            return totalReward;
+        }
+        return totalReward * (1.0D + completionBonusPercent / 100.0D);
     }
 
     private double getInfusionTuViBonus(Player player) {
@@ -437,6 +552,80 @@ public class TuLuyenManager implements Listener {
         TuViGainEvent event = createTuLuyenGainEvent(player, amount);
         event.setExternalBonusIncluded(externalBonusIncluded);
         return event;
+    }
+
+    private void processAutoFlySwordCultivation() {
+        if (!plugin.getConfig().getBoolean(FLY_SWORD_BUFF_PATH + ".enabled", true)) {
+            autoFlySwordTicks.clear();
+            return;
+        }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            processAutoFlySwordCultivation(player);
+        }
+    }
+
+    private void processAutoFlySwordCultivation(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!player.isOnline() || isTuLuyen(player) || shouldSuppressCinematicUi(player)) {
+            autoFlySwordTicks.remove(uuid);
+            return;
+        }
+
+        FlySwordTuViBuff buff = getEquippedFlySwordBuff(player);
+        if (!buff.autoTuLuyenEnabled()) {
+            autoFlySwordTicks.remove(uuid);
+            return;
+        }
+
+        long tick = autoFlySwordTicks.merge(uuid, 1L, Long::sum);
+        int interval = getFlySwordAutoIntervalTicks();
+        if (tick % interval != 0L) {
+            return;
+        }
+
+        double reward = configManager.rollPointsPerInterval() * (1.0D + buff.tuViBonusPercent() / 100.0D);
+        TuViGainEvent event = createFlySwordAutoGainEvent(player, reward);
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled() || event.getAmount() <= 0.0D) {
+            return;
+        }
+
+        double finalAmount = getCappedTuViReward(player, event.getAmount());
+        if (finalAmount <= 0.0D) {
+            if (isAtTuViCap(player)) {
+                warnTuViCapReached(player);
+            }
+            return;
+        }
+
+        TuTien.getApi().addTuVi(uuid, finalAmount);
+        sendFlySwordAutoActionBar(player, finalAmount);
+    }
+
+    private int getFlySwordAutoIntervalTicks() {
+        return Math.max(1, plugin.getConfig().getInt(FLY_SWORD_BUFF_PATH + ".auto-tu-luyen.interval-ticks",
+                configManager.getTuLuyenInterval()));
+    }
+
+    private static TuViGainEvent createFlySwordAutoGainEvent(Player player, double amount) {
+        return new TuViGainEvent(player, amount, "fly_sword_auto");
+    }
+
+    private void sendFlySwordAutoActionBar(Player player, double amount) {
+        if (!plugin.getConfig().getBoolean(FLY_SWORD_BUFF_PATH + ".auto-tu-luyen.actionbar.enabled", true)) {
+            return;
+        }
+
+        String format = plugin.getConfig().getString(FLY_SWORD_BUFF_PATH + ".auto-tu-luyen.actionbar.format",
+                "&8[&cU Minh Huyet Kiem&8] &7Tu luyen: &a+{points} Tu Vi");
+        String message = ChatColor.translateAlternateColorCodes('&',
+                format.replace("{points}", formatNumber(amount)));
+        if (actionBarSuppressor != null) {
+            actionBarSuppressor.allowNextActionBar(player);
+        }
+        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
     }
 
     static boolean shouldTriggerTuLuyenQuestMilestone(long tick, long milestoneTicks) {
@@ -586,7 +775,22 @@ public class TuLuyenManager implements Listener {
     private double getEnvironmentBonus(Player player) {
         double worldBonus = plugin.getConfig().getDouble("tu-luyen.environment-bonus.worlds." + player.getWorld().getName(), 0.0);
         double regionBonus = getWorldGuardRegionBonus(player);
-        return worldBonus + regionBonus;
+        double zoneBonus = getAfkZoneTuViBonus(player);
+        return worldBonus + regionBonus + zoneBonus;
+    }
+
+    private double getAfkZoneTuViBonus(Player player) {
+        if (zoneManager == null || player == null) {
+            return 0.0D;
+        }
+        return resolveAfkZoneTuViBonus(zoneManager.getZoneAt(player.getLocation()));
+    }
+
+    static double resolveAfkZoneTuViBonus(CuboidZone zone) {
+        if (zone == null) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, zone.getTuViBonusPercent());
     }
 
     private double getWorldGuardRegionBonus(Player player) {
@@ -633,12 +837,13 @@ public class TuLuyenManager implements Listener {
             createFancyHologram(player);
         }
 
-            updateVisuals(player, calculateReward(player, false), 0L);
+            updateVisuals(player, calculateReward(player, false), 0L, getEffectiveTuLuyenInterval(player));
     }
 
-    private void updateVisuals(Player player, TuLuyenReward reward, long tick) {
+    private void updateVisuals(Player player, TuLuyenReward reward, long tick, int intervalTicks) {
         UUID uuid = player.getUniqueId();
-        double progress = (tick % Math.max(1, configManager.getTuLuyenInterval())) / (double) Math.max(1, configManager.getTuLuyenInterval());
+        int effectiveIntervalTicks = Math.max(1, intervalTicks);
+        double progress = (tick % effectiveIntervalTicks) / (double) effectiveIntervalTicks;
 
         BossBar bossBar = bossBars.get(uuid);
         if (bossBar != null) {
@@ -958,7 +1163,7 @@ public class TuLuyenManager implements Listener {
                                           boolean translateColors) {
         double bonusPercent = permissionBonusPercent + islandBonusPercent;
         TuLuyenReward reward = new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent,
-                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, totalPoints, false,
+                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, 0.0D, 0.0D, totalPoints, false,
                 islandBonusPercent > 0.0D, islandBonusPercent > 0.0D);
         String result = applyRewardPlaceholdersRaw(text, reward);
         return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
@@ -987,6 +1192,10 @@ public class TuLuyenManager implements Listener {
                 .replace("{tienphu_bonus}", formatPercent(reward.islandBonusPercent))
                 .replace("{dan_duoc_bonus}", formatPercent(reward.equipmentBonusPercent))
                 .replace("{danduoc_bonus}", formatPercent(reward.equipmentBonusPercent))
+                .replace("{phi_kiem_bonus}", formatPercent(reward.flySwordBonusPercent))
+                .replace("{phikiem_bonus}", formatPercent(reward.flySwordBonusPercent))
+                .replace("{fly_sword_bonus}", formatPercent(reward.flySwordBonusPercent))
+                .replace("{fly_sword_completion_bonus}", formatPercent(reward.flySwordCompletionBonusPercent))
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
                 .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
                 .replace("{total}", formatNumber(reward.totalPoints));
@@ -1060,6 +1269,8 @@ public class TuLuyenManager implements Listener {
         private final double environmentBonusPercent;
         private final double infusionBonusPercent;
         private final double equipmentBonusPercent;
+        private final double flySwordBonusPercent;
+        private final double flySwordCompletionBonusPercent;
         private final double totalPoints;
         private final boolean lightningTriggered;
         private final boolean externalBonusIncluded;
@@ -1067,7 +1278,8 @@ public class TuLuyenManager implements Listener {
 
         private TuLuyenReward(double basePoints, double permissionBonusPercent, double islandBonusPercent,
                               double bonusPercent, double environmentBonusPercent, double infusionBonusPercent,
-                              double equipmentBonusPercent, double totalPoints,
+                              double equipmentBonusPercent, double flySwordBonusPercent,
+                              double flySwordCompletionBonusPercent, double totalPoints,
                               boolean lightningTriggered, boolean externalBonusIncluded, boolean turtleIslandEligible) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
@@ -1076,11 +1288,18 @@ public class TuLuyenManager implements Listener {
             this.environmentBonusPercent = environmentBonusPercent;
             this.infusionBonusPercent = infusionBonusPercent;
             this.equipmentBonusPercent = equipmentBonusPercent;
+            this.flySwordBonusPercent = flySwordBonusPercent;
+            this.flySwordCompletionBonusPercent = flySwordCompletionBonusPercent;
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
             this.externalBonusIncluded = externalBonusIncluded;
             this.turtleIslandEligible = turtleIslandEligible;
         }
+    }
+
+    private record FlySwordTuViBuff(double tuViBonusPercent, double completionBonusPercent,
+                                    boolean weatherSpeedEnabled, double weatherSpeedReductionPercent,
+                                    boolean autoTuLuyenEnabled) {
     }
 
     record LightningBonusResult(double points, boolean triggered) {

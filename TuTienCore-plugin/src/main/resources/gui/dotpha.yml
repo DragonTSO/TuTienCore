@@ -1,10 +1,10 @@
 # ==========================================
 # TuTienCore - /dotpha GUI Configuration
 # ==========================================
-# Lore va ten item nen sua o file nay, code chi cap nhat placeholder/trang thai.
-# Ho tro mau &: &a, &c, &l...
-# Ho tro PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
-# Placeholder noi bo:
+# Lore và tên item nên sửa ở file này, code chỉ cập nhật placeholder/trạng thái.
+# Hỗ trợ màu &: &a, &c, &l...
+# Hỗ trợ PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
+# Placeholder nội bộ:
 # {realm}, {realm_name}, {realm_display}, {realm_tier}, {sub_realm}
 # {next_realm}, {next_sub_realm}, {next_target}, {breakthrough_type}, {breakthrough_target}
 # {tuvi}, {tuvi_required}, {next_tuvi_required}, {thuc_luc}, {thuc_luc_required}

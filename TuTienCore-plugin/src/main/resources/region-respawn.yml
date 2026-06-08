@@ -87,9 +87,9 @@ death-tips:
     billboard: FIXED
     transform: HEAD
   cinematic-text:
-    # TextDisplay rieng cua TuTienCore, bay truoc camera player nhu title/subtitle.
+    # TextDisplay riêng của TuTienCore, bay trước camera player như title/subtitle.
     enabled: true
-    title: "&c&lTrang bi chua du manh"
+    title: "&c&lTrang bị chưa đủ mạnh"
     subtitle: "&7%tip%"
     duration-ticks: 80
     update-interval-ticks: 1
@@ -99,10 +99,13 @@ death-tips:
     subtitle-start-y-offset: -0.60
     subtitle-end-y-offset: -0.28
     fade-delay-ticks: 10
-    # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
+    # Thời gian fade mất sau khi hết fade-delay-ticks.
+    duration-ticks: 80
+    update-interval-ticks: 1
+    # true = bám trực tiếp theo tầm nhìn/crosshair hiện tại của player.
     follow-player-camera: true
     distance: 2.4
-    y-offset: -2
+    y-offset: -0.05
     rise-distance: 0.55
     start-scale: 0.9
     # Scale cố định của subtitle trong lúc đang hiển thị.
@@ -117,19 +120,19 @@ death-tips:
     see-through: true
     background-alpha: 0
     screen-background:
-      # TextDisplay rieng nam phia sau title/subtitle, dung nhu nen ao truoc man hinh player.
+      # TextDisplay riêng nằm phía sau title/subtitle, dùng như nền ảo trước màn hình player.
       enabled: true
-      # Neu bo trong, plugin se tu tao text trong suot bang columns/rows de day nen TextDisplay.
+      # Nếu bỏ trống, plugin sẽ tự tạo text trong suốt bằng columns/rows để đẩy nền TextDisplay.
       # text: ""
       columns: 80
       rows: 18
-      # Tang distance-offset de nen nam sau title/subtitle, giam neu bi qua xa camera.
+      # Tăng distance-offset để nền nằm sau title/subtitle, giảm nếu bị quá xa camera.
       distance-offset: 0.08
       y-offset: 0.0
       scale: 1.0
-      # Do mo nen: 0 = trong suot, 255 = kin.
+      # Độ mờ nền: 0 = trong suốt, 255 = kín.
       alpha: 95
-      # 0 = an chu nen, chi hien mau background cua TextDisplay.
+      # 0 = ẩn chữ nền, chỉ hiện màu background của TextDisplay.
       text-opacity: 0
       line-width: 2000
       shadow: false
@@ -141,7 +144,7 @@ death-tips:
     # Camera target là Villager tàng hình/silent/no-ai để spectator bám ổn hơn ArmorStand.
     y-offset: 0.0
   start-title:
-    # Title hien ngay khi player vua chet / bat dau cinematic.
+    # Title hiện ngay khi player vừa chết / bắt đầu cinematic.
     enabled: true
     title: "&c&lTrang bị chưa đủ mạnh"
     subtitle: "&7%tip%"
@@ -149,10 +152,10 @@ death-tips:
     stay: 70
     fade-out: 15
   end-title:
-    # Title hien sau khi cinematic chet ket thuc va player duoc restore.
+    # Title hiện sau khi cinematic chết kết thúc và player được restore.
     enabled: true
-    title: "&a&lDa hoi sinh"
-    subtitle: "&7Hay nang cap trang bi roi quay lai."
+    title: "&a&lĐã hồi sinh"
+    subtitle: "&7Hãy nâng cấp trang bị rồi quay lại."
     delay-ticks: 0
     fade-in: 5
     stay: 40

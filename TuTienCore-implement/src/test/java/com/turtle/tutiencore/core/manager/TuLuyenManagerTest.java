@@ -4,10 +4,12 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 
 import org.bukkit.Color;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 import com.turtle.tutiencore.api.event.TuViGainEvent;
+import com.turtle.tutiencore.core.model.CuboidZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,6 +74,43 @@ class TuLuyenManagerTest {
                         13.8,
                         false
                 ));
+    }
+
+    @Test
+    void resolvesFlySwordTuViBonusFromConfiguredMmoItem() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("fly-sword.tuvi-buffs.enabled", true);
+        config.set("fly-sword.tuvi-buffs.swords.FLY_SWORD.THANH_PHONG_KIEM.tuvi-bonus-percent", 50.0);
+        config.set("fly-sword.tuvi-buffs.swords.FLY_SWORD.DINH_BA_KIEM.tuvi-bonus-percent", 75.0);
+        config.set("fly-sword.tuvi-buffs.swords.FLY_SWORD.HA_CAM_KIEM.tuvi-bonus-percent", 100.0);
+        config.set("fly-sword.tuvi-buffs.swords.FLY_SWORD.NETHER_KIEM.tuvi-bonus-percent", 150.0);
+
+        assertEquals(50.0, TuLuyenManager.resolveFlySwordTuViBonusPercent(config, "fly-sword", "thanh phong kiem"));
+        assertEquals(75.0, TuLuyenManager.resolveFlySwordTuViBonusPercent(config, "FLY_SWORD", "DINH_BA_KIEM"));
+        assertEquals(100.0, TuLuyenManager.resolveFlySwordTuViBonusPercent(config, "FLY_SWORD", "HA-CAM-KIEM"));
+        assertEquals(150.0, TuLuyenManager.resolveFlySwordTuViBonusPercent(config, "FLY_SWORD", "NETHER_KIEM"));
+    }
+
+    @Test
+    void resolvesWeatherSpeedIntervalOnlyWhenActive() {
+        assertEquals(75, TuLuyenManager.resolveWeatherSpeedInterval(100, 25.0, true));
+        assertEquals(100, TuLuyenManager.resolveWeatherSpeedInterval(100, 25.0, false));
+        assertEquals(1, TuLuyenManager.resolveWeatherSpeedInterval(2, 90.0, true));
+    }
+
+    @Test
+    void appliesHaCamCompletionBonusAfterTotalReward() {
+        assertEquals(260.0, TuLuyenManager.applyFlySwordCompletionBonus(200.0, 30.0));
+        assertEquals(200.0, TuLuyenManager.applyFlySwordCompletionBonus(200.0, 0.0));
+    }
+
+    @Test
+    void resolvesAfkZoneTuViBonusFromZone() {
+        CuboidZone zone = new CuboidZone("afk", null, null);
+        zone.setTuViBonusPercent(25.0D);
+
+        assertEquals(25.0D, TuLuyenManager.resolveAfkZoneTuViBonus(zone));
+        assertEquals(0.0D, TuLuyenManager.resolveAfkZoneTuViBonus(null));
     }
 
     @Test
