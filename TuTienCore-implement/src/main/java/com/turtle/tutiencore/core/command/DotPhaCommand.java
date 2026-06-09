@@ -51,6 +51,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
     private FileConfiguration guiConfig;
     private String guiTitle;
     private String confirmGuiTitle;
+    private String dotPhaDanLoreFormat;
 
     // Track which players have the GUI open
     private final Set<UUID> openGuis = new HashSet<>();
@@ -93,6 +94,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         guiConfig = YamlConfiguration.loadConfiguration(file);
         guiTitle = color(guiConfig.getString("main-menu.title", "&5&l⚡ Đột Phá Cảnh Giới ⚡"));
         confirmGuiTitle = color(guiConfig.getString("confirm-menu.title", "&c&l⚡ XÁC NHẬN ĐỘT PHÁ ⚡"));
+        dotPhaDanLoreFormat = plugin.getConfig().getString("placeholders.dot-pha-dan-lore-format", " {status} &7Đột Phá Đan: &b{have} &7/ &e{required}");
     }
 
     @Override
@@ -220,7 +222,11 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 
                 String emptyDotPhaDanLore = plugin.getConfig().getString("placeholders.dot-pha-dan-empty-lore", "{_REMOVE_LINE_}");
                 if (dotPhaDanAmount > 0) {
-                    placeholders.put("{dot_pha_dan_lore}", " " + status(dotPhaDanOk) + " &7Đột Phá Đan: &b" + dotPhaDanHave + " &7/ &e" + dotPhaDanAmount);
+                    String lore = dotPhaDanLoreFormat
+                            .replace("{status}", status(dotPhaDanOk))
+                            .replace("{have}", String.valueOf(dotPhaDanHave))
+                            .replace("{required}", String.valueOf(dotPhaDanAmount));
+                    placeholders.put("{dot_pha_dan_lore}", lore);
                 } else {
                     placeholders.put("{dot_pha_dan_lore}", emptyDotPhaDanLore);
                 }
@@ -283,7 +289,11 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             
             String emptyDotPhaDanLore = plugin.getConfig().getString("placeholders.dot-pha-dan-empty-lore", "{_REMOVE_LINE_}");
             if (dotPhaDanAmount > 0) {
-                placeholders.put("{dot_pha_dan_lore}", " " + status(dotPhaDanOk) + " &7Đột Phá Đan: &b" + dotPhaDanHave + " &7/ &e" + dotPhaDanAmount);
+                String lore = dotPhaDanLoreFormat
+                        .replace("{status}", status(dotPhaDanOk))
+                        .replace("{have}", String.valueOf(dotPhaDanHave))
+                        .replace("{required}", String.valueOf(dotPhaDanAmount));
+                placeholders.put("{dot_pha_dan_lore}", lore);
             } else {
                 placeholders.put("{dot_pha_dan_lore}", emptyDotPhaDanLore);
             }

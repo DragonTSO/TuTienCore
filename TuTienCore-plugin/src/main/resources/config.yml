@@ -365,6 +365,17 @@ placeholders:
     # Placeholder hỗ trợ: {value} = số Tu Vi cần, đã format dấu phẩy.
     display-name: "{value}"
 
+  # Định dạng dòng lore của Đột Phá Đan trong Menu Đột Phá
+  # Hỗ trợ placeholder: {status}, {have}, {required}
+  dot-pha-dan-lore-format: " {status} &7Đột Phá Đan: &b{have} &7/ &e{required}"
+  dot-pha-dan-empty-lore: "{_REMOVE_LINE_}"
+
+  # Định dạng tiêu đề và từng dòng lore nguyên liệu trong Menu Đột Phá
+  materials-header-lore: "&8ʏêᴜ ᴄầᴜ ᴠậᴛ ᴘʜẩᴍ ᴋʜáᴄ:"
+  # Hỗ trợ placeholder: {status}, {display}, {have}, {required}
+  materials-lore-format: " {status} &7{display}: &b{have} &7/ &e{required}"
+  materials-empty-lore: "{_REMOVE_LINE_}"
+
 particles:
   sphere:
     # Có bật sphere particle không

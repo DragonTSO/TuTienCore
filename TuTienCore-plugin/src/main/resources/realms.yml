@@ -837,6 +837,11 @@ realms:
 # Đột Phá Tầng Nhỏ (Tiểu Lôi Kiếp)
 # ==========================================
 sub-realm-breakthrough:
+  # Có yêu cầu Đột Phá Đan khi đột phá các tầng nhỏ (Sơ Kỳ -> Trung Kỳ,...) hay không.
+  require-dot-pha-dan: true
+  # Có yêu cầu Nguyên liệu khi đột phá các tầng nhỏ hay không.
+  require-materials: true
+
   so-ky-to-trung-ky:
     lightning-bolts: 3
     damage-per-bolt: 1.0

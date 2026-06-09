@@ -54,6 +54,8 @@ public class RealmManager implements Listener {
     private int subSoKyToTrungKyBolts, subTrungKyToHauKyBolts, subHauKyToDinhPhongBolts, subDinhPhongToVienManBolts;
     private double subSoKyToTrungKyDmg, subTrungKyToHauKyDmg, subHauKyToDinhPhongDmg, subDinhPhongToVienManDmg;
     private int subSoKyToTrungKyDotPhaDan, subTrungKyToHauKyDotPhaDan, subHauKyToDinhPhongDotPhaDan, subDinhPhongToVienManDotPhaDan;
+    private boolean subRealmRequireDotPhaDan = true;
+    private boolean subRealmRequireMaterials = true;
 
     // General breakthrough settings
     private int cooldownSeconds;
@@ -306,6 +308,12 @@ public class RealmManager implements Listener {
             subDinhPhongToVienManBolts = subBt.getInt("dinh-phong-to-vien-man.lightning-bolts", 5);
             subDinhPhongToVienManDmg = subBt.getDouble("dinh-phong-to-vien-man.damage-per-bolt", 2.0);
             subDinhPhongToVienManDotPhaDan = subBt.getInt("dinh-phong-to-vien-man.dot-pha-dan-amount", 0);
+            
+            subRealmRequireDotPhaDan = subBt.getBoolean("require-dot-pha-dan", true);
+            subRealmRequireMaterials = subBt.getBoolean("require-materials", true);
+        } else {
+            subRealmRequireDotPhaDan = true;
+            subRealmRequireMaterials = true;
         }
 
         // Load general breakthrough settings
@@ -532,6 +540,7 @@ public class RealmManager implements Listener {
     // ==========================================
 
     public int getSubRealmDotPhaDanRequired(SubRealm currentSub) {
+        if (!subRealmRequireDotPhaDan) return 0;
         if (currentSub == null) return 0;
         switch (currentSub) {
             case SO_KY: return subSoKyToTrungKyDotPhaDan;
@@ -724,6 +733,24 @@ public class RealmManager implements Listener {
                     failures.add("§cThiếu Đột Phá Đan! Cần: x" + dotPhaDanRequired
                             + " | Hiện có: x" + dotPhaDanHave
                             + " §7(" + dotPhaDanItem + ")");
+                }
+            }
+        }
+
+        // Check additional sub-realm material requirements
+        List<MaterialRequirement> materialReqs = getSubRealmMaterialRequirements(realm.getId(), nextSub);
+        if (!materialReqs.isEmpty()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) {
+                failures.add("§cKhông thể kiểm tra nguyên liệu khi player đang offline!");
+            } else {
+                for (MaterialRequirement req : materialReqs) {
+                    int have = getMaterialCount(player, req.getType(), req.getId());
+                    if (have < req.getAmount()) {
+                        failures.add("§cThiếu nguyên liệu! " + req.getDisplay()
+                                + " Cần: x" + req.getAmount()
+                                + " | Hiện có: x" + have);
+                    }
                 }
             }
         }
@@ -1072,6 +1099,7 @@ public class RealmManager implements Listener {
      * Get the list of material requirements for a sub-realm breakthrough.
      */
     public List<MaterialRequirement> getSubRealmMaterialRequirements(int realmId, SubRealm subRealm) {
+        if (!subRealmRequireMaterials) return Collections.emptyList();
         Map<SubRealm, List<MaterialRequirement>> srMats = subRealmMaterialRequirements.get(realmId);
         if (srMats == null) return Collections.emptyList();
         return srMats.getOrDefault(subRealm, Collections.emptyList());
@@ -1226,11 +1254,17 @@ public class RealmManager implements Listener {
     
     private List<String> formatMaterialRequirementsLore(Player player, List<MaterialRequirement> reqs) {
         List<String> lines = new ArrayList<>();
+        String format = plugin.getConfig().getString("placeholders.materials-lore-format", " {status} &7{display}: &b{have} &7/ &e{required}");
         for (MaterialRequirement req : reqs) {
             int have = getMaterialCount(player, req.getType(), req.getId());
             boolean ok = have >= req.getAmount();
             String status = ok ? "§a✔" : "§c✘";
-            lines.add(" " + status + " §7" + req.getDisplay() + ": §b" + have + " §7/ §e" + req.getAmount());
+            String line = format
+                    .replace("{status}", status)
+                    .replace("{display}", req.getDisplay())
+                    .replace("{have}", String.valueOf(have))
+                    .replace("{required}", String.valueOf(req.getAmount()));
+            lines.add(line);
         }
         return lines;
     }
