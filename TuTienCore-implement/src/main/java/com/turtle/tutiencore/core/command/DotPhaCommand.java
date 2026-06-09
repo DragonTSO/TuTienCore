@@ -213,13 +213,30 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 placeholders.put("{damage_per_bolt}", formatDecimal(damage) + " ❤");
                 placeholders.put("{total_damage}", formatDecimal(bolts * damage) + " ❤");
                 placeholders.put("{success_rate}", "100%");
-                placeholders.put("{dot_pha_dan}", "Không cần");
-                placeholders.put("{dot_pha_dan_amount}", "0");
-                placeholders.put("{dot_pha_dan_have}", "0");
-                placeholders.put("{status_dot_pha_dan}", status(true));
-                placeholders.put("{materials_display}", "Không cần");
-                placeholders.put("{status_materials}", status(true));
-                placeholders.put("{materials_lore}", " Không có yêu cầu thêm");
+                
+                int dotPhaDanAmount = realmManager.getSubRealmDotPhaDanRequired(pr.getSubRealm());
+                int dotPhaDanHave = realmManager.getDotPhaDanCount(player);
+                boolean dotPhaDanOk = dotPhaDanHave >= dotPhaDanAmount;
+                
+                String emptyDotPhaDanLore = plugin.getConfig().getString("placeholders.dot-pha-dan-empty-lore", "{_REMOVE_LINE_}");
+                if (dotPhaDanAmount > 0) {
+                    placeholders.put("{dot_pha_dan_lore}", " " + status(dotPhaDanOk) + " &7Đột Phá Đan: &b" + dotPhaDanHave + " &7/ &e" + dotPhaDanAmount);
+                } else {
+                    placeholders.put("{dot_pha_dan_lore}", emptyDotPhaDanLore);
+                }
+                
+                // Sub-realm materials
+                String emptyMaterialsLore = plugin.getConfig().getString("placeholders.materials-empty-lore", "{_REMOVE_LINE_}");
+                List<String> materialsLoreLines = realmManager.getSubRealmMaterialRequirementsLore(player, currentRealm.getId(), nextSub);
+                if (!materialsLoreLines.isEmpty()) {
+                    List<String> combined = new ArrayList<>();
+                    combined.add(plugin.getConfig().getString("placeholders.materials-header-lore", "&8ʏêᴜ ᴄầᴜ ᴠậᴛ ᴘʜẩᴍ ᴋʜáᴄ:"));
+                    combined.addAll(materialsLoreLines);
+                    placeholders.put("{materials_lore}", String.join("\n", combined));
+                } else {
+                    placeholders.put("{materials_lore}", emptyMaterialsLore);
+                }
+
                 placeholders.put("{cooldown}", "Không");
                 placeholders.put("{punishment}", "Không tụt cảnh giới");
                 putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, true, ready);
@@ -263,19 +280,29 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
             placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
             placeholders.put("{success_rate}", formatDecimal(nextRealm.getSuccessRate()) + "%");
-            placeholders.put("{dot_pha_dan}", realmManager.getDotPhaDanItem() + " x" + dotPhaDanAmount);
-            placeholders.put("{dot_pha_dan_amount}", String.valueOf(dotPhaDanAmount));
-            placeholders.put("{dot_pha_dan_have}", String.valueOf(dotPhaDanHave));
-            placeholders.put("{status_dot_pha_dan}", status(dotPhaDanOk));
-            placeholders.put("{materials_display}", realmManager.getMaterialRequirementsDisplay(nextRealm.getId()));
+            
+            String emptyDotPhaDanLore = plugin.getConfig().getString("placeholders.dot-pha-dan-empty-lore", "{_REMOVE_LINE_}");
+            if (dotPhaDanAmount > 0) {
+                placeholders.put("{dot_pha_dan_lore}", " " + status(dotPhaDanOk) + " &7Đột Phá Đan: &b" + dotPhaDanHave + " &7/ &e" + dotPhaDanAmount);
+            } else {
+                placeholders.put("{dot_pha_dan_lore}", emptyDotPhaDanLore);
+            }
 
             // Check materials readiness
             boolean materialsOk = realmManager.checkMaterialRequirements(player, nextRealm.getId()).isEmpty();
             placeholders.put("{status_materials}", status(materialsOk));
             
             // Generate materials lore list separated by \n
+            String emptyMaterialsLore = plugin.getConfig().getString("placeholders.materials-empty-lore", "{_REMOVE_LINE_}");
             List<String> materialsLoreLines = realmManager.getMaterialRequirementsLore(player, nextRealm.getId());
-            placeholders.put("{materials_lore}", materialsLoreLines.isEmpty() ? " Không có yêu cầu thêm" : String.join("\n", materialsLoreLines));
+            if (!materialsLoreLines.isEmpty()) {
+                List<String> combined = new ArrayList<>();
+                combined.add(plugin.getConfig().getString("placeholders.materials-header-lore", "&8ʏêᴜ ᴄầᴜ ᴠậᴛ ᴘʜẩᴍ ᴋʜáᴄ:"));
+                combined.addAll(materialsLoreLines);
+                placeholders.put("{materials_lore}", String.join("\n", combined));
+            } else {
+                placeholders.put("{materials_lore}", emptyMaterialsLore);
+            }
 
             placeholders.put("{cooldown}", cooldownOk ? "Không" : formatTime(pr.getRemainingCooldownSeconds()));
             placeholders.put("{punishment}", "Thất bại có thể tụt cảnh giới");
@@ -561,6 +588,8 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         List<String> parsedLore = new ArrayList<>();
         for (String line : lore) {
             String replaced = replacePlaceholders(player, line, placeholders);
+            if (replaced.equals("{_REMOVE_LINE_}")) continue;
+            
             if (replaced.contains("\n")) {
                 parsedLore.addAll(Arrays.asList(replaced.split("\n")));
             } else {

@@ -53,6 +53,7 @@ public class RealmManager implements Listener {
     // Sub-realm breakthrough settings
     private int subSoKyToTrungKyBolts, subTrungKyToHauKyBolts, subHauKyToDinhPhongBolts, subDinhPhongToVienManBolts;
     private double subSoKyToTrungKyDmg, subTrungKyToHauKyDmg, subHauKyToDinhPhongDmg, subDinhPhongToVienManDmg;
+    private int subSoKyToTrungKyDotPhaDan, subTrungKyToHauKyDotPhaDan, subHauKyToDinhPhongDotPhaDan, subDinhPhongToVienManDotPhaDan;
 
     // General breakthrough settings
     private int cooldownSeconds;
@@ -71,6 +72,10 @@ public class RealmManager implements Listener {
     // Per-realm additional material requirements
     // Map<realmId, List<MaterialRequirement>>
     private Map<Integer, List<MaterialRequirement>> realmMaterialRequirements = new HashMap<>();
+    
+    // Sub-realm material requirements
+    // Map<realmId, Map<SubRealm, List<MaterialRequirement>>>
+    private Map<Integer, Map<SubRealm, List<MaterialRequirement>>> subRealmMaterialRequirements = new HashMap<>();
 
     /**
      * Represents a single MMOItems material requirement for breakthrough.
@@ -138,6 +143,7 @@ public class RealmManager implements Listener {
         realms.clear();
         dotPhaDanAmounts.clear();
         realmMaterialRequirements.clear();
+        subRealmMaterialRequirements.clear();
         setDotPhaDanItem("MATERIAL.DOT_PHA_DAN");
         realmConfigFile = new File(plugin.getDataFolder(), "realms.yml");
         if (!realmConfigFile.exists()) {
@@ -206,6 +212,33 @@ public class RealmManager implements Listener {
                     vienMan = vienManSec != null ? vienManSec.getLong("tuvi", 0) : sub.getLong("vien-man", 0);
                     vienManDisplay = vienManSec != null ? vienManSec.getString("display-name") : null;
                     loadSubRealmRequirements(subThucLucRequirements, subMoneyRequirements, SubRealm.VIEN_MAN, vienManSec);
+
+                    // Load sub-realm materials
+                    Map<SubRealm, List<MaterialRequirement>> srMats = new HashMap<>();
+                    for (SubRealm sr : SubRealm.values()) {
+                        String srKey = sr.name().toLowerCase().replace("_", "-");
+                        ConfigurationSection srSec = sub.getConfigurationSection(srKey);
+                        if (srSec != null) {
+                            ConfigurationSection materialsSec = srSec.getConfigurationSection("materials");
+                            if (materialsSec != null) {
+                                List<MaterialRequirement> reqs = new ArrayList<>();
+                                for (String matKey : materialsSec.getKeys(false)) {
+                                    int matAmount = materialsSec.getInt(matKey, 1);
+                                    if (matAmount <= 0) continue;
+                                    String matType = "MATERIAL";
+                                    String matId = matKey;
+                                    int sep = Math.max(matKey.indexOf('.'), matKey.indexOf(':'));
+                                    if (sep > 0 && sep < matKey.length() - 1) {
+                                        matType = matKey.substring(0, sep);
+                                        matId = matKey.substring(sep + 1);
+                                    }
+                                    reqs.add(new MaterialRequirement(matType, matId, matAmount));
+                                }
+                                if (!reqs.isEmpty()) srMats.put(sr, reqs);
+                            }
+                        }
+                    }
+                    if (!srMats.isEmpty()) subRealmMaterialRequirements.put(id, srMats);
                 }
 
                 ConfigurationSection bt = rs.getConfigurationSection("breakthrough");
@@ -260,12 +293,19 @@ public class RealmManager implements Listener {
         if (subBt != null) {
             subSoKyToTrungKyBolts = subBt.getInt("so-ky-to-trung-ky.lightning-bolts", 3);
             subSoKyToTrungKyDmg = subBt.getDouble("so-ky-to-trung-ky.damage-per-bolt", 1.0);
+            subSoKyToTrungKyDotPhaDan = subBt.getInt("so-ky-to-trung-ky.dot-pha-dan-amount", 0);
+            
             subTrungKyToHauKyBolts = subBt.getInt("trung-ky-to-hau-ky.lightning-bolts", 3);
             subTrungKyToHauKyDmg = subBt.getDouble("trung-ky-to-hau-ky.damage-per-bolt", 1.5);
+            subTrungKyToHauKyDotPhaDan = subBt.getInt("trung-ky-to-hau-ky.dot-pha-dan-amount", 0);
+            
             subHauKyToDinhPhongBolts = subBt.getInt("hau-ky-to-dinh-phong.lightning-bolts", 4);
             subHauKyToDinhPhongDmg = subBt.getDouble("hau-ky-to-dinh-phong.damage-per-bolt", 1.5);
+            subHauKyToDinhPhongDotPhaDan = subBt.getInt("hau-ky-to-dinh-phong.dot-pha-dan-amount", 0);
+            
             subDinhPhongToVienManBolts = subBt.getInt("dinh-phong-to-vien-man.lightning-bolts", 5);
             subDinhPhongToVienManDmg = subBt.getDouble("dinh-phong-to-vien-man.damage-per-bolt", 2.0);
+            subDinhPhongToVienManDotPhaDan = subBt.getInt("dinh-phong-to-vien-man.dot-pha-dan-amount", 0);
         }
 
         // Load general breakthrough settings
@@ -491,6 +531,17 @@ public class RealmManager implements Listener {
     // SUB-REALM DETECTION
     // ==========================================
 
+    public int getSubRealmDotPhaDanRequired(SubRealm currentSub) {
+        if (currentSub == null) return 0;
+        switch (currentSub) {
+            case SO_KY: return subSoKyToTrungKyDotPhaDan;
+            case TRUNG_KY: return subTrungKyToHauKyDotPhaDan;
+            case HAU_KY: return subHauKyToDinhPhongDotPhaDan;
+            case DINH_PHONG: return subDinhPhongToVienManDotPhaDan;
+            default: return 0;
+        }
+    }
+
     /**
      * Determine the current sub-realm based on Tu Vi within the current realm
      */
@@ -658,6 +709,22 @@ public class RealmManager implements Listener {
                 failures.add("§cThiếu Vault/Economy để kiểm tra tiền đột phá!");
             } else if (balance < moneyRequired) {
                 failures.add("§cTiền chưa đủ! Cần: " + formatMoney(moneyRequired) + " | Hiện tại: " + formatMoney(balance));
+            }
+        }
+
+        PlayerRealm pr = getPlayerRealm(uuid);
+        int dotPhaDanRequired = getSubRealmDotPhaDanRequired(pr.getSubRealm());
+        if (dotPhaDanRequired > 0) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) {
+                failures.add("§cKhông thể kiểm tra Đột Phá Đan khi player đang offline!");
+            } else {
+                int dotPhaDanHave = getDotPhaDanCount(player);
+                if (dotPhaDanHave < dotPhaDanRequired) {
+                    failures.add("§cThiếu Đột Phá Đan! Cần: x" + dotPhaDanRequired
+                            + " | Hiện có: x" + dotPhaDanHave
+                            + " §7(" + dotPhaDanItem + ")");
+                }
             }
         }
 
@@ -1002,6 +1069,15 @@ public class RealmManager implements Listener {
     }
 
     /**
+     * Get the list of material requirements for a sub-realm breakthrough.
+     */
+    public List<MaterialRequirement> getSubRealmMaterialRequirements(int realmId, SubRealm subRealm) {
+        Map<SubRealm, List<MaterialRequirement>> srMats = subRealmMaterialRequirements.get(realmId);
+        if (srMats == null) return Collections.emptyList();
+        return srMats.getOrDefault(subRealm, Collections.emptyList());
+    }
+
+    /**
      * Count how many of a specific MMOItems material the player has.
      */
     public int getMaterialCount(Player player, String matType, String matId) {
@@ -1041,6 +1117,18 @@ public class RealmManager implements Listener {
      */
     public boolean takeAllMaterials(Player player, int realmId) {
         List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        return takeMaterialsList(player, reqs);
+    }
+    
+    /**
+     * Take all required materials from a player for a sub-realm breakthrough.
+     */
+    public boolean takeAllSubRealmMaterials(Player player, int realmId, SubRealm subRealm) {
+        List<MaterialRequirement> reqs = getSubRealmMaterialRequirements(realmId, subRealm);
+        return takeMaterialsList(player, reqs);
+    }
+    
+    private boolean takeMaterialsList(Player player, List<MaterialRequirement> reqs) {
         if (reqs.isEmpty()) return true;
         if (player == null) return false;
 
@@ -1108,7 +1196,15 @@ public class RealmManager implements Listener {
      */
     public String getMaterialRequirementsDisplay(int realmId) {
         List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
-        if (reqs.isEmpty()) return "Không cần";
+        if (reqs.isEmpty()) return "";
+        return reqs.stream()
+                .map(r -> r.getDisplay() + " §ex" + r.getAmount())
+                .collect(Collectors.joining("§7, "));
+    }
+    
+    public String getSubRealmMaterialRequirementsDisplay(int realmId, SubRealm subRealm) {
+        List<MaterialRequirement> reqs = getSubRealmMaterialRequirements(realmId, subRealm);
+        if (reqs.isEmpty()) return "";
         return reqs.stream()
                 .map(r -> r.getDisplay() + " §ex" + r.getAmount())
                 .collect(Collectors.joining("§7, "));
@@ -1119,8 +1215,17 @@ public class RealmManager implements Listener {
      * Each line: " {status} §7{TYPE.ID}: §b{have} §7/ §e{required}"
      */
     public List<String> getMaterialRequirementsLore(Player player, int realmId) {
-        List<String> lines = new ArrayList<>();
         List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        return formatMaterialRequirementsLore(player, reqs);
+    }
+    
+    public List<String> getSubRealmMaterialRequirementsLore(Player player, int realmId, SubRealm subRealm) {
+        List<MaterialRequirement> reqs = getSubRealmMaterialRequirements(realmId, subRealm);
+        return formatMaterialRequirementsLore(player, reqs);
+    }
+    
+    private List<String> formatMaterialRequirementsLore(Player player, List<MaterialRequirement> reqs) {
+        List<String> lines = new ArrayList<>();
         for (MaterialRequirement req : reqs) {
             int have = getMaterialCount(player, req.getType(), req.getId());
             boolean ok = have >= req.getAmount();

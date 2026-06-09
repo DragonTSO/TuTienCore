@@ -239,6 +239,23 @@ public class BreakthroughManager implements Listener {
         int bolts = realmManager.getSubRealmBolts(currentSub);
         double dmg = realmManager.getSubRealmDmg(currentSub);
 
+        int dotPhaDanRequired = realmManager.getSubRealmDotPhaDanRequired(currentSub);
+        if (dotPhaDanRequired > 0) {
+            if (!realmManager.takeDotPhaDan(player, dotPhaDanRequired)) {
+                int have = realmManager.getDotPhaDanCount(player);
+                player.sendMessage("§cThiếu Đột Phá Đan! Cần: x" + dotPhaDanRequired
+                        + " | Hiện có: x" + have
+                        + " §7(" + realmManager.getDotPhaDanItem() + ")");
+                return;
+            }
+        }
+
+        // Take additional sub-realm materials (nếu có cấu hình)
+        if (!realmManager.takeAllSubRealmMaterials(player, realm.getId(), nextSub)) {
+            player.sendMessage("§cThiếu nguyên liệu đột phá! Kiểm tra lại vật phẩm trong túi.");
+            return;
+        }
+
         BreakthroughSession session = new BreakthroughSession(
                 uuid, false,
                 bolts, dmg, 0.0,
