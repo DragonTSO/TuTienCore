@@ -227,6 +227,7 @@ public class RealmListGUI implements Listener {
         text = text.replace("{dot_pha_dan_item}", realmManager.getDotPhaDanItem());
         text = text.replace("{dot_pha_dan_type}", realmManager.getDotPhaDanType());
         text = text.replace("{dot_pha_dan_id}", realmManager.getDotPhaDanId());
+        text = text.replace("{materials_display}", realmManager.getMaterialRequirementsDisplay(realmId));
         text = text.replace("{realm_bolts}", String.valueOf(realm.getLightningBolts()));
         text = text.replace("{realm_damage}", realm.getDamagePerBoltDisplay());
         text = text.replace("{realm_success}", String.format("%.0f%%", realm.getSuccessRate()));

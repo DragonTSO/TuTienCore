@@ -906,3 +906,19 @@ breakthrough:
     17: 8
     18: 9
     19: 10
+  
+  # Nguyên liệu MMOItems thêm yêu cầu khi đột phá Đại Cảnh Giới
+  # Cấu trúc: 
+  # realm-materials:
+  #   <ID cảnh giới>:
+  #     "TYPE.ID": <Số lượng>
+  realm-materials:
+    2:
+      "MATERIAL.LINH_THACH": 10
+    3:
+      "MATERIAL.LINH_THACH": 50
+      "MATERIAL.TINH_HOA": 5
+    4:
+      "MATERIAL.LINH_THACH": 100
+      "MATERIAL.TINH_HOA": 10
+      "MATERIAL.LINH_THACH_TRUNG_PHAM": 2

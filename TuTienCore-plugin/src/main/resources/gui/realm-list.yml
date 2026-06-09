@@ -74,11 +74,14 @@ realm-item:
     name: "&a&l▶ {realm_name} &a&l◀"
     glow: true
     lore:
-      - "&8Cảnh giới hiện tại:"
-      - "&7 Đại Giới: {realm_tier_color}{realm_tier}"
-      - "&7 Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
-      - "&7 Lực chiến yêu cầu: &e{realm_thuc_luc}"
-      - "&7 Đột Phá Đan: &6{realm_dot_pha_dan} cái"
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&8ᴄảɴʜ ɢɪớɪ ʜɪệɴ ᴛạɪ"
+      - ""
+      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
+      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
+      - "&7Nguyên Liệu Phụ: &f{materials_display}"
       - ""
       - "&e⚡ Thiên Lôi Kiếp"
       - "&8- &7Số tia: &c{realm_bolts}"
@@ -97,11 +100,13 @@ realm-item:
     lore:
       - "&8Đã đột phá"
       - ""
-      - " &7Đại Giới: {realm_tier_color}{realm_tier}"
-      - " &7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
-      - " &7Thực Lực yêu cầu: &e{realm_thuc_luc}"
-      - " &7Đột Phá Đan: &6{realm_dot_pha_dan} cái"
-      - " &2Bạn đã vượt qua cảnh giới này."
+      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
+      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
+      - "&7Nguyên Liệu Phụ: &f{materials_display}"
+      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&2Bạn đã vượt qua cảnh giới này."
 
   future:
     material: RED_STAINED_GLASS_PANE
@@ -113,7 +118,8 @@ realm-item:
       - "&7Đại Giới: {realm_tier_color}{realm_tier}"
       - "&7Tu Vi yêu cầu: {tuvi_status}"
       - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
-      - "&7Đột Phá Đan: &6{realm_dot_pha_dan} cái"
+      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
+      - "&7Nguyên Liệu Phụ: &f{materials_display}"
       - ""
       - "&e⚡ Thiên Lôi Kiếp"
       - "&8- &7Số tia: &c{realm_bolts}"

@@ -6,9 +6,11 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.RealmTier;
 import com.turtle.tutiencore.api.realm.SubRealm;
 
+import io.lumine.mythic.lib.api.item.NBTItem;
 import me.clip.placeholderapi.PlaceholderAPI;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -18,11 +20,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Quản lý hệ thống Cảnh Giới (Realm) cho người chơi.
@@ -64,6 +68,37 @@ public class RealmManager implements Listener {
     private String dotPhaDanId = "DOT_PHA_DAN";
     private Map<Integer, Integer> dotPhaDanAmounts = new HashMap<>();
 
+    // Per-realm additional material requirements
+    // Map<realmId, List<MaterialRequirement>>
+    private Map<Integer, List<MaterialRequirement>> realmMaterialRequirements = new HashMap<>();
+
+    /**
+     * Represents a single MMOItems material requirement for breakthrough.
+     */
+    public static class MaterialRequirement {
+        private final String type;    // MMOItems type (e.g. "MATERIAL")
+        private final String id;      // MMOItems id (e.g. "LINH_THACH")
+        private final String display; // Full display (e.g. "MATERIAL.LINH_THACH")
+        private final int amount;
+
+        public MaterialRequirement(String type, String id, int amount) {
+            this.type = type.trim().toUpperCase(Locale.ROOT);
+            this.id = id.trim().toUpperCase(Locale.ROOT);
+            this.display = this.type + "." + this.id;
+            this.amount = amount;
+        }
+
+        public String getType() { return type; }
+        public String getId() { return id; }
+        public String getDisplay() { return display; }
+        public int getAmount() { return amount; }
+
+        @Override
+        public String toString() {
+            return display + " x" + amount;
+        }
+    }
+
     // Default bolt settings (fallback when per-realm not specified)
     private int defaultLightningBolts;
     private double defaultDamagePerBolt;
@@ -102,6 +137,7 @@ public class RealmManager implements Listener {
     private void loadRealmConfig() {
         realms.clear();
         dotPhaDanAmounts.clear();
+        realmMaterialRequirements.clear();
         setDotPhaDanItem("MATERIAL.DOT_PHA_DAN");
         realmConfigFile = new File(plugin.getDataFolder(), "realms.yml");
         if (!realmConfigFile.exists()) {
@@ -269,6 +305,35 @@ public class RealmManager implements Listener {
             if (danAmounts != null) {
                 for (String key : danAmounts.getKeys(false)) {
                     dotPhaDanAmounts.put(Integer.parseInt(key), danAmounts.getInt(key, 1));
+                }
+            }
+
+            // Load per-realm material requirements
+            ConfigurationSection materialsSection = btGeneral.getConfigurationSection("realm-materials");
+            if (materialsSection != null) {
+                for (String realmKey : materialsSection.getKeys(false)) {
+                    try {
+                        int realmId = Integer.parseInt(realmKey);
+                        ConfigurationSection realmMats = materialsSection.getConfigurationSection(realmKey);
+                        if (realmMats == null) continue;
+                        List<MaterialRequirement> requirements = new ArrayList<>();
+                        for (String matKey : realmMats.getKeys(false)) {
+                            int matAmount = realmMats.getInt(matKey, 1);
+                            if (matAmount <= 0) continue;
+                            // Parse TYPE.ID format
+                            String matType = "MATERIAL";
+                            String matId = matKey;
+                            int sep = Math.max(matKey.indexOf('.'), matKey.indexOf(':'));
+                            if (sep > 0 && sep < matKey.length() - 1) {
+                                matType = matKey.substring(0, sep);
+                                matId = matKey.substring(sep + 1);
+                            }
+                            requirements.add(new MaterialRequirement(matType, matId, matAmount));
+                        }
+                        if (!requirements.isEmpty()) {
+                            realmMaterialRequirements.put(realmId, requirements);
+                        }
+                    } catch (NumberFormatException ignored) {}
                 }
             }
         }
@@ -513,6 +578,39 @@ public class RealmManager implements Listener {
                 failures.add("§cThiếu Vault/Economy để kiểm tra tiền đột phá!");
             } else if (balance < moneyRequired) {
                 failures.add("§cTiền chưa đủ! Cần: " + formatMoney(moneyRequired) + " | Hiện tại: " + formatMoney(balance));
+            }
+        }
+
+        int dotPhaDanRequired = getDotPhaDanRequired(nextRealm.getId());
+        if (dotPhaDanRequired > 0) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) {
+                failures.add("§cKhong the kiem tra Dot Pha Dan khi player dang offline!");
+            } else {
+                int dotPhaDanHave = getDotPhaDanCount(player);
+                if (dotPhaDanHave < dotPhaDanRequired) {
+                    failures.add("§cThiếu Đột Phá Đan! Cần: x" + dotPhaDanRequired
+                            + " | Hiện có: x" + dotPhaDanHave
+                            + " §7(" + dotPhaDanItem + ")");
+                }
+            }
+        }
+
+        // Check additional material requirements
+        List<MaterialRequirement> materialReqs = getRealmMaterialRequirements(nextRealm.getId());
+        if (!materialReqs.isEmpty()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) {
+                failures.add("§cKhông thể kiểm tra nguyên liệu khi player đang offline!");
+            } else {
+                for (MaterialRequirement req : materialReqs) {
+                    int have = getMaterialCount(player, req.getType(), req.getId());
+                    if (have < req.getAmount()) {
+                        failures.add("§cThiếu nguyên liệu! " + req.getDisplay()
+                                + " Cần: x" + req.getAmount()
+                                + " | Hiện có: x" + have);
+                    }
+                }
             }
         }
 
@@ -846,6 +944,202 @@ public class RealmManager implements Listener {
 
     public int getDotPhaDanRequired(int targetRealmId) {
         return dotPhaDanAmounts.getOrDefault(targetRealmId, 1);
+    }
+
+    public int getDotPhaDanCount(Player player) {
+        if (player == null) return 0;
+        int count = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (matchesDotPhaDan(item)) {
+                count += item.getAmount();
+            }
+        }
+        return count;
+    }
+
+    public boolean takeDotPhaDan(Player player, int amount) {
+        if (amount <= 0) return true;
+        if (player == null || getDotPhaDanCount(player) < amount) return false;
+
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack item = contents[slot];
+            if (!matchesDotPhaDan(item)) continue;
+
+            int take = Math.min(remaining, item.getAmount());
+            item.setAmount(item.getAmount() - take);
+            remaining -= take;
+            if (item.getAmount() <= 0) {
+                contents[slot] = null;
+            }
+        }
+        player.getInventory().setContents(contents);
+        return remaining <= 0;
+    }
+
+    private boolean matchesDotPhaDan(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return false;
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            String type = firstNbt(nbt, "MMOITEMS_ITEM_TYPE", "MMOITEMS_TYPE", "type");
+            String id = firstNbt(nbt, "MMOITEMS_ITEM_ID", "MMOITEMS_ID", "id");
+            return dotPhaDanType.equals(normalizeItemKey(type)) && dotPhaDanId.equals(normalizeItemKey(id));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    // ==========================================
+    // ADDITIONAL MATERIAL REQUIREMENTS
+    // ==========================================
+
+    /**
+     * Get the list of additional material requirements for a realm.
+     */
+    public List<MaterialRequirement> getRealmMaterialRequirements(int realmId) {
+        return realmMaterialRequirements.getOrDefault(realmId, Collections.emptyList());
+    }
+
+    /**
+     * Count how many of a specific MMOItems material the player has.
+     */
+    public int getMaterialCount(Player player, String matType, String matId) {
+        if (player == null) return 0;
+        String normalizedType = normalizeItemKey(matType);
+        String normalizedId = normalizeItemKey(matId);
+        int count = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (matchesMaterial(item, normalizedType, normalizedId)) {
+                count += item.getAmount();
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Check if the player has all required materials for a realm breakthrough.
+     * Returns a list of failure messages (empty = all materials present).
+     */
+    public List<String> checkMaterialRequirements(Player player, int realmId) {
+        List<String> failures = new ArrayList<>();
+        List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        for (MaterialRequirement req : reqs) {
+            int have = getMaterialCount(player, req.getType(), req.getId());
+            if (have < req.getAmount()) {
+                failures.add("§cThiếu " + req.getDisplay()
+                        + "! Cần: x" + req.getAmount()
+                        + " | Hiện có: x" + have);
+            }
+        }
+        return failures;
+    }
+
+    /**
+     * Take all required materials from a player for a realm breakthrough.
+     * Returns true if all materials were successfully taken.
+     */
+    public boolean takeAllMaterials(Player player, int realmId) {
+        List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        if (reqs.isEmpty()) return true;
+        if (player == null) return false;
+
+        // Verify all materials are available first
+        for (MaterialRequirement req : reqs) {
+            if (getMaterialCount(player, req.getType(), req.getId()) < req.getAmount()) {
+                return false;
+            }
+        }
+
+        // Take each material
+        for (MaterialRequirement req : reqs) {
+            takeMaterial(player, req.getType(), req.getId(), req.getAmount());
+        }
+        return true;
+    }
+
+    /**
+     * Take a specific amount of a specific MMOItems material from a player's inventory.
+     */
+    public boolean takeMaterial(Player player, String matType, String matId, int amount) {
+        if (amount <= 0) return true;
+        if (player == null) return false;
+
+        String normalizedType = normalizeItemKey(matType);
+        String normalizedId = normalizeItemKey(matId);
+
+        if (getMaterialCount(player, normalizedType, normalizedId) < amount) return false;
+
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack item = contents[slot];
+            if (!matchesMaterial(item, normalizedType, normalizedId)) continue;
+
+            int take = Math.min(remaining, item.getAmount());
+            item.setAmount(item.getAmount() - take);
+            remaining -= take;
+            if (item.getAmount() <= 0) {
+                contents[slot] = null;
+            }
+        }
+        player.getInventory().setContents(contents);
+        return remaining <= 0;
+    }
+
+    /**
+     * Check if an ItemStack matches a specific MMOItems type + id.
+     */
+    private boolean matchesMaterial(ItemStack item, String normalizedType, String normalizedId) {
+        if (item == null || item.getType() == Material.AIR) return false;
+        try {
+            NBTItem nbt = NBTItem.get(item);
+            String type = firstNbt(nbt, "MMOITEMS_ITEM_TYPE", "MMOITEMS_TYPE", "type");
+            String id = firstNbt(nbt, "MMOITEMS_ITEM_ID", "MMOITEMS_ID", "id");
+            return normalizedType.equals(normalizeItemKey(type)) && normalizedId.equals(normalizeItemKey(id));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Get a display string for all material requirements of a realm.
+     * Example: "MATERIAL.LINH_THACH x5, MATERIAL.HOA_TINH x3"
+     */
+    public String getMaterialRequirementsDisplay(int realmId) {
+        List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        if (reqs.isEmpty()) return "Không cần";
+        return reqs.stream()
+                .map(r -> r.getDisplay() + " §ex" + r.getAmount())
+                .collect(Collectors.joining("§7, "));
+    }
+
+    /**
+     * Get a list of formatted lore lines for material requirements.
+     * Each line: " {status} §7{TYPE.ID}: §b{have} §7/ §e{required}"
+     */
+    public List<String> getMaterialRequirementsLore(Player player, int realmId) {
+        List<String> lines = new ArrayList<>();
+        List<MaterialRequirement> reqs = getRealmMaterialRequirements(realmId);
+        for (MaterialRequirement req : reqs) {
+            int have = getMaterialCount(player, req.getType(), req.getId());
+            boolean ok = have >= req.getAmount();
+            String status = ok ? "§a✔" : "§c✘";
+            lines.add(" " + status + " §7" + req.getDisplay() + ": §b" + have + " §7/ §e" + req.getAmount());
+        }
+        return lines;
+    }
+
+    private String firstNbt(NBTItem nbt, String... keys) {
+        for (String key : keys) {
+            String value = nbt.getString(key);
+            if (value != null && !value.isBlank()) return value;
+        }
+        return "";
+    }
+
+    private String normalizeItemKey(String value) {
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 
     private void setDotPhaDanItem(String raw) {

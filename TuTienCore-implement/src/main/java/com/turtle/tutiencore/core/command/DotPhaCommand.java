@@ -215,6 +215,11 @@ public class DotPhaCommand implements CommandExecutor, Listener {
                 placeholders.put("{success_rate}", "100%");
                 placeholders.put("{dot_pha_dan}", "Không cần");
                 placeholders.put("{dot_pha_dan_amount}", "0");
+                placeholders.put("{dot_pha_dan_have}", "0");
+                placeholders.put("{status_dot_pha_dan}", status(true));
+                placeholders.put("{materials_display}", "Không cần");
+                placeholders.put("{status_materials}", status(true));
+                placeholders.put("{materials_lore}", " Không có yêu cầu thêm");
                 placeholders.put("{cooldown}", "Không");
                 placeholders.put("{punishment}", "Không tụt cảnh giới");
                 putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, true, ready);
@@ -239,6 +244,9 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             boolean thucLucOk = thucLuc >= thucLucRequired;
             boolean moneyOk = money >= moneyRequired;
             boolean cooldownOk = !pr.isOnCooldown();
+            int dotPhaDanAmount = realmManager.getDotPhaDanRequired(nextRealm.getId());
+            int dotPhaDanHave = realmManager.getDotPhaDanCount(player);
+            boolean dotPhaDanOk = dotPhaDanHave >= dotPhaDanAmount;
 
             Map<String, String> placeholders = createBasePlaceholders(player, pr, currentRealm, nextRealm, tuVi);
             placeholders.put("{breakthrough_type}", "Cảnh giới");
@@ -255,12 +263,23 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             placeholders.put("{damage_per_bolt}", nextRealm.getDamagePerBoltDisplay());
             placeholders.put("{total_damage}", nextRealm.getTotalDamageSuccessDisplay());
             placeholders.put("{success_rate}", formatDecimal(nextRealm.getSuccessRate()) + "%");
-            int dotPhaDanAmount = realmManager.getDotPhaDanRequired(nextRealm.getId());
             placeholders.put("{dot_pha_dan}", realmManager.getDotPhaDanItem() + " x" + dotPhaDanAmount);
             placeholders.put("{dot_pha_dan_amount}", String.valueOf(dotPhaDanAmount));
+            placeholders.put("{dot_pha_dan_have}", String.valueOf(dotPhaDanHave));
+            placeholders.put("{status_dot_pha_dan}", status(dotPhaDanOk));
+            placeholders.put("{materials_display}", realmManager.getMaterialRequirementsDisplay(nextRealm.getId()));
+
+            // Check materials readiness
+            boolean materialsOk = realmManager.checkMaterialRequirements(player, nextRealm.getId()).isEmpty();
+            placeholders.put("{status_materials}", status(materialsOk));
+            
+            // Generate materials lore list separated by \n
+            List<String> materialsLoreLines = realmManager.getMaterialRequirementsLore(player, nextRealm.getId());
+            placeholders.put("{materials_lore}", materialsLoreLines.isEmpty() ? " Không có yêu cầu thêm" : String.join("\n", materialsLoreLines));
+
             placeholders.put("{cooldown}", cooldownOk ? "Không" : formatTime(pr.getRemainingCooldownSeconds()));
             placeholders.put("{punishment}", "Thất bại có thể tụt cảnh giới");
-            putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, cooldownOk, ready);
+            putStatusPlaceholders(placeholders, tuViOk, thucLucOk, moneyOk, cooldownOk, dotPhaDanOk, ready);
 
             List<String> fallbackLore = Collections.emptyList();
 
@@ -285,9 +304,22 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         placeholders.put("{status_thuc_luc}", status(thucLucOk));
         placeholders.put("{status_money}", status(moneyOk));
         placeholders.put("{status_cooldown}", status(cooldownOk));
+        placeholders.put("{status_dot_pha_dan}", status(true));
         placeholders.put("{status_ready}", status(ready));
         placeholders.put("{ready_text}", ready ? "Có thể đột phá" : "Chưa đủ điều kiện");
         placeholders.put("{click_text}", ready ? "Click để mở xác nhận." : "Cần hoàn tất điều kiện phía trên.");
+    }
+
+    private void putStatusPlaceholders(Map<String, String> placeholders, boolean tuViOk, boolean thucLucOk,
+                                       boolean moneyOk, boolean cooldownOk, boolean dotPhaDanOk, boolean ready) {
+        placeholders.put("{status_tuvi}", status(tuViOk));
+        placeholders.put("{status_thuc_luc}", status(thucLucOk));
+        placeholders.put("{status_money}", status(moneyOk));
+        placeholders.put("{status_cooldown}", status(cooldownOk));
+        placeholders.put("{status_dot_pha_dan}", status(dotPhaDanOk));
+        placeholders.put("{status_ready}", status(ready));
+        placeholders.put("{ready_text}", ready ? "CÃ³ thá»ƒ Ä‘á»™t phÃ¡" : "ChÆ°a Ä‘á»§ Ä‘iá»u kiá»‡n");
+        placeholders.put("{click_text}", ready ? "Click Ä‘á»ƒ má»Ÿ xÃ¡c nháº­n." : "Cáº§n hoÃ n táº¥t Ä‘iá»u kiá»‡n phÃ­a trÃªn.");
     }
 
     private String status(boolean ok) {
@@ -528,7 +560,12 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         List<String> lore = loreTemplate.isEmpty() ? defaultLore : loreTemplate;
         List<String> parsedLore = new ArrayList<>();
         for (String line : lore) {
-            parsedLore.add(replacePlaceholders(player, line, placeholders));
+            String replaced = replacePlaceholders(player, line, placeholders);
+            if (replaced.contains("\n")) {
+                parsedLore.addAll(Arrays.asList(replaced.split("\n")));
+            } else {
+                parsedLore.add(replaced);
+            }
         }
         return createItem(material, name, parsedLore);
     }

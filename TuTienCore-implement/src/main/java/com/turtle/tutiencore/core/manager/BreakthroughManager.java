@@ -150,6 +150,21 @@ public class BreakthroughManager implements Listener {
         }
 
         // Sống sót = thành công, Chết = thất bại (không pre-roll)
+        int dotPhaDanRequired = realmManager.getDotPhaDanRequired(nextRealm.getId());
+        if (!realmManager.takeDotPhaDan(player, dotPhaDanRequired)) {
+            int have = realmManager.getDotPhaDanCount(player);
+            player.sendMessage("§cThiếu Đột Phá Đan! Cần: x" + dotPhaDanRequired
+                    + " | Hiện có: x" + have
+                    + " §7(" + realmManager.getDotPhaDanItem() + ")");
+            return;
+        }
+
+        // Take additional realm materials (nếu có cấu hình)
+        if (!realmManager.takeAllMaterials(player, nextRealm.getId())) {
+            player.sendMessage("§cThiếu nguyên liệu đột phá! Kiểm tra lại vật phẩm trong túi.");
+            return;
+        }
+
         double actualDmg = nextRealm.getDamagePerBolt();
 
         BreakthroughSession session = new BreakthroughSession(
