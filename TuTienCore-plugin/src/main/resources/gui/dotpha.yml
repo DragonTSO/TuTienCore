@@ -1,15 +1,14 @@
 # ==========================================
 # TuTienCore - /dotpha GUI Configuration
 # ==========================================
-# Lore và tên item nên sửa ở file này, code chỉ cập nhật placeholder/trạng thái.
-# Hỗ trợ màu &: &a, &c, &l...
-# Hỗ trợ PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
-# Placeholder nội bộ:
+# Lore va ten item nen sua o file nay, code chi cap nhat placeholder/trang thai.
+# Ho tro mau &: &a, &c, &l...
+# Ho tro PlaceholderAPI: %player_name%, %tutien_tuvi%, ...
+# Placeholder noi bo:
 # {realm}, {realm_name}, {realm_display}, {realm_tier}, {sub_realm}
 # {next_realm}, {next_sub_realm}, {next_target}, {breakthrough_type}, {breakthrough_target}
 # {tuvi}, {tuvi_required}, {next_tuvi_required}, {thuc_luc}, {thuc_luc_required}
-# {money}, {money_required}, {dot_pha_dan}, {dot_pha_dan_amount}, {cooldown}, {punishment}
-# {dot_pha_dan_item}, {dot_pha_dan_type}, {dot_pha_dan_id}
+# {money}, {money_required}, {dot_pha_dan}, {cooldown}, {punishment}
 # {lightning_name}, {lightning_bolts}, {damage_per_bolt}, {total_damage}, {success_rate}
 # {status_tuvi}, {status_thuc_luc}, {status_money}, {status_cooldown}, {status_ready}
 # {ready_text}, {click_text}
@@ -20,8 +19,8 @@ main-menu:
 
   items:
     border:
-      slots: "0-8,9,17,18-21,23-26"
-      material: PURPLE_STAINED_GLASS_PANE
+      slots: "0-8,45-53,9,17-26,24"
+      material: RED_STAINED_GLASS_PANE
       name: "&5"
 
     current-realm:
@@ -29,15 +28,15 @@ main-menu:
       material: NETHER_STAR
       name: "&d&lTu Luyện"
       lore:
-        - "&8ᴛʜôɴɢ ᴛɪɴ:"
+        - "&8Thông tin:"
         - "&7 Cảnh giới: {realm}"
         - "&7 Tầng nhỏ: &e{sub_realm}"
         - ""
         - "&7 Tu Vi: &b{tuvi} &7/ &e{next_tuvi_required}"
-        - "&7 Mục tiêu: {breakthrough_target}"
+        - "&7 Cảnh giới tiếp theo: {breakthrough_target}"
         - "&7 Đột phá: {status_ready} &f{ready_text}"
         - ""
-        - "&8ɢợɪ ý:"
+        - "&8Gợi ý:"
         - "&7 Vượt các tầng nhỏ để lên Viên Mãn,"
         - "&7 sau đó mới mở cảnh giới tiếp theo."
 
@@ -47,18 +46,18 @@ main-menu:
       # Có thể thêm material-ready/material-locked nếu muốn cố định icon.
       name: "&d&lĐột Phá"
       lore:
-        - "&8ᴛʜôɴɢ ᴛɪɴ độᴛ ᴘʜá:"
+        - "&8Thông tin đột phá:"
         - "&7 Loại tầng: &f{breakthrough_type}"
         - "&7 Cảnh giới tiếp theo: {breakthrough_target}"
         - ""
-        - "&8đɪềᴜ ᴋɪệɴ:"
+        - "&8Điều kiện:"
         - " {status_tuvi} &7Tu Vi: &b{tuvi} &7/ &e{tuvi_required}"
-        - " {status_thuc_luc} &7Thực lực: &b{thuc_luc} &7/ &e{thuc_luc_required}"
+        - " {status_thuc_luc} &7Lực chiến: &b{thuc_luc} &7/ &e{thuc_luc_required}"
         - " {status_money} &7Linh Thạch: &b{money} &7/ &e{money_required}"
         - " {status_cooldown} &7Hồi phục: &e{cooldown}"
-        - " &7Đột Phá Đan: &f{dot_pha_dan_item} &ex{dot_pha_dan_amount}"
+        - " &7Đột Phá Đan: &e{dot_pha_dan}"
         - ""
-        - "&8ʟôɪ ᴋɪếᴘ:"
+        - "&8Lôi kiếp:"
         - "&7 Dạng lôi sắp đánh xuống: &c{lightning_name}"
         - "&7 Số tia đánh xuống: &c{lightning_bolts}"
         - "&7 Sát thương gây ra mỗi tia: &c{damage_per_bolt}"
@@ -73,12 +72,12 @@ main-menu:
       material: BOOK
       name: "&b&lDanh Sách Cảnh Giới"
       lore:
-        - "&8ᴛʜôɴɢ ᴛɪɴ:"
+        - "&8Thông tin:"
         - " &7Xem toàn bộ cảnh giới, yêu cầu"
         - " &7Tu Vi và Đột Phá Đan từng mốc."
         - ""
         - " &7Hiện tại: {realm}"
-        -  "&7Tầng nhỏ: &e{sub_realm}"
+        - " &7Tầng nhỏ: &e{sub_realm}"
         - ""
         - "&eClick để xem danh sách."
 
@@ -86,23 +85,23 @@ main-menu:
       material: DRAGON_EGG
       name: "&4&lCực Đỉnh"
       lore:
-        - "&8ᴛʜôɴɢ ᴛɪɴ:"
+        - "&8Thông tin:"
         - " &aBạn đã đạt cảnh giới tối đa."
         - " &7Không còn mốc đột phá tiếp theo."
 
     tips:
-      slot: 16
+      slot: 15
       material: WRITABLE_BOOK
       name: "&e&lLưu Ý Khi Đột Phá"
       lore:
-        - "&8Kinh nghiệm:"
         - " &7Chuẩn bị hồi phục và trang bị phòng thủ"
         - " &7trước khi gọi lôi kiếp."
         - ""
         - " &8▪ &7Tầng nhỏ dễ hơn, dùng để mở giới hạn Tu Vi."
         - " &8▪ &7Cảnh giới lớn có rủi ro tụt cảnh giới."
         - " &8▪ &7Nếu bị cooldown, hãy chờ hồi phục rồi thử lại."
-
+        - " &8▪ &7Gọi các đạo hữu có môn phái &aLinh Dược &7hoặc"
+        - "   &6Kim thân&7 để hỗ trợ đột phá."
     close-button:
       slot: 22
       material: BARRIER
@@ -123,11 +122,11 @@ confirm-menu:
       material: LIGHTNING_ROD
       name: "&e&lXác Nhận Đột Phá"
       lore:
-        - "&8ᴛʜôɴɢ ᴛɪɴ:"
+        - "&8Thông tin:"
         - " &7Loại: &f{breakthrough_type}"
         - " &7Mục tiêu: {breakthrough_target}"
         - ""
-        - "&8ʟôɪ ᴋɪếᴘ:"
+        - "&8Lôi kiếp:"
         - "&7 Dạng lôi sắp đánh xuống: &c{lightning_name}"
         - "&7 Số tia đánh xuống: &c{lightning_bolts}"
         - "&7 Sát thương gây ra mỗi tia: &c{damage_per_bolt}"

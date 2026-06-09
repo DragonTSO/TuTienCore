@@ -1,15 +1,15 @@
 enabled: true
 
 duration:
-  # Lưu thời gian còn lại xuống equipment-data.yml mỗi bao nhiêu giây.
+  # Luu thoi gian con lai xuong equipment-data.yml moi bao nhieu giay.
   save-interval-seconds: 30
 
 consumable:
   enabled: true
   accepted-types:
     - DAN_DUOC_CONSUMABLE
-  # Để trống = chỉ check theo MMOItems type. Nếu muốn hỗ trợ flag stat cũ,
-  # điền stat id vào đây và item phải có stat đó > 0.
+  # De trong = chi check theo MMOItems type. Neu muon ho tro flag stat cu,
+  # dien stat id vao day va item phai co stat do > 0.
   flag-stat: ""
   duration-stat: DAN_DUOC_DURATION
   default-duration: 5m
@@ -113,8 +113,8 @@ slots:
   accessory:
     slot: 20
     display-name: "Trang Sức"
-    # false = lấy chỉ số trực tiếp từ MMOItems trên item đã đặt vào slot.
-    # true = cộng thêm stats config bên dưới nếu bạn muốn bonus riêng.
+    # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
+    # true = cong them stats config ben duoi neu ban muon bonus rieng.
     use-config-stats: false
     accepted-types:
       - ACCESSORY
@@ -140,8 +140,8 @@ slots:
   dan_duoc:
     slot: 24
     display-name: "Đan Dược"
-    # false = lấy chỉ số trực tiếp từ MMOItems trên item đã đặt vào slot.
-    # true = cộng thêm stats config bên dưới nếu bạn muốn bonus riêng.
+    # false = lay chi so truc tiep tu MMOItems tren item da dat vao slot.
+    # true = cong them stats config ben duoi neu ban muon bonus rieng.
     use-config-stats: false
     accepted-types:
       - DAN_DUOC
@@ -153,16 +153,16 @@ slots:
         - "&7vào đây để nhận chỉ số."
     duration:
       enabled: true
-      # Ưu tiên lấy stat MMOItems này trên item. Đơn vị: giây.
+      # Uu tien lay stat MMOItems nay tren item. Don vi: giay.
       stat: DAN_DUOC_DURATION
-      # Bonus system stat hoạt động khi DAN_DUOC đang được trang bị:
-      # - DAN_DUOC_TUVI_BONUS: cộng % Tu Vi từ /tuluyen.
-      # - DAN_DUOC_MYTHIC_MONEY_BONUS: cộng % Linh thạch Vault từ MythicMobs money drop.
-      # - DAN_DUOC_FORGE_LUCK_BONUS: cộng % luck cho TuTienForge /luyenkhi.
-      # Nếu item không có stat DAN_DUOC_DURATION thì dùng default này.
-      # Hỗ trợ: 30s, 5m, 2h, 1d, hoặc ghép như 1h30m.
+      # Bonus system stat hoat dong khi DAN_DUOC dang duoc trang bi:
+      # - DAN_DUOC_TUVI_BONUS: cong % Tu Vi tu /tuluyen.
+      # - DAN_DUOC_MYTHIC_MONEY_BONUS: cong % Linh thach Vault tu MythicMobs money drop.
+      # - DAN_DUOC_FORGE_LUCK_BONUS: cong % luck cho TuTienForge /luyenkhi.
+      # Neu item khong co stat DAN_DUOC_DURATION thi dung default nay.
+      # Ho tro: 30s, 5m, 2h, 1d, hoac ghep nhu 1h30m.
       default: 1h
-      # true = ghi lore thời gian vào chính item; tháo ra sẽ giữ thời gian còn lại.
+      # true = ghi lore thoi gian vao chinh item; thao ra se giu thoi gian con lai.
       write-to-item-lore: true
       consume-when-expired: true
       lore:
@@ -179,8 +179,8 @@ offhand:
     name: ""
     lore:
       - ""
-      - "&f   ꐣ → mở thông tin/trang bị"
-      - "&f   ꐝ → mở tiến hoá"
+      - "&f   ꐣ → mở thông tin/trang bị."
+      - "&f   ꐝ → mở tiến hoá."
       - ""
       - "&c   Không thể tháo khỏi tay phụ."
   info-item-types:
@@ -196,12 +196,48 @@ offhand:
       to-id: HA_MACH_TIEN_HOAN
       take-source: true
       # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
-      cost: 100000
-      required-level: 10
-      required-realm: 5
+      cost: 1000
+      required-level: 2
+      required-realm: 1
       required-sub-realm: ""
       commands: []
     2:
+      from-type: OFF_CATALYST
+      from-id: HA_MACH_TIEN_HOAN
+      to-type: OFF_CATALYST
+      to-id: TRUNG_NGOC_TIEN_HOAN
+      take-source: true
+      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
+      cost: 1000000
+      required-level: 12
+      required-realm: 3
+      required-sub-realm: ""
+      commands: []
+    3:
+      from-type: OFF_CATALYST
+      from-id: TRUNG_NGOC_TIEN_HOAN
+      to-type: OFF_CATALYST
+      to-id: THUONG_HUYEN_TIEN_HOAN
+      take-source: true
+      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
+      cost: 3000000
+      required-level: 25
+      required-realm: 4
+      required-sub-realm: ""
+      commands: []
+    4:
+      from-type: OFF_CATALYST
+      from-id: THUONG_HUYEN_TIEN_HOAN
+      to-type: OFF_CATALYST
+      to-id: THAN_MACH_TIEN_HOAN
+      take-source: true
+      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
+      cost: 5000000
+      required-level: 45
+      required-realm: 8
+      required-sub-realm: ""
+      commands: []
+    5:
       from-type: DAN_DUOC
       from-id: DAN_DUOC_1
       to-type: DAN_DUOC

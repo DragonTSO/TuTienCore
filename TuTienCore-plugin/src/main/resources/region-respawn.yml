@@ -12,14 +12,14 @@ debug: false
 
 regions:
   # Đổi "example_region" thành id region/zone thật.
-  example_region:
+  dungeon1:
     # Có thể bỏ dòng region nếu key bên trên chính là id region.
-    region: "example_region"
-    world: "world"
-    x: 0.5
-    y: 80.0
-    z: 0.5
-    yaw: 0.0
+    region: ""
+    world: "dungeon"
+    x: -20.5
+    y: 78
+    z: -113.5
+    yaw: 20
     pitch: 0.0
 
 death-tips:
@@ -87,55 +87,52 @@ death-tips:
     billboard: FIXED
     transform: HEAD
   cinematic-text:
-    # TextDisplay riêng của TuTienCore, bay trước camera player như title/subtitle.
+    # TextDisplay rieng cua TuTienCore, bay truoc camera player nhu title/subtitle.
     enabled: true
-    title: "&c&lTrang bị chưa đủ mạnh"
-    subtitle: "&7%tip%"
-    duration-ticks: 80
+    title: "&c☠ &c&lQuá cùi? &c☠"
+    subtitle: "&f%tip%"
+    duration-ticks: 20
     update-interval-ticks: 1
     wait-for-pitch: true
-    subtitle-intro-ticks: 16
+    subtitle-intro-ticks: 10
     subtitle-start-opacity: 0
-    subtitle-start-y-offset: -0.60
-    subtitle-end-y-offset: -0.28
-    fade-delay-ticks: 10
-    # Thời gian fade mất sau khi hết fade-delay-ticks.
-    duration-ticks: 80
-    update-interval-ticks: 1
-    # true = bám trực tiếp theo tầm nhìn/crosshair hiện tại của player.
+    subtitle-start-y-offset: -0.1
+    subtitle-end-y-offset: -0.1
+    fade-delay-ticks: 20
+    # true = bam truc tiep theo tam nhin/crosshair hien tai cua player.
     follow-player-camera: true
-    distance: 2.4
-    y-offset: -0.05
+    distance: 1.5
+    y-offset: -1.5
     rise-distance: 0.55
-    start-scale: 0.9
+    start-scale: 0.5
     # Scale cố định của subtitle trong lúc đang hiển thị.
-    subtitle-scale: 0.55
-    start-opacity: 230
+    subtitle-scale: 0.25
+    start-opacity: 255
     end-opacity: 0
     teleport-duration: 1
     interpolation-duration: 1
     line-width: 260
     view-range: 8.0
     shadow: true
-    see-through: true
+    see-through: false
     background-alpha: 0
     screen-background:
-      # TextDisplay riêng nằm phía sau title/subtitle, dùng như nền ảo trước màn hình player.
+      # TextDisplay rieng nam phia sau title/subtitle, dung nhu nen ao truoc man hinh player.
       enabled: true
-      # Nếu bỏ trống, plugin sẽ tự tạo text trong suốt bằng columns/rows để đẩy nền TextDisplay.
+      # Neu bo trong, plugin se tu tao text trong suot bang columns/rows de day nen TextDisplay.
       # text: ""
-      columns: 80
-      rows: 18
-      # Tăng distance-offset để nền nằm sau title/subtitle, giảm nếu bị quá xa camera.
-      distance-offset: 0.08
-      y-offset: 0.0
-      scale: 1.0
-      # Độ mờ nền: 0 = trong suốt, 255 = kín.
-      alpha: 95
-      # 0 = ẩn chữ nền, chỉ hiện màu background của TextDisplay.
+      columns: 100
+      rows: 30
+      # Tang distance-offset de nen nam sau title/subtitle, giam neu bi qua xa camera.
+      distance-offset: 3
+      y-offset: -4
+      scale: 30
+      # Do mo nen: 0 = trong suot, 255 = kin.
+      alpha: 90
+      # 0 = an chu nen, chi hien mau background cua TextDisplay.
       text-opacity: 0
       line-width: 2000
-      shadow: false
+      shadow: true
       see-through: true
   view-duration-ticks: 80
   restore-gamemode: true
@@ -144,26 +141,26 @@ death-tips:
     # Camera target là Villager tàng hình/silent/no-ai để spectator bám ổn hơn ArmorStand.
     y-offset: 0.0
   start-title:
-    # Title hiện ngay khi player vừa chết / bắt đầu cinematic.
+    # Title hien ngay khi player vua chet / bat dau cinematic.
     enabled: true
-    title: "&c&lTrang bị chưa đủ mạnh"
-    subtitle: "&7%tip%"
+    title: "ꑔꑔ"
+    subtitle: ""
     fade-in: 5
-    stay: 70
-    fade-out: 15
+    stay: 5
+    fade-out: 10
   end-title:
-    # Title hiện sau khi cinematic chết kết thúc và player được restore.
+    # Title hien sau khi cinematic chet ket thuc va player duoc restore.
     enabled: true
-    title: "&a&lĐã hồi sinh"
-    subtitle: "&7Hãy nâng cấp trang bị rồi quay lại."
+    title: "ꑔꑔ"
+    subtitle: ""
     delay-ticks: 0
     fade-in: 5
-    stay: 40
-    fade-out: 15
+    stay: 20
+    fade-out: 10
   sound:
     enabled: true
     # Hỗ trợ Bukkit sound hoặc custom sound resourcepack, ví dụ: tutiencore:death_tip
-    name: "ENTITY_WITHER_SPAWN"
+    name: "item.trident.thunder"
     category: MASTER
     volume: 0.55
     pitch: 0.75
@@ -173,7 +170,8 @@ death-tips:
       - "&cBạn vừa bị &f%mob% &chạ gục."
       - "&7%tip%"
   tips:
-    - "&7Trang bị của bạn còn yếu, hãy luyện khí hoặc nâng phẩm trước khi quay lại."
-    - "&7Thử nâng vũ khí, giáp và chọn khu vực quái phù hợp cảnh giới."
-    - "&7Nếu quái đánh quá đau, hãy kiếm set phòng thủ hoặc tăng máu trước."
-    - "&7Luyện thêm trang bị ở Luyện Khí Các sẽ giúp sống sót tốt hơn."
+    - "Kiếm trang bị mạnh hơn từ luyện khí thêm"
+    - "Khi đột phá cảnh giới cao hơn = luyện khí \ntrang bị ngon hơn"
+    - "Hãy cắn đan để mạnh tạm thời."
+    - "/shopxu xem ưu đãi"
+    - "/rebirth để mạnh hơn"

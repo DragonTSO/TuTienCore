@@ -23,8 +23,8 @@ gui:
 
   messages:
     no-pending: "&cBạn không có Tu Vi offline để nhận."
-    x2-no-permission: "&cBạn cần thuê gói nhận x2 theo tháng để dùng nút này. &7Permission: &e%x2_permission%"
-    not-enough-points: "&cKhông đủ &e%x2_cost% PlayerPoints &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."
+    x2-no-permission: "&cBạn cần thuê gói nhận x2 theo tháng để dùng nút này. &7Hãy thuê tại &f/warp tuluyen"
+    not-enough-points: "&cKhông đủ &e%x2_cost% Cổ thạch &cđể nhận x2. &7Tu Vi offline vẫn được giữ lại."
     claim-success: "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline."
     claim-x2-success: "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline &b(x2)&a."
 
@@ -33,32 +33,28 @@ gui:
       enabled: true
       slot: 11
       material: EXPERIENCE_BOTTLE
-      name: "&a&lNhận Tu Vi"
+      name: "&aNhận Tu Vi"
       lore:
-        - "&8thông tin"
-        - "&7Tu Vi đã tích lũy: &e%tuvi%"
-        - "&7Thời gian tính: &b%earned_time%%capped_suffix%"
-        - "&7Hiệu suất offline: &a%multiplier%"
-        - "&7Hình thức: &aNhận miễn phí"
+        - "&8Thông tin:"
+        - " &7Tu Vi đã tích lũy: &e%tuvi%"
+        - " &7Thời gian tính: &b%earned_time%%capped_suffix%"
+        - " &7Hiệu suất offline: &a%multiplier%"
+        - " &7Hình thức: &aNhận miễn phí"
         - ""
-        - "&aChuột trái để nhận ngay."
+        - '&fꐝ Click vào để nhận'
 
     claim-x2:
       enabled: true
       slot: 15
       material: EMERALD
-      name: "&b&lNhận x2 Tu Vi"
+      name: "&b Nhận x2 Tu Vi"
       lore:
-        - "&8nâng cấp phần thưởng"
-        - "&7Tu Vi gốc: &e%tuvi%"
-        - "&7Thời gian tính: &b%earned_time%%capped_suffix%"
-        - "&7Hiệu suất offline: &a%multiplier%"
-        - "&7Sau nhân đôi: &b%tuvi_x2%"
-        - "&7Chi phí: &e%x2_cost% PlayerPoints"
-        - "&7Thuê tháng: %x2_permission_status%"
-        - "&8%x2_permission%"
+        - "&8Thông tin:"
+        - " &7Tu Vi: &e%tuvi%&8 → &6%tuvi_x2%"
+        - " &7Thời gian tính: &b%earned_time%%capped_suffix%"
+        - " &7Thuê tháng: %x2_permission_status%"
         - ""
-        - "&bChuột trái để nhận x2."
+        - '&fꐝ Click vào để nhận x2'
 
     close:
       enabled: true

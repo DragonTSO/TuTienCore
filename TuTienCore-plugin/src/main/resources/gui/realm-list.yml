@@ -1,11 +1,11 @@
 # ==========================================
-# TuTienCore — Cảnh Giới GUI Configuration
+# TuTienCore — Canh Gioi GUI Configuration
 # ==========================================
-# /canhgioi: hiển thị 10 cảnh giới đầu, đến Chân Tiên.
-# Material realm item được quyết định theo trạng thái:
-# - current: đang ở cảnh giới này
-# - past: đã đột phá qua
-# - future: chưa đột phá
+# /canhgioi: hien thi 10 canh gioi dau, den Chan Tien.
+# Material realm item duoc quyet dinh theo trang thai:
+# - current: dang o canh gioi nay
+# - past: da dot pha qua
+# - future: chua dot pha
 
 title: "&0✦ Lộ Trình Cảnh Giới ✦"
 size: 54
@@ -38,7 +38,7 @@ title-item:
   material: NETHER_STAR
   name: "&d&l✦ Lộ Trình Tu Tiên ✦"
   lore:
-    - "&8━━━━━━━━━━━━━━━━━━━━━"
+    - "&8"
     - "&7Theo dõi các mốc cảnh giới chính"
     - "&7từ &fPhàm Nhân &7đến &bChân Tiên&7."
     - ""
@@ -48,21 +48,18 @@ title-item:
     - ""
     - "&7Hiện tại: %tutien_canhgioi_full%"
     - "&7Tầng nhỏ: &e%tutien_canhgioi_tang%"
-    - "&8━━━━━━━━━━━━━━━━━━━━━"
+    - "&8"
 
 player-info:
   slot: 40
   material: PLAYER_HEAD
   name: "&e&l%player_name% &7— Hồ Sơ Tu Luyện"
   lore:
-    - "&8━━━━━━━━━━━━━━━━━━━━━"
-    - "&8ᴛʜôɴɢ ᴛɪɴ"
-    - ""
-    - "&7Cảnh Giới: %tutien_canhgioi_full%"
-    - "&7Tầng: &e%tutien_canhgioi_tang%"
-    - "&7Đại Giới: &b%tutien_canhgioi_daigioi%"
-    - "&7Tu Vi: &d%tutien_tuvi_formatted%"
-    - "&8━━━━━━━━━━━━━━━━━━━━━"
+    - "&8Thông tin:"
+    - "&7 Cảnh Giới: %tutien_canhgioi_full%"
+    - "&7 Tầng: &e%tutien_canhgioi_tang%"
+    - "&7 Đại Giới: &b%tutien_canhgioi_daigioi%"
+    - "&7 Tu Vi: &d%tutien_tuvi_formatted%"
 
 close-button:
   slot: 49
@@ -77,22 +74,20 @@ realm-item:
     name: "&a&l▶ {realm_name} &a&l◀"
     glow: true
     lore:
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
-      - "&8ᴄảɴʜ ɢɪớɪ ʜɪệɴ ᴛạɪ"
-      - ""
-      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
-      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
-      - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
-      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
+      - "&8Cảnh giới hiện tại:"
+      - "&7 Đại Giới: {realm_tier_color}{realm_tier}"
+      - "&7 Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - "&7 Lực chiến yêu cầu: &e{realm_thuc_luc}"
+      - "&7 Đột Phá Đan: &6{realm_dot_pha_dan} cái"
       - ""
       - "&e⚡ Thiên Lôi Kiếp"
       - "&8- &7Số tia: &c{realm_bolts}"
-      - "&8- &7Sát thương/tia: &c{realm_damage}"
+      - "&8- &7Sát thương/tia: &c{realm_damage} ❤"
       - "&8- &7Tỉ lệ: &a{realm_success}"
       - ""
-      - "&eTiểu cảnh giới:"
+      - "&eTầng:"
       - "  {sub_realm_progress}"
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
+      - "&8"
       - "&aBạn đang tu luyện tại cảnh giới này."
 
   past:
@@ -100,34 +95,30 @@ realm-item:
     name: "&2✔ {realm_name}"
     glow: false
     lore:
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
-      - "&8đã độᴛ ᴘʜá"
+      - "&8Đã đột phá"
       - ""
-      - "&7Đại Giới: {realm_tier_color}{realm_tier}"
-      - "&7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
-      - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
-      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
-      - "&2Bạn đã vượt qua cảnh giới này."
+      - " &7Đại Giới: {realm_tier_color}{realm_tier}"
+      - " &7Tu Vi yêu cầu: &a{realm_tuvi} &a✔"
+      - " &7Thực Lực yêu cầu: &e{realm_thuc_luc}"
+      - " &7Đột Phá Đan: &6{realm_dot_pha_dan} cái"
+      - " &2Bạn đã vượt qua cảnh giới này."
 
   future:
     material: RED_STAINED_GLASS_PANE
     name: "&c✖ {realm_name}"
     glow: false
     lore:
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
-      - "&8ᴄʜưᴀ độᴛ ᴘʜá"
+      - "&8Chưa đột phá"
       - ""
       - "&7Đại Giới: {realm_tier_color}{realm_tier}"
       - "&7Tu Vi yêu cầu: {tuvi_status}"
       - "&7Thực Lực yêu cầu: &e{realm_thuc_luc}"
-      - "&7Đột Phá Đan: &f{dot_pha_dan_item} &6x{realm_dot_pha_dan}"
+      - "&7Đột Phá Đan: &6{realm_dot_pha_dan} cái"
       - ""
       - "&e⚡ Thiên Lôi Kiếp"
       - "&8- &7Số tia: &c{realm_bolts}"
-      - "&8- &7Sát thương/tia: &c{realm_damage}"
+      - "&8- &7Sát thương/tia: &c{realm_damage} ❤"
       - "&8- &7Tỉ lệ: &a{realm_success}"
-      - "&8━━━━━━━━━━━━━━━━━━━━━"
       - "&cCần /dotpha để mở khóa."
 
 default-materials:

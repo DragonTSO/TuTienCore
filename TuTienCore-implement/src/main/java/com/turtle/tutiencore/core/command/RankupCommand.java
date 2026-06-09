@@ -137,7 +137,7 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
                 Placeholder.of("cost", String.valueOf(cost)),
                 Placeholder.of("balance", String.valueOf(Math.max(0, balance - cost))),
                 Placeholder.of("currency", currency),
-                Placeholder.of("bonus_mode", stackBonuses ? "Cá»™ng dá»“n" : "Chá»‰ rank hiá»‡n táº¡i"),
+                Placeholder.of("bonus_mode", stackBonuses ? "Cộng dồn" : "Chỉ rank hiện tại"),
                 Placeholder.of("total_tuvi", formatNumber(totals.tuvi())),
                 Placeholder.of("total_forge_luck", formatNumber(totals.forgeLuck())),
                 Placeholder.of("total_mythic_money", formatNumber(totals.mythicMoney())));
@@ -471,8 +471,8 @@ public class RankupCommand implements CommandExecutor, TabCompleter {
 
     private BroadcastFormat loadBroadcastFormat(YamlConfiguration config) {
         BroadcastFormat format = new BroadcastFormat(
-                "\uA45A",
-                "\uA45C",
+                "ꑚ",
+                "ꑜ",
                 "&#6CF6FF{first-line-icon} &f{message}",
                 "&#6CF6FF{chained-line-icon} &f{message}",
                 20L
