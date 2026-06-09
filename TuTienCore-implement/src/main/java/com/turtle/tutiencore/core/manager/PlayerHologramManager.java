@@ -77,6 +77,7 @@ public class PlayerHologramManager implements Listener {
     private boolean packetListenerRegistered;
     private boolean loggedNexoNameTeamCompatibility;
     private TuLuyenManager tuLuyenManager;
+    private String cachedTextTemplate = "";
 
     public PlayerHologramManager(JavaPlugin plugin, ConfigManager configManager, RealmManager realmManager) {
         this.plugin = plugin;
@@ -102,6 +103,12 @@ public class PlayerHologramManager implements Listener {
         if (!isEnabled() || !isPacketEventsReady()) {
             return;
         }
+
+        List<String> lines = plugin.getConfig().getStringList("player-hologram.lines");
+        if (lines.isEmpty()) {
+            lines = getDefaultLines();
+        }
+        cachedTextTemplate = String.join("\n", lines);
 
         syncFallbackNameTeams();
         tick();
@@ -364,17 +371,8 @@ public class PlayerHologramManager implements Listener {
     }
 
     private String buildText(Player player) {
-        List<String> configuredLines = plugin.getConfig().getStringList("player-hologram.lines");
-        if (configuredLines.isEmpty()) {
-            configuredLines = getDefaultLines();
-        }
-
-        List<String> rendered = new ArrayList<>();
-        for (String line : configuredLines) {
-            String parsed = applyPlaceholders(player, line);
-            rendered.add(ChatColor.translateAlternateColorCodes('&', parsed));
-        }
-        return String.join("\n", rendered);
+        String parsed = applyPlaceholders(player, cachedTextTemplate);
+        return ChatColor.translateAlternateColorCodes('&', parsed);
     }
 
     private String applyPlaceholders(Player player, String line) {

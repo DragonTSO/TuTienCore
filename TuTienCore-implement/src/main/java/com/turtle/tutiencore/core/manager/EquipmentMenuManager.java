@@ -590,10 +590,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (item == null || item.getType().isAir()) return;
         if (hasUnparsedMmoItemsExpansionLore(item)) {
             parseMmoItemsExpansionLore(player, item);
-            if (hasUnparsedMmoItemsExpansionLore(item)) {
-                scheduleBoundOffhandLoreAppend(player, 4L);
-                return;
-            }
         }
         appendBoundOffhandLore(player, item);
     }
@@ -605,19 +601,31 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         boolean syncToOffhand = isCurrentManagedOffhand(player, item);
 
         List<String> appendix = boundOffhandAppendix(player);
+        boolean changed = false;
+
+        if (!meta.getPersistentDataContainer().has(boundOffhandKey, PersistentDataType.BYTE)) {
+            meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
+            changed = true;
+        }
+
         if (!appendix.isEmpty()) {
             List<String> lore = meta.hasLore() && meta.getLore() != null
                     ? new ArrayList<>(meta.getLore())
                     : new ArrayList<>();
-            lore = stripBoundOffhandAppendix(lore);
-            lore.addAll(appendix);
-            meta.setLore(lore);
+            List<String> newLore = stripBoundOffhandAppendix(lore);
+            newLore.addAll(appendix);
+
+            if (!lore.equals(newLore)) {
+                meta.setLore(newLore);
+                changed = true;
+            }
         }
-        meta.getPersistentDataContainer().set(boundOffhandKey, PersistentDataType.BYTE, (byte) 1);
+
+        if (!changed) return;
+
         item.setItemMeta(meta);
         if (syncToOffhand) {
             player.getInventory().setItemInOffHand(item);
-            player.updateInventory();
         }
     }
 
@@ -646,10 +654,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             markBoundOffhand(offhand);
             if (hasUnparsedMmoItemsExpansionLore(offhand)) {
                 parseMmoItemsExpansionLore(player, offhand);
-                if (hasUnparsedMmoItemsExpansionLore(offhand)) {
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> refreshBoundOffhandLore(player, offhand), 6L);
-                    return;
-                }
             }
             appendBoundOffhandLore(player, offhand);
         }, delay);
