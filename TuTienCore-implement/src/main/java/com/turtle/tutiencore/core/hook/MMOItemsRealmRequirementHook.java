@@ -8,6 +8,7 @@ import net.Indyuce.mmoitems.MMOItems;
 import net.Indyuce.mmoitems.api.event.MMOItemsReloadEvent;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -18,20 +19,27 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.text.Normalizer;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class MMOItemsRealmRequirementHook implements Listener {
 
     private final JavaPlugin plugin;
+    private final RealmManager realmManager;
     private final MMOItemsRealmRequirementStat stat;
     private boolean initialized;
 
     public MMOItemsRealmRequirementHook(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
+        this.realmManager = realmManager;
         this.stat = new MMOItemsRealmRequirementStat(realmManager);
     }
 
@@ -120,11 +128,63 @@ public final class MMOItemsRealmRequirementHook implements Listener {
     }
 
     private boolean canUse(Player player, ItemStack item, boolean message) {
+        return canUse(stat, realmManager, player, item, message);
+    }
+
+    public static boolean canUse(RealmManager realmManager, Player player, ItemStack item, boolean message) {
+        return canUse(new MMOItemsRealmRequirementStat(realmManager), realmManager, player, item, message);
+    }
+
+    private static boolean canUse(MMOItemsRealmRequirementStat stat, RealmManager realmManager, Player player, ItemStack item, boolean message) {
         if (item == null || item.getType().isAir()) {
             return true;
         }
 
-        return stat.canUse(player, NBTItem.get(item), message);
+        return stat.canUse(player, NBTItem.get(item), message) && canUseUnparsedCanUseLore(realmManager, player, item, message);
+    }
+
+    private static boolean canUseUnparsedCanUseLore(RealmManager realmManager, Player player, ItemStack item, boolean message) {
+        if (realmManager == null || player == null || item == null || item.getType().isAir()) return true;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || meta.getLore() == null) return true;
+
+        int requiredRealm = 0;
+        for (String line : meta.getLore()) {
+            requiredRealm = Math.max(requiredRealm, canUseLoreRequirement(line, "canh gioi"));
+        }
+        if (requiredRealm <= 0) return true;
+
+        PlayerRealm playerRealm = realmManager.getPlayerRealm(player.getUniqueId());
+        int currentRealm = playerRealm == null ? -1 : playerRealm.getRealmId();
+        if (currentRealm >= requiredRealm) return true;
+
+        if (message) {
+            player.sendMessage(ChatColor.RED + "Canh gioi cua ban chua du de su dung vat pham nay. Can: " + requiredRealm);
+        }
+        return false;
+    }
+
+    public static int canUseLoreRequirement(String line, String label) {
+        if (line == null || label == null || label.isBlank()) return 0;
+        String colored = ChatColor.translateAlternateColorCodes('&', line);
+        String plain = normalizeLoreLine(ChatColor.stripColor(colored));
+        if (!plain.contains("{can-use}") && !plain.contains("#can-use#")) return 0;
+        String normalizedLabel = normalizeLoreLine(label);
+        int labelIndex = plain.indexOf(normalizedLabel);
+        if (labelIndex < 0) return 0;
+        Matcher matcher = Pattern.compile("\\d+").matcher(plain.substring(labelIndex + normalizedLabel.length()));
+        return matcher.find() ? Integer.parseInt(matcher.group()) : 0;
+    }
+
+    private static String normalizeLoreLine(String line) {
+        String value = line == null ? "" : line;
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D')
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT)
+                .trim();
     }
 
     static boolean shouldCheckMainHandForDamage(boolean directPlayerDamage) {

@@ -4,6 +4,7 @@ import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import io.lumine.mythic.lib.api.item.NBTItem;
 import io.lumine.mythic.lib.api.player.MMOPlayerData;
 import io.lumine.mythic.lib.api.stat.StatInstance;
@@ -1545,11 +1546,21 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (player == null || item == null || item.getType().isAir()) return false;
         try {
             NBTItem nbt = NBTItem.get(item);
-            return PlayerData.get(player).getRPG().canUse(nbt, true);
+            boolean mmoItemsAllowed = PlayerData.get(player).getRPG().canUse(nbt, true);
+            boolean realmAllowed = MMOItemsRealmRequirementHook.canUse(realmManager, player, item, mmoItemsAllowed);
+            return allEquipmentRequirementsPass(mmoItemsAllowed, realmAllowed);
         } catch (Throwable throwable) {
             player.sendMessage(message("requirement-failed", "&cBan chua du dieu kien de trang bi item nay."));
             return false;
         }
+    }
+
+    static boolean allEquipmentRequirementsPass(boolean mmoItemsAllowed, boolean realmAllowed) {
+        return mmoItemsAllowed && realmAllowed;
+    }
+
+    static int canUseLoreRequirement(String line, String label) {
+        return MMOItemsRealmRequirementHook.canUseLoreRequirement(line, label);
     }
 
     private String mmoString(ItemStack item, String... keys) {

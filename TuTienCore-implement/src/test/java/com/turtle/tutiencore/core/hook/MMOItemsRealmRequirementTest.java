@@ -66,4 +66,14 @@ class MMOItemsRealmRequirementTest {
     void weaponRestrictionChecksMainHandOnDirectPlayerDamage() {
         assertTrue(MMOItemsRealmRequirementHook.shouldCheckMainHandForDamage(true));
     }
+
+    @Test
+    void readsUnparsedCanUseLevelRequirementFromLore() {
+        assertEquals(20, MMOItemsRealmRequirementHook.canUseLoreRequirement("{can-use} Cấp độ 20", "cap do"));
+    }
+
+    @Test
+    void readsUnparsedCanUseRealmRequirementFromLore() {
+        assertEquals(5, MMOItemsRealmRequirementHook.canUseLoreRequirement("{can-use} Cảnh giới 5 - [Nguyên Anh]", "canh gioi"));
+    }
 }

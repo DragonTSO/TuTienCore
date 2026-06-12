@@ -24,4 +24,19 @@ class EquipmentMenuManagerTest {
                         "Linh Ngọc",
                         "vĩnh viễn"));
     }
+
+    @Test
+    void rejectsEquipmentWhenRealmRequirementFailsEvenIfMmoItemsAllowsUse() {
+        assertEquals(false, EquipmentMenuManager.allEquipmentRequirementsPass(true, false));
+    }
+
+    @Test
+    void readsUnparsedCanUseLevelRequirementFromLore() {
+        assertEquals(20, EquipmentMenuManager.canUseLoreRequirement("{can-use} Cấp độ 20", "cap do"));
+    }
+
+    @Test
+    void readsUnparsedCanUseRealmRequirementFromLore() {
+        assertEquals(4, EquipmentMenuManager.canUseLoreRequirement("{can-use} Cảnh giới 4 - [Kim Đan]", "canh gioi"));
+    }
 }
