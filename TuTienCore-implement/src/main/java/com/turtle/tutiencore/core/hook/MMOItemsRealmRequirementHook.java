@@ -1,12 +1,10 @@
 package com.turtle.tutiencore.core.hook;
 
 import com.turtle.tutiencore.api.realm.PlayerRealm;
+import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
-
-import net.Indyuce.mmoitems.MMOItems;
-import net.Indyuce.mmoitems.api.event.MMOItemsReloadEvent;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -35,13 +33,15 @@ public final class MMOItemsRealmRequirementHook implements Listener {
 
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
+    private final ConfigManager configManager;
     private final MMOItemsRealmRequirementStat stat;
     private boolean initialized;
 
-    public MMOItemsRealmRequirementHook(JavaPlugin plugin, RealmManager realmManager) {
+    public MMOItemsRealmRequirementHook(JavaPlugin plugin, RealmManager realmManager, ConfigManager configManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
-        this.stat = new MMOItemsRealmRequirementStat(realmManager);
+        this.configManager = configManager;
+        this.stat = new MMOItemsRealmRequirementStat(realmManager, configManager);
     }
 
     public void register() {
@@ -129,22 +129,26 @@ public final class MMOItemsRealmRequirementHook implements Listener {
     }
 
     private boolean canUse(Player player, ItemStack item, boolean message) {
-        return canUse(stat, realmManager, player, item, message);
+        return canUse(stat, realmManager, configManager, player, item, message);
     }
 
     public static boolean canUse(RealmManager realmManager, Player player, ItemStack item, boolean message) {
-        return canUse(new MMOItemsRealmRequirementStat(realmManager), realmManager, player, item, message);
+        return canUse(realmManager, null, player, item, message);
     }
 
-    private static boolean canUse(MMOItemsRealmRequirementStat stat, RealmManager realmManager, Player player, ItemStack item, boolean message) {
+    public static boolean canUse(RealmManager realmManager, ConfigManager configManager, Player player, ItemStack item, boolean message) {
+        return canUse(new MMOItemsRealmRequirementStat(realmManager, configManager), realmManager, configManager, player, item, message);
+    }
+
+    private static boolean canUse(MMOItemsRealmRequirementStat stat, RealmManager realmManager, ConfigManager configManager, Player player, ItemStack item, boolean message) {
         if (item == null || item.getType().isAir()) {
             return true;
         }
 
-        return stat.canUse(player, NBTItem.get(item), message) && canUseUnparsedCanUseLore(realmManager, player, item, message);
+        return stat.canUse(player, NBTItem.get(item), message) && canUseUnparsedCanUseLore(realmManager, configManager, player, item, message);
     }
 
-    private static boolean canUseUnparsedCanUseLore(RealmManager realmManager, Player player, ItemStack item, boolean message) {
+    private static boolean canUseUnparsedCanUseLore(RealmManager realmManager, ConfigManager configManager, Player player, ItemStack item, boolean message) {
         if (realmManager == null || player == null || item == null || item.getType().isAir()) return true;
         ItemMeta meta = item.getItemMeta();
         if (meta == null || meta.getLore() == null) return true;
@@ -160,7 +164,12 @@ public final class MMOItemsRealmRequirementHook implements Listener {
         if (currentRealm >= requiredRealm) return true;
 
         if (message) {
-            player.sendMessage(ChatColor.RED + "Canh gioi cua ban chua du de su dung vat pham nay. Can: " + requiredRealm);
+            String msg = configManager != null
+                ? configManager.getMessage("realm-requirement-failed",
+                    "&cCảnh giới của bạn chưa đủ để sử dụng vật phẩm này. Cần: &e{required}")
+                    .replace("{required}", String.valueOf(requiredRealm))
+                : ChatColor.RED + "Canh gioi cua ban chua du de su dung vat pham nay. Can: " + requiredRealm;
+            player.sendMessage(msg);
         }
         return false;
     }

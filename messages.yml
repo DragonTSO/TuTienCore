@@ -49,3 +49,4 @@ conditions-not-met: 'Bạn chưa đủ điều kiện để chế tạo vật ph
 crafting-canceled: 'Bạn đã hủy công thức chế tạo.'
 crafting-queue-full: 'Hàng chờ chế tạo hiện đã đầy.'
 unable-to-repair: 'Vật phẩm này không thể sửa bằng vật phẩm tiêu hao này!'
+realm-requirement-failed: '&cCảnh giới của bạn chưa đủ để sử dụng vật phẩm này. Cần: &e{required}'

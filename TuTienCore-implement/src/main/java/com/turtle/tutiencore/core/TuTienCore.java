@@ -130,7 +130,7 @@ public class TuTienCore {
 
         this.mmoItemsMMOCoreStatsHook = new MMOItemsMMOCoreStatsHook(plugin);
         this.mmoItemsMMOCoreStatsHook.register();
-        this.mmoItemsRealmRequirementHook = new MMOItemsRealmRequirementHook(plugin, realmManager);
+        this.mmoItemsRealmRequirementHook = new MMOItemsRealmRequirementHook(plugin, realmManager, configManager);
         this.mmoItemsRealmRequirementHook.register();
         this.mmoItemsMaxHealthPercentHook = new MMOItemsMaxHealthPercentHook(plugin);
         this.mmoItemsMaxHealthPercentHook.register();

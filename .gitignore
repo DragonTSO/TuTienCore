@@ -37,3 +37,7 @@ buildNumber.properties
 # IDEA
 .idea/
 *.iml
+
+# Local-only folders (not part of TuTienCore)
+MMOItemsExpansion/
+mmoitems-master/
