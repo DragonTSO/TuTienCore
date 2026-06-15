@@ -49,13 +49,17 @@ messages:
 gui:
   title: "&8Trang Bi"
   size: 54
+  # Moi item GUI co the dat custom-model-data (so nguyen > 0) de dung texture
+  # tu resource pack. Bo trong hoac <= 0 = khong ap dung.
   filler:
     material: BLACK_STAINED_GLASS_PANE
     name: " "
+    # custom-model-data: 1001
   info-slot: 4
   info-item:
     material: PLAYER_HEAD
     name: "&6Thong Tin Ban Than"
+    # custom-model-data: 1002
     lore:
       - "&7Người chơi: &f%player%"
       - "&7Cảnh giới: &f%realm%"
@@ -85,6 +89,7 @@ gui:
   upgrade-preview:
     material: EMERALD
     name: "&e%to_name%"
+    # custom-model-data: 1003  # chi ap dung khi khong tao duoc item MMOItems that
     append-lore:
       - ""
       - "&7Linh thạch: &e%cost%"
@@ -99,6 +104,7 @@ gui:
   upgrade-confirm:
     material: EMERALD
     name: "&aTiến Hoá"
+    # custom-model-data: 1004
     lore:
       - "&7Item hiện tại: &f%from_name%"
       - "&7Sau tiến hoá: &e%to_name%"
@@ -121,6 +127,7 @@ slots:
     empty:
       material: AMETHYST_SHARD
       name: "&dTrang Sức"
+      # custom-model-data: 2001  # icon o trong cho slot nay (tuy chon)
       lore:
         - "&7Đặt item có loại &fTrang sức"
         - "&7vào đây để nhận chỉ số."

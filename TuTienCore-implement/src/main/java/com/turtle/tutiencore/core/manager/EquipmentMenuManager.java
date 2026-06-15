@@ -1581,7 +1581,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ItemStack item = named(
                 material,
                 config.getString("gui.info-item.name", "&6Thông Tin Người Chơi"),
-                replaceInfo(config.getStringList("gui.info-item.lore"), player)
+                replaceInfo(config.getStringList("gui.info-item.lore"), player),
+                customModelData("gui.info-item")
         );
         if (material == Material.PLAYER_HEAD && item.getItemMeta() instanceof SkullMeta skullMeta) {
             skullMeta.setOwningPlayer(player);
@@ -1635,7 +1636,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         return named(
                 Material.matchMaterial(config.getString(path + ".material", "GRAY_STAINED_GLASS_PANE")),
                 config.getString(path + ".name", "&7" + slot.id()),
-                config.getStringList(path + ".lore")
+                config.getStringList(path + ".lore"),
+                customModelData(path)
         );
     }
 
@@ -1750,7 +1752,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 config.getString("gui.upgrade-confirm.name", "&aTiến Hoá"),
                 config.getStringList("gui.upgrade-confirm.lore").stream()
                         .map(line -> replaceUpgradePlaceholders(line, rule, fromName, toName))
-                        .toList()
+                        .toList(),
+                customModelData("gui.upgrade-confirm")
         );
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
@@ -1775,7 +1778,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     replaceUpgradePlaceholders(config.getString("gui.upgrade-preview.name", "&e%to_name%"), rule, "", toName),
                     config.getStringList("gui.upgrade-preview.lore").stream()
                             .map(line -> replaceUpgradePlaceholders(line, rule, "", toName))
-                            .toList()
+                            .toList(),
+                    customModelData("gui.upgrade-preview")
             );
         }
         return named(Material.EMERALD, "&e" + rule.toType() + ":" + rule.toId(), List.of("&7Item nhận qua command cấu hình."));
@@ -1885,7 +1889,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         ItemStack filler = named(
                 Material.matchMaterial(config.getString("gui.filler.material", "BLACK_STAINED_GLASS_PANE")),
                 config.getString("gui.filler.name", " "),
-                List.of()
+                List.of(),
+                customModelData("gui.filler")
         );
         for (int i = 0; i < inventory.getSize(); i++) {
             inventory.setItem(i, filler);
@@ -2006,15 +2011,30 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private ItemStack named(Material material, String name, List<String> lore) {
+        return named(material, name, lore, -1);
+    }
+
+    private ItemStack named(Material material, String name, List<String> lore, int customModelData) {
         ItemStack item = new ItemStack(material == null ? Material.STONE : material);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(color(name));
             meta.setLore(lore.stream().map(this::color).toList());
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            if (customModelData > 0) {
+                meta.setCustomModelData(customModelData);
+            }
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    /**
+     * Read a custom-model-data value from config. Returns -1 when not set (or <= 0),
+     * meaning "do not apply custom model data".
+     */
+    private int customModelData(String path) {
+        return config.getInt(path + ".custom-model-data", -1);
     }
 
     private void giveOrDrop(Player player, ItemStack item) {
