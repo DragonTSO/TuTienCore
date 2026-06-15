@@ -1618,12 +1618,13 @@ public class BreakthroughManager implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        // Block all commands during breakthrough (countdown + lightning phase)
+        // Block ALL commands during breakthrough (countdown + lightning phase).
+        // Cancel at LOWEST priority so other plugins never get a chance to act on the command.
         if (playersInCountdown.contains(uuid) || isInBreakthrough(uuid)) {
             event.setCancelled(true);
             player.sendMessage("§c⚡ Không thể sử dụng lệnh trong lúc đột phá!");
