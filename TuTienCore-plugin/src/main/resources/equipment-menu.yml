@@ -34,20 +34,20 @@ messages:
     accessory: "&8[&dTrang Sức&8] &7Đã tháo &f%item%&7, linh quang dần tán."
     fly_sword: "&8[&bPhi Kiếm&8] &7Đã thu hồi &f%item%&7, kiếm khí lắng xuống."
     dan_duoc: "&8[&6Đan Dược&8] &7Đã ngừng vận chuyển &f%item%&7, dược lực tạm tán."
-  no-offhand-item: "&cHãy cầm item MMOItems ở tay phụ."
-  no-upgrade: "&cItem tay phụ này chưa có cấu hình tiến hoá."
+  no-offhand-item: "&cHãy cầm item ở offhand."
+  no-upgrade: "&cItem offhand này chưa thể tiến hoá nữa."
   upgrade-ready: "&aCó thể tiến hoá item này."
-  upgrade-success: "&aĐã tiến hoá item tay phụ!"
+  upgrade-success: "&aĐã tiến hoá item offhand!"
   upgrade-requirement-failed: "&cChưa đủ điều kiện tiến hoá:"
   upgrade-create-failed: "&cKhông tạo được item tiến hoá. Hãy kiểm tra to-type/to-id."
   not-enough-money: "&cKhông đủ &e%cost% &clinh thạch."
   failure-money: "&8- &7Cần &e%cost% &7linh thạch."
-  failure-level-unavailable: "&8- &7Không đọc được cấp TuTienLevel."
+  failure-level-unavailable: "&8- &7Không đọc được cấp."
   failure-level: "&8- &7Cấp hiện tại &e%current% &7< yêu cầu &a%required%&7."
   failure-realm: "&8- &7Cảnh giới hiện tại &e%current% &7< yêu cầu &b%required%&7."
 
 gui:
-  title: "&8Trang Bị"
+  title: "&8Trang Bi"
   size: 54
   filler:
     material: BLACK_STAINED_GLASS_PANE
@@ -55,28 +55,28 @@ gui:
   info-slot: 4
   info-item:
     material: PLAYER_HEAD
-    name: "&6Thông Tin Bản Thân"
+    name: "&6Thong Tin Ban Than"
     lore:
       - "&7Người chơi: &f%player%"
       - "&7Cảnh giới: &f%realm%"
       - "&7Tu vi: &e%tuvi%"
       - ""
-      - "&8Chỉ số chiến đấu:"
-      - " &c- &fSát thương: &f%stat_ATTACK_DAMAGE%"
-      - " &e- &fTốc đánh: &f%stat_ATTACK_SPEED%"
-      - " &b- &fChí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
-      - " &d- &fSát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
+      - "&8ᴄʜỉ số ᴄʜɪếɴ đấᴜ:"
+      - " &c⚔ &fSát thương: &f%stat_ATTACK_DAMAGE%"
+      - " &e✦ &fTốc đánh: &f%stat_ATTACK_SPEED%"
+      - " &b⌖ &fChí mạng: &f%stat_CRITICAL_STRIKE_CHANCE%"
+      - " &d✹ &fSát thương chí mạng: &f%stat_CRITICAL_STRIKE_POWER%"
       - ""
-      - "&8Chỉ số sức khoẻ:"
-      - " &a- &fMáu tối đa: &f%stat_MAX_HEALTH%"
-      - " &3- &fPhòng thủ: &f%stat_DEFENSE%"
-      - " &2- &fGiảm sát thương: &f%stat_DAMAGE_REDUCTION%"
+      - "&8ᴄʜỉ số sứᴄ ᴋʜᴏẻ:"
+      - " &a❤ &fMáu tối đa: &f%stat_MAX_HEALTH%"
+      - " &3⛨ &fPhòng thủ: &f%stat_DEFENSE%"
+      - " &2❖ &fGiảm sát thương: &f%stat_DAMAGE_REDUCTION%"
       - ""
-      - "&8Chỉ số linh lực:"
-      - " &9- &fLinh lực tối đa: &f%stat_MAX_MANA%"
-      - " &b- &fHồi linh lực: &f%stat_MANA_REGENERATION%"
+      - "&8ᴄʜỉ số ʟɪɴʜ ʟựᴄ:"
+      - " &9✦ &fLinh lực tối đa: &f%stat_MAX_MANA%"
+      - " &b✧ &fHồi linh lực: &f%stat_MANA_REGENERATION%"
 
-  upgrade-title: "&8Tiến Hoá Tay Phụ"
+  upgrade-title: "&8Tiến Hoá"
   upgrade-size: 27
   upgrade-slots:
     source: 11
@@ -88,10 +88,10 @@ gui:
     append-lore:
       - ""
       - "&7Linh thạch: &e%cost%"
-      - "&7Cấp yêu cầu: &a%required_level%"
-      - "&7Cảnh giới: &b%required_realm%"
+      - "&7Level yêu cầu: &a%required_level%"
+      - "&7Cảnh giới cần: &b%required_realm%"
     lore:
-      - "&7Item nhận qua command cấu hình."
+      - "&7Item nhan qua command cau hinh."
       - ""
       - "&7Linh thạch: &e%cost%"
       - "&7Cấp yêu cầu: &a%required_level%"
@@ -122,7 +122,7 @@ slots:
       material: AMETHYST_SHARD
       name: "&dTrang Sức"
       lore:
-        - "&7Đặt item MMOItems type &dACCESSORY"
+        - "&7Đặt item có loại &fTrang sức"
         - "&7vào đây để nhận chỉ số."
   fly_sword:
     slot: 22
@@ -149,7 +149,7 @@ slots:
       material: HONEY_BOTTLE
       name: "&6Đan Dược"
       lore:
-        - "&7Đặt item MMOItems type &6DAN_DUOC"
+        - "&7Đặt item có loại &fĐan dược"
         - "&7vào đây để nhận chỉ số."
     duration:
       enabled: true
@@ -167,7 +167,7 @@ slots:
       consume-when-expired: true
       lore:
         - ""
-        - "&7Hiệu lực: &e%remaining% &8/ &f%duration%"
+        - "&7Hiệu Lực: &e%remaining% &8/ &f%duration%"
 
 offhand:
   bound-item:
@@ -195,9 +195,9 @@ offhand:
       to-type: OFF_CATALYST
       to-id: HA_MACH_TIEN_HOAN
       take-source: true
-      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
+      # Ho tro so rut gon: 1k, 1m, 1.01m, 1b, 1t.
       cost: 1000
-      required-level: 2
+      required-level: 1
       required-realm: 1
       required-sub-realm: ""
       commands: []
@@ -206,46 +206,34 @@ offhand:
       from-id: HA_MACH_TIEN_HOAN
       to-type: OFF_CATALYST
       to-id: TRUNG_NGOC_TIEN_HOAN
-      take-source: true
-      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
       cost: 1000000
       required-level: 12
       required-realm: 3
       required-sub-realm: ""
-      commands: []
+      take-source: true
+      commands:
+        - ""
     3:
       from-type: OFF_CATALYST
       from-id: TRUNG_NGOC_TIEN_HOAN
       to-type: OFF_CATALYST
       to-id: THUONG_HUYEN_TIEN_HOAN
-      take-source: true
-      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
       cost: 3000000
       required-level: 25
       required-realm: 4
       required-sub-realm: ""
-      commands: []
+      take-source: true
+      commands:
+        - ""
     4:
       from-type: OFF_CATALYST
       from-id: THUONG_HUYEN_TIEN_HOAN
       to-type: OFF_CATALYST
       to-id: THAN_MACH_TIEN_HOAN
-      take-source: true
-      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
       cost: 5000000
       required-level: 45
       required-realm: 8
       required-sub-realm: ""
-      commands: []
-    5:
-      from-type: DAN_DUOC
-      from-id: DAN_DUOC_1
-      to-type: DAN_DUOC
-      to-id: DAN_DUOC_2
-      # Hỗ trợ số rút gọn: 1k, 1m, 1.01m, 1b, 1t.
-      cost: 0
-      required-level: 0
-      required-realm: 0
-      required-sub-realm: ""
       take-source: true
-      commands: []
+      commands:
+        - ""

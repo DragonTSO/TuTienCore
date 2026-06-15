@@ -28,6 +28,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -35,6 +37,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -54,6 +58,9 @@ public class BreakthroughManager implements Listener {
 
     // Players currently undergoing breakthrough
     private final Map<UUID, BreakthroughSession> activeSessions = new HashMap<>();
+
+    // Track players who have confirmed but countdown hasn't finished yet
+    private final Set<UUID> playersInCountdown = new HashSet<>();
 
     public BreakthroughManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -309,6 +316,9 @@ public class BreakthroughManager implements Listener {
         int intervalTicks = realmManager.getLightningIntervalTicks();
         session.startLocation = player.getLocation().clone();
 
+        // Add player to countdown set — they can't move or use commands now
+        playersInCountdown.add(player.getUniqueId());
+
         // Phase 1: Countdown 3 → 2 → 1 (mỗi giây 1 lần, chưa có sét)
         player.sendMessage("§6§l⚡ Thiên Lôi Kiếp bắt đầu trong 3 giây... Chuẩn bị!");
 
@@ -339,6 +349,8 @@ public class BreakthroughManager implements Listener {
                 } else {
                     // Countdown xong → BẮT ĐẦU bão sét
                     cancel();
+                    // Remove from countdown set — they can now move again (but will levitate)
+                    playersInCountdown.remove(player.getUniqueId());
                     player.sendTitle(
                             "§c§l⚡ THIÊN LÔI KIẾP ⚡",
                             session.isMajor ? "§eSống sót qua " + session.totalBolts + " tia sét!" 
@@ -1010,6 +1022,7 @@ public class BreakthroughManager implements Listener {
      */
     private void handleBreakthroughDeath(Player player) {
         UUID uuid = player.getUniqueId();
+        playersInCountdown.remove(uuid);
         BreakthroughSession session = activeSessions.remove(uuid);
         if (session == null) return;
 
@@ -1082,6 +1095,7 @@ public class BreakthroughManager implements Listener {
      * Cancel a session (player quit, etc.)
      */
     private void cancelSession(BreakthroughSession session) {
+        playersInCountdown.remove(session.playerId);
         activeSessions.remove(session.playerId);
         if (session.task != null) {
             session.task.cancel();
@@ -1551,9 +1565,41 @@ public class BreakthroughManager implements Listener {
         return Math.max(0.0f, Math.min(2.0f, pitch));
     }
 
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        
+        // During countdown phase: block horizontal movement completely
+        if (playersInCountdown.contains(uuid)) {
+            Location from = event.getFrom();
+            Location to = event.getTo();
+            
+            // Allow vertical movement (for any existing velocity/levitation)
+            // but block horizontal (X/Z) movement
+            if (to != null && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
+                // Cancel horizontal movement
+                event.setCancelled(true);
+            }
+            return;
+        }
+    }
+
+    @EventHandler
+    public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        
+        // Block all commands during breakthrough (countdown + lightning phase)
+        if (playersInCountdown.contains(uuid) || isInBreakthrough(uuid)) {
+            event.setCancelled(true);
+            player.sendMessage("§c⚡ Không thể sử dụng lệnh trong lúc đột phá!");
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        playersInCountdown.remove(player.getUniqueId());
         if (isInBreakthrough(player.getUniqueId())) {
             handleBreakthroughDeath(player);
         }
@@ -1562,6 +1608,7 @@ public class BreakthroughManager implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
+        playersInCountdown.remove(uuid);
         BreakthroughSession session = activeSessions.get(uuid);
         if (session != null) {
             cancelSession(session);
