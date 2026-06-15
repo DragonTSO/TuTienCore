@@ -18,7 +18,19 @@ action-bar:
   ticks-to-update: 5
 
   # How to display the data.
+  # Dùng {rotating} để chèn thông điệp xoay vòng (xem action-bar.rotating bên dưới).
   format: '&f༺ <#f03e5c>❤ {health}/{max_health} &f| <#82cfe8>〄 Linh Lực %TuTienClass_mana_left%/%TuTienClass_max_mana% &f༻'
+
+  # Thông điệp xoay vòng ngẫu nhiên, chèn vào format qua placeholder {rotating}.
+  # Mỗi interval-seconds sẽ random sang 1 dòng khác (không lặp lại dòng vừa hiện).
+  rotating:
+    enabled: false
+    interval-seconds: 10
+    messages:
+      - "&f| &e/buy &7| &c❤ &f| &b✦ Mana"
+      - "&f| &e/shop &7| &c❤ &f| &b✦ Mana"
+      - "&f| &e/daily &7| &7Nhận quà mỗi ngày"
+      - "&f| &e/rank &7| &7Xem bảng xếp hạng"
 
   # Hiện EXP vừa nhận từ TuTienLevel bên cạnh action bar của TuTienCore.
   exp-gain:

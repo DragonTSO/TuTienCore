@@ -42,4 +42,21 @@ class ActionBarManagerTest {
         assertFalse(ActionBarManager.isSourceAllowed("command", List.of("MythicMob:")));
         assertTrue(ActionBarManager.isSourceAllowed("command", List.of()));
     }
+
+    @Test
+    void rotatingNeverRepeatsPreviousIndex() {
+        int current = 0;
+        for (int i = 0; i < 1000; i++) {
+            int next = ActionBarManager.pickNextRotatingIndex(current, 4);
+            assertTrue(next >= 0 && next < 4, "index out of range: " + next);
+            assertFalse(next == current, "rotating message repeated index " + next);
+            current = next;
+        }
+    }
+
+    @Test
+    void rotatingSingleMessageAlwaysReturnsZero() {
+        assertEquals(0, ActionBarManager.pickNextRotatingIndex(-1, 1));
+        assertEquals(0, ActionBarManager.pickNextRotatingIndex(0, 1));
+    }
 }

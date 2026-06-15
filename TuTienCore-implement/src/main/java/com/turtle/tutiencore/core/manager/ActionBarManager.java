@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,6 +41,13 @@ public class ActionBarManager implements Listener {
     private boolean moneyGainEnabled;
     private String moneyGainFormat;
     private long moneyGainDurationTicks;
+
+    // Rotating message (random, anti-repeat) shown via the {rotating} placeholder.
+    private boolean rotatingEnabled;
+    private List<String> rotatingMessages = List.of();
+    private long rotatingIntervalMillis;
+    private int rotatingIndex = -1;
+    private long rotatingNextSwitchMillis;
 
     public ActionBarManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -74,11 +82,14 @@ public class ActionBarManager implements Listener {
             return;
         }
 
+        String rotating = currentRotatingMessage();
+
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (shouldSuppressCinematicUi(player)) {
                 continue;
             }
             String text = applyBuiltInPlaceholders(format, player.getHealth(), player.getMaxHealth());
+            text = text.replace("{rotating}", rotating);
             text = text + renderExpGain(player);
             text = text + renderMoneyGain(player);
             if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -86,6 +97,41 @@ public class ActionBarManager implements Listener {
             }
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(colorize(text)));
         }
+    }
+
+    /**
+     * Returns the currently active rotating message, switching to a new random
+     * one every {@code interval-seconds}. The next message is never the same as
+     * the current one (anti-repeat), unless only a single message is configured.
+     */
+    private String currentRotatingMessage() {
+        if (!rotatingEnabled || rotatingMessages == null || rotatingMessages.isEmpty()) {
+            return "";
+        }
+
+        long now = System.currentTimeMillis();
+        if (rotatingIndex < 0 || rotatingIndex >= rotatingMessages.size() || now >= rotatingNextSwitchMillis) {
+            rotatingIndex = pickNextRotatingIndex(rotatingIndex, rotatingMessages.size());
+            rotatingNextSwitchMillis = now + rotatingIntervalMillis;
+        }
+        String message = rotatingMessages.get(rotatingIndex);
+        return message == null ? "" : message;
+    }
+
+    /**
+     * Pick a random index different from {@code current} so the same message is
+     * not shown twice in a row. Falls back to the only index when size == 1.
+     */
+    static int pickNextRotatingIndex(int current, int size) {
+        if (size <= 1) {
+            return 0;
+        }
+        int next = ThreadLocalRandom.current().nextInt(size);
+        if (next == current) {
+            // Shift by a random non-zero offset to guarantee a different message.
+            next = (current + 1 + ThreadLocalRandom.current().nextInt(size - 1)) % size;
+        }
+        return next;
     }
 
     private void reloadSettings() {
@@ -101,6 +147,14 @@ public class ActionBarManager implements Listener {
         moneyGainEnabled = plugin.getConfig().getBoolean("action-bar.money-gain.enabled", true);
         moneyGainFormat = plugin.getConfig().getString("action-bar.money-gain.format", " &8| &6+{money_formatted} Linh Thạch");
         moneyGainDurationTicks = Math.max(1L, plugin.getConfig().getLong("action-bar.money-gain.duration-ticks", 40L));
+
+        rotatingEnabled = plugin.getConfig().getBoolean("action-bar.rotating.enabled", false);
+        rotatingMessages = plugin.getConfig().getStringList("action-bar.rotating.messages");
+        long intervalSeconds = Math.max(1L, plugin.getConfig().getLong("action-bar.rotating.interval-seconds", 10L));
+        rotatingIntervalMillis = intervalSeconds * 1000L;
+        // Reset rotation state so a reload picks a fresh message immediately.
+        rotatingIndex = -1;
+        rotatingNextSwitchMillis = 0L;
     }
 
     private void registerTuTienLevelExpListener() {
