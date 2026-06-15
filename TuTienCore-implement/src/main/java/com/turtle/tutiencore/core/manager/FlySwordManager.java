@@ -62,6 +62,9 @@ public class FlySwordManager implements Listener {
     private final Map<UUID, Location> lastFlySwordLocations = new HashMap<>();
     private final Map<UUID, Long> flightLockedUntil = new HashMap<>();
     private final Map<UUID, Long> flightLockMessageCooldowns = new HashMap<>();
+    // Players whose flight is suspended during a breakthrough (đột phá).
+    // Maps to the flight state snapshot to restore afterwards.
+    private final Map<UUID, boolean[]> breakthroughFlightSnapshots = new HashMap<>();
     private final File dataFile;
     private YamlConfiguration data;
     private BukkitRunnable followTask;
@@ -114,6 +117,48 @@ public class FlySwordManager implements Listener {
 
     public void setEquipmentMenuManager(EquipmentMenuManager equipmentMenuManager) {
         this.equipmentMenuManager = equipmentMenuManager;
+    }
+
+    /**
+     * Suspend a player's flight during a breakthrough (đột phá).
+     * Snapshots the current flight state, force-disables flight, and prevents
+     * auto-flight from re-granting it until {@link #resumeFlightForBreakthrough(Player)}.
+     */
+    public void suspendFlightForBreakthrough(Player player) {
+        if (player == null) return;
+        UUID uuid = player.getUniqueId();
+        if (!breakthroughFlightSnapshots.containsKey(uuid)) {
+            breakthroughFlightSnapshots.put(uuid, new boolean[]{player.getAllowFlight(), player.isFlying()});
+        }
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+        if (player.isFlying()) {
+            player.setFlying(false);
+        }
+        player.setAllowFlight(false);
+        stop(player, false);
+    }
+
+    /**
+     * Resume a player's flight after a breakthrough ends, restoring the
+     * flight state captured by {@link #suspendFlightForBreakthrough(Player)}.
+     */
+    public void resumeFlightForBreakthrough(Player player) {
+        if (player == null) return;
+        boolean[] snapshot = breakthroughFlightSnapshots.remove(player.getUniqueId());
+        if (!player.isOnline()) {
+            return;
+        }
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+        // Re-apply auto-flight rules first (worlds/permission/combat-lock).
+        applyAutoFlight(player);
+        // Then restore the previous flying state if still permitted.
+        if (snapshot != null && snapshot[1] && player.getAllowFlight() && !isFlightLocked(player)) {
+            player.setFlying(true);
+        }
     }
 
     public void loadConfig() {
@@ -273,6 +318,7 @@ public class FlySwordManager implements Listener {
         }
         flightLockedUntil.clear();
         flightLockMessageCooldowns.clear();
+        breakthroughFlightSnapshots.clear();
         cleanupAll();
     }
 
@@ -574,6 +620,11 @@ public class FlySwordManager implements Listener {
     private void applyAutoFlight(Player player) {
         if (player == null || !player.isOnline() || !autoFlightEnabled) return;
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
+        // While suspended for a breakthrough, never re-grant flight.
+        if (breakthroughFlightSnapshots.containsKey(player.getUniqueId())) {
+            disableFlight(player);
+            return;
+        }
         if (isFlightLocked(player)) {
             disableFlight(player);
             return;

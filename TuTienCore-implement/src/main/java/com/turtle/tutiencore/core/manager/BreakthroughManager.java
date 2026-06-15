@@ -62,10 +62,34 @@ public class BreakthroughManager implements Listener {
     // Track players who have confirmed but countdown hasn't finished yet
     private final Set<UUID> playersInCountdown = new HashSet<>();
 
+    // Used to suspend player flight while đột phá is in progress (optional dependency).
+    private FlySwordManager flySwordManager;
+
     public BreakthroughManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    /**
+     * Inject the FlySwordManager so flight can be suspended during breakthrough.
+     */
+    public void setFlySwordManager(FlySwordManager flySwordManager) {
+        this.flySwordManager = flySwordManager;
+    }
+
+    private void suspendFlight(Player player) {
+        if (flySwordManager != null) {
+            flySwordManager.suspendFlightForBreakthrough(player);
+        }
+    }
+
+    private void resumeFlight(UUID uuid) {
+        if (flySwordManager == null) return;
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            flySwordManager.resumeFlightForBreakthrough(player);
+        }
     }
 
     // ==========================================
@@ -182,6 +206,9 @@ public class BreakthroughManager implements Listener {
 
         activeSessions.put(uuid, session);
 
+        // Disable flight during breakthrough — player can't fly away.
+        suspendFlight(player);
+
         // Broadcast start
         String startMsg = "§e§l⚡ " + player.getName() + " §e§lđang vượt §c§lThiên Lôi Kiếp §e§lđể đột phá " 
                 + nextRealm.getFormattedName() + "§e§l!";
@@ -270,6 +297,9 @@ public class BreakthroughManager implements Listener {
         );
 
         activeSessions.put(uuid, session);
+
+        // Disable flight during breakthrough — player can't fly away.
+        suspendFlight(player);
 
         // Local broadcast only
         String startMsg = "§e⚡ " + player.getName() + " §eđang đột phá tầng nhỏ → " + nextSub.getDisplayName() + "!";
@@ -877,6 +907,7 @@ public class BreakthroughManager implements Listener {
 
         UUID uuid = player.getUniqueId();
         activeSessions.remove(uuid);
+        resumeFlight(uuid);
         cleanupActiveBreakthroughMobs(session);
         if (session.isMajor) {
             // Major realm breakthrough success
@@ -1026,6 +1057,8 @@ public class BreakthroughManager implements Listener {
         BreakthroughSession session = activeSessions.remove(uuid);
         if (session == null) return;
 
+        resumeFlight(uuid);
+
         // Cancel lightning task
         if (session.task != null) {
             session.task.cancel();
@@ -1110,6 +1143,7 @@ public class BreakthroughManager implements Listener {
             session.activeAnimationTask.cancel();
         }
         cleanupActiveBreakthroughMobs(session);
+        resumeFlight(session.playerId);
         // Remove all effects for the player
         Player p = Bukkit.getPlayer(session.playerId);
         if (p != null && p.isOnline()) {
@@ -1634,6 +1668,7 @@ public class BreakthroughManager implements Listener {
                 session.activeAnimationTask.cancel();
             }
             cleanupActiveBreakthroughMobs(session);
+            resumeFlight(session.playerId);
         }
         activeSessions.clear();
     }

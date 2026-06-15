@@ -114,6 +114,8 @@ public class TuTienCore {
         this.regionRespawnManager = new RegionRespawnManager(plugin, zoneManager);
         this.equipmentMenuManager = new EquipmentMenuManager(plugin, realmManager);
         this.flySwordManager.setEquipmentMenuManager(equipmentMenuManager);
+        // Let breakthrough suspend/restore flight via FlySwordManager.
+        this.breakthroughManager.setFlySwordManager(flySwordManager);
         this.hotbarCommandItemManager = new HotbarCommandItemManager(plugin);
         this.thauThiManager = new ThauThiManager(plugin, realmManager);
 
