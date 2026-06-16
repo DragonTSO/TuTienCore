@@ -71,6 +71,27 @@ public class ConfigManager {
     private boolean cultPillarEnabled;
     private boolean cultAmbientEnabled;
 
+    // Cultivation rays settings (cached once per load — read every tick by the particle task)
+    private int cultRayInterval;
+    private int cultRayCountMin;
+    private int cultRayCountMax;
+    private double cultRayDistanceMin;
+    private double cultRayDistanceMax;
+    private double cultRayYMin;
+    private double cultRayYMax;
+    private double cultRayTargetYOffset;
+    private double cultRayCircleRadius;
+    private int cultRayCirclePoints;
+    private float cultRayCircleSize;
+    private double cultRayCircleRotationSpeed;
+    private int cultRayPoints;
+    private float cultRayStartSize;
+    private float cultRayEndSize;
+    private double cultRaySpiralRadius;
+    private boolean cultRayEndRodTrail;
+    // Tu Luyen particle view distance (squared). Players further than this don't receive particles.
+    private double cultViewDistanceSquared;
+
     // Class-based particle colors (loaded from config)
     private final Map<String, int[][]> classColors = new HashMap<>();
 
@@ -141,6 +162,28 @@ public class ConfigManager {
         cultGroundCircleEnabled = config.getBoolean("cultivation-effects.ground-circle.enabled", true);
         cultPillarEnabled = config.getBoolean("cultivation-effects.pillar.enabled", true);
         cultAmbientEnabled = config.getBoolean("cultivation-effects.ambient.enabled", true);
+
+        // Cultivation rays — cache all values once (the particle task runs every tick per player)
+        String rp = "cultivation-effects.rays.";
+        cultRayInterval = Math.max(1, config.getInt(rp + "interval", 2));
+        cultRayCountMin = Math.max(1, config.getInt(rp + "count-min", 1));
+        cultRayCountMax = Math.max(cultRayCountMin, config.getInt(rp + "count-max", 2));
+        cultRayDistanceMin = Math.max(0.5D, config.getDouble(rp + "distance-min", 2.8D));
+        cultRayDistanceMax = Math.max(cultRayDistanceMin, config.getDouble(rp + "distance-max", 4.2D));
+        cultRayYMin = config.getDouble(rp + "y-min", 0.8D);
+        cultRayYMax = Math.max(cultRayYMin, config.getDouble(rp + "y-max", 2.4D));
+        cultRayTargetYOffset = config.getDouble(rp + "target-y-offset", 1.15D);
+        cultRayCircleRadius = Math.max(0.05D, config.getDouble(rp + "circle-radius", 0.35D));
+        cultRayCirclePoints = Math.max(6, config.getInt(rp + "circle-points", 18));
+        cultRayCircleSize = (float) Math.max(0.05D, config.getDouble(rp + "circle-size", 0.65D));
+        cultRayCircleRotationSpeed = config.getDouble(rp + "circle-rotation-speed", 0.22D);
+        cultRayPoints = Math.max(4, config.getInt(rp + "ray-points", 16));
+        cultRayStartSize = (float) Math.max(0.05D, config.getDouble(rp + "ray-start-size", 0.35D));
+        cultRayEndSize = (float) Math.max(cultRayStartSize, config.getDouble(rp + "ray-end-size", 1.1D));
+        cultRaySpiralRadius = Math.max(0.0D, config.getDouble(rp + "ray-spiral-radius", 0.055D));
+        cultRayEndRodTrail = config.getBoolean(rp + "end-rod-trail", true);
+        double viewDistance = Math.max(8.0D, config.getDouble("cultivation-effects.view-distance", 48.0D));
+        cultViewDistanceSquared = viewDistance * viewDistance;
 
         // Load class colors
         classColors.clear();
@@ -266,6 +309,26 @@ public class ConfigManager {
     public boolean isCultAmbientEnabled() {
         return cultAmbientEnabled;
     }
+
+    // Cached cultivation-rays settings (read once on load; used by the per-tick particle task)
+    public int getCultRayInterval() { return cultRayInterval; }
+    public int getCultRayCountMin() { return cultRayCountMin; }
+    public int getCultRayCountMax() { return cultRayCountMax; }
+    public double getCultRayDistanceMin() { return cultRayDistanceMin; }
+    public double getCultRayDistanceMax() { return cultRayDistanceMax; }
+    public double getCultRayYMin() { return cultRayYMin; }
+    public double getCultRayYMax() { return cultRayYMax; }
+    public double getCultRayTargetYOffset() { return cultRayTargetYOffset; }
+    public double getCultRayCircleRadius() { return cultRayCircleRadius; }
+    public int getCultRayCirclePoints() { return cultRayCirclePoints; }
+    public float getCultRayCircleSize() { return cultRayCircleSize; }
+    public double getCultRayCircleRotationSpeed() { return cultRayCircleRotationSpeed; }
+    public int getCultRayPoints() { return cultRayPoints; }
+    public float getCultRayStartSize() { return cultRayStartSize; }
+    public float getCultRayEndSize() { return cultRayEndSize; }
+    public double getCultRaySpiralRadius() { return cultRaySpiralRadius; }
+    public boolean isCultRayEndRodTrail() { return cultRayEndRodTrail; }
+    public double getCultViewDistanceSquared() { return cultViewDistanceSquared; }
 
     public String getTuluyenModel() {
         return tuluyenModel;

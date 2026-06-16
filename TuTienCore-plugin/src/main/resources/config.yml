@@ -413,6 +413,9 @@ particles:
 # Cấu hình hiệu ứng khi người chơi tu luyện
 # Mỗi layer có thể bật/tắt riêng lẻ
 cultivation-effects:
+  # Chỉ tạo particle khi có người chơi trong bán kính này (block). Tối ưu hiệu năng:
+  # không người xem thì task bỏ qua hoàn toàn, không tốn CPU dựng hình.
+  view-distance: 48
   # Màu chủ đạo (Cyan/Xanh dương)
   primary-color:
     r: 0

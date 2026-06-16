@@ -259,11 +259,18 @@ public class TuLuyenParticleTask {
     }
 
     /**
-     * Main effect orchestrator - spawns all cultivation visual effects
+     * Main effect orchestrator - spawns all cultivation visual effects.
+     * Skips entirely when no viewer is nearby so we never build particle geometry no one can see.
      */
     private void spawnCultivationEffect(Player player) {
         Location base = player.getLocation();
         World world = player.getWorld();
+
+        // Skip work when nobody (including the player) is close enough to see the effect.
+        if (!hasNearbyViewer(world, base)) {
+            return;
+        }
+
         int[][] colors = getPlayerColors(player);
 
         // === LAYER 1: Double Helix Energy Spiral (every 2 ticks now) ===
@@ -271,9 +278,8 @@ public class TuLuyenParticleTask {
             spawnDoubleHelix(world, base, colors);
         }
 
-        // === LAYER 2: Energy Burst Rays (every 8 ticks — reduced from 3) ===
-        int rayInterval = Math.max(1, plugin.getConfig().getInt("cultivation-effects.rays.interval", 2));
-        if (configManager.isCultRaysEnabled() && (int) globalTick % rayInterval == 0) {
+        // === LAYER 2: Energy Burst Rays ===
+        if (configManager.isCultRaysEnabled() && (int) globalTick % configManager.getCultRayInterval() == 0) {
             spawnEnergyBurstRays(world, base, colors);
         }
 
@@ -338,28 +344,27 @@ public class TuLuyenParticleTask {
      * LAYER 2: Energy Inward Rays — Tia năng lượng hấp thụ từ ngoài vào tâm
      */
     private void spawnEnergyBurstRays(World world, Location base, int[][] colors) {
-        String path = "cultivation-effects.rays.";
-        Location chest = base.clone().add(0, plugin.getConfig().getDouble(path + "target-y-offset", 1.15), 0);
+        Location chest = base.clone().add(0, configManager.getCultRayTargetYOffset(), 0);
 
-        int minCount = Math.max(1, plugin.getConfig().getInt(path + "count-min", 1));
-        int maxCount = Math.max(minCount, plugin.getConfig().getInt(path + "count-max", 2));
+        int minCount = configManager.getCultRayCountMin();
+        int maxCount = configManager.getCultRayCountMax();
         int rayCount = minCount + random.nextInt(maxCount - minCount + 1);
 
-        double minDistance = Math.max(0.5D, plugin.getConfig().getDouble(path + "distance-min", 2.8D));
-        double maxDistance = Math.max(minDistance, plugin.getConfig().getDouble(path + "distance-max", 4.2D));
-        double minY = plugin.getConfig().getDouble(path + "y-min", 0.8D);
-        double maxY = Math.max(minY, plugin.getConfig().getDouble(path + "y-max", 2.4D));
+        double minDistance = configManager.getCultRayDistanceMin();
+        double maxDistance = configManager.getCultRayDistanceMax();
+        double minY = configManager.getCultRayYMin();
+        double maxY = configManager.getCultRayYMax();
 
-        double circleRadius = Math.max(0.05D, plugin.getConfig().getDouble(path + "circle-radius", 0.35D));
-        int circlePoints = Math.max(6, plugin.getConfig().getInt(path + "circle-points", 18));
-        float circleSize = (float) Math.max(0.05D, plugin.getConfig().getDouble(path + "circle-size", 0.65D));
-        double circleRotation = globalTick * plugin.getConfig().getDouble(path + "circle-rotation-speed", 0.22D);
+        double circleRadius = configManager.getCultRayCircleRadius();
+        int circlePoints = configManager.getCultRayCirclePoints();
+        float circleSize = configManager.getCultRayCircleSize();
+        double circleRotation = globalTick * configManager.getCultRayCircleRotationSpeed();
 
-        int rayPoints = Math.max(4, plugin.getConfig().getInt(path + "ray-points", 16));
-        float rayStartSize = (float) Math.max(0.05D, plugin.getConfig().getDouble(path + "ray-start-size", 0.35D));
-        float rayEndSize = (float) Math.max(rayStartSize, plugin.getConfig().getDouble(path + "ray-end-size", 1.1D));
-        double spiralRadius = Math.max(0.0D, plugin.getConfig().getDouble(path + "ray-spiral-radius", 0.055D));
-        boolean endRodTrail = plugin.getConfig().getBoolean(path + "end-rod-trail", true);
+        int rayPoints = configManager.getCultRayPoints();
+        float rayStartSize = configManager.getCultRayStartSize();
+        float rayEndSize = configManager.getCultRayEndSize();
+        double spiralRadius = configManager.getCultRaySpiralRadius();
+        boolean endRodTrail = configManager.isCultRayEndRodTrail();
 
         for (int i = 0; i < rayCount; i++) {
             double angle = random.nextDouble() * Math.PI * 2;
@@ -606,6 +611,20 @@ public class TuLuyenParticleTask {
                         1.5, 1.0, 1.5, 0.5);
             } catch (Exception ignored) {}
         }
+    }
+
+    /**
+     * Returns true when at least one player is within the configured view distance of the
+     * effect center, so we skip generating particles that nobody can see.
+     */
+    private boolean hasNearbyViewer(World world, Location center) {
+        double maxDistanceSquared = configManager.getCultViewDistanceSquared();
+        for (Player viewer : world.getPlayers()) {
+            if (viewer.getLocation().distanceSquared(center) <= maxDistanceSquared) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -30,7 +30,10 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -65,9 +68,16 @@ public class BreakthroughManager implements Listener {
     // Used to suspend player flight while đột phá is in progress (optional dependency).
     private FlySwordManager flySwordManager;
 
+    // Persistent marker written while a player is mid-breakthrough. Sessions are memory-only,
+    // so if the server restarts during đột phá the near-infinite effects (levitation/glowing/
+    // resistance/invisibility) would stick forever. We use this marker to detect & clean them
+    // up when the player rejoins without an active session.
+    private final NamespacedKey breakthroughMarkerKey;
+
     public BreakthroughManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
+        this.breakthroughMarkerKey = new NamespacedKey(plugin, "breakthrough_active");
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -89,6 +99,62 @@ public class BreakthroughManager implements Listener {
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
             flySwordManager.resumeFlightForBreakthrough(player);
+        }
+    }
+
+    /**
+     * Mark the player as mid-breakthrough on disk (PDC) so we can recover if the
+     * server restarts while near-infinite effects are applied.
+     */
+    private void markBreakthroughActive(Player player) {
+        if (player == null) return;
+        player.getPersistentDataContainer().set(breakthroughMarkerKey, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    private void clearBreakthroughMarker(UUID uuid) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            player.getPersistentDataContainer().remove(breakthroughMarkerKey);
+        }
+    }
+
+    private boolean hasBreakthroughMarker(Player player) {
+        return player != null
+                && player.getPersistentDataContainer().has(breakthroughMarkerKey, PersistentDataType.BYTE);
+    }
+
+    /**
+     * Remove the near-infinite breakthrough effects left over after a restart that
+     * interrupted an active đột phá. Called on join when the persistent marker is
+     * present but no in-memory session exists.
+     */
+    private void cleanupResidualBreakthroughState(Player player) {
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        player.removePotionEffect(PotionEffectType.GLOWING);
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+        player.removePotionEffect(PotionEffectType.INVISIBILITY);
+        player.getPersistentDataContainer().remove(breakthroughMarkerKey);
+        // Re-show the player to everyone in case they were hidden during a success animation.
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!online.equals(player)) {
+                online.showPlayer(plugin, player);
+            }
+        }
+        resumeFlight(player.getUniqueId());
+        plugin.getLogger().info("Cleaned up residual breakthrough effects for " + player.getName()
+                + " (server likely restarted mid-đột phá).");
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        // Marker present but no live session = breakthrough was interrupted by a restart.
+        if (hasBreakthroughMarker(player) && !isInBreakthrough(player.getUniqueId())) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline() && !isInBreakthrough(player.getUniqueId())) {
+                    cleanupResidualBreakthroughState(player);
+                }
+            }, 20L);
         }
     }
 
@@ -208,6 +274,8 @@ public class BreakthroughManager implements Listener {
 
         // Disable flight during breakthrough — player can't fly away.
         suspendFlight(player);
+        // Persist a marker so residual effects can be cleaned if the server restarts mid-đột phá.
+        markBreakthroughActive(player);
 
         // Broadcast start
         String startMsg = "§e§l⚡ " + player.getName() + " §e§lđang vượt §c§lThiên Lôi Kiếp §e§lđể đột phá " 
@@ -300,6 +368,7 @@ public class BreakthroughManager implements Listener {
 
         // Disable flight during breakthrough — player can't fly away.
         suspendFlight(player);
+        markBreakthroughActive(player);
 
         // Local broadcast only
         String startMsg = "§e⚡ " + player.getName() + " §eđang đột phá tầng nhỏ → " + nextSub.getDisplayName() + "!";
@@ -514,6 +583,8 @@ public class BreakthroughManager implements Listener {
         cleanupLevitation(player);
         player.removePotionEffect(PotionEffectType.GLOWING);
         player.removePotionEffect(PotionEffectType.RESISTANCE);
+        // Breakthrough has ended normally — clear the persistent restart-recovery marker.
+        clearBreakthroughMarker(player.getUniqueId());
         // Stop aura task
         BreakthroughSession session = activeSessions.get(player.getUniqueId());
         if (session != null) {
@@ -538,6 +609,12 @@ public class BreakthroughManager implements Listener {
             public void run() {
                 if (!player.isOnline() || !activeSessions.containsKey(player.getUniqueId())) {
                     cancel();
+                    return;
+                }
+
+                // Skip generating aura particles when no one is close enough to see them.
+                if (!hasNearbyViewer(player)) {
+                    tick++;
                     return;
                 }
 
@@ -1170,6 +1247,21 @@ public class BreakthroughManager implements Listener {
                 nearby.sendMessage(message);
             }
         }
+    }
+
+    /**
+     * Returns true when at least one player (including the breakthrough player) is close enough
+     * to see the aura, so we skip generating particles nobody can see.
+     */
+    private boolean hasNearbyViewer(Player player) {
+        Location center = player.getLocation();
+        double maxDistanceSquared = (double) LIGHTNING_RADIUS * LIGHTNING_RADIUS;
+        for (Player viewer : player.getWorld().getPlayers()) {
+            if (viewer.getLocation().distanceSquared(center) <= maxDistanceSquared) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ==========================================
