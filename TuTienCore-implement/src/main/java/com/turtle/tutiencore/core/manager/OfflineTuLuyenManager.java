@@ -58,8 +58,21 @@ public class OfflineTuLuyenManager implements Listener {
     }
 
     public void save() {
+        // Snapshot on the calling (main) thread, then write to disk off-thread so player
+        // join/quit never blocks the server tick on file I/O.
+        final String snapshot = data.saveToString();
+        if (plugin.isEnabled()) {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> writeSnapshot(snapshot));
+        } else {
+            // Plugin disabling — must write synchronously since the scheduler is shutting down.
+            writeSnapshot(snapshot);
+        }
+    }
+
+    private synchronized void writeSnapshot(String snapshot) {
         try {
-            data.save(file);
+            java.nio.file.Files.writeString(file.toPath(), snapshot,
+                    java.nio.charset.StandardCharsets.UTF_8);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save offline-tuluyen.yml: " + e.getMessage());
         }
