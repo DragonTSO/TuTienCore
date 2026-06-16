@@ -336,18 +336,18 @@ public class RealmManager implements Listener {
             // Visual storm settings — loaded from config.yml (lightning-storm section)
             // These are VISUAL ONLY (no damage), separate from realms.yml damaging bolts
             FileConfiguration mainConfig = plugin.getConfig();
-            visualStormInterval = mainConfig.getInt("lightning-storm.storm-interval", 3);
-            stormBoltsMin = mainConfig.getInt("lightning-storm.storm-bolts-min", 6);
-            stormBoltsMax = mainConfig.getInt("lightning-storm.storm-bolts-max", 15);
-            visualBoltsMin = mainConfig.getInt("lightning-storm.visual-bolts-min", 8);
-            visualBoltsMax = mainConfig.getInt("lightning-storm.visual-bolts-max", 24);
-            closeBoltsMin = mainConfig.getInt("lightning-storm.close-bolts-min", 2);
-            closeBoltsMax = mainConfig.getInt("lightning-storm.close-bolts-max", 6);
+            visualStormInterval = mainConfig.getInt("lightning-storm.storm-interval", 6);
+            stormBoltsMin = mainConfig.getInt("lightning-storm.storm-bolts-min", 2);
+            stormBoltsMax = mainConfig.getInt("lightning-storm.storm-bolts-max", 5);
+            visualBoltsMin = mainConfig.getInt("lightning-storm.visual-bolts-min", 3);
+            visualBoltsMax = mainConfig.getInt("lightning-storm.visual-bolts-max", 8);
+            closeBoltsMin = mainConfig.getInt("lightning-storm.close-bolts-min", 1);
+            closeBoltsMax = mainConfig.getInt("lightning-storm.close-bolts-max", 2);
 
             // Success storm continuation — from config.yml
             successStormContinue = mainConfig.getBoolean("lightning-storm.success-storm-continue", true);
-            successStormInterval = mainConfig.getInt("lightning-storm.success-storm-interval", 5);
-            successStormBolts = mainConfig.getInt("lightning-storm.success-storm-bolts", 10);
+            successStormInterval = mainConfig.getInt("lightning-storm.success-storm-interval", 8);
+            successStormBolts = mainConfig.getInt("lightning-storm.success-storm-bolts", 4);
 
             ConfigurationSection danAmounts = btGeneral.getConfigurationSection("dot-pha-dan-amounts");
             if (danAmounts != null) {

@@ -768,21 +768,21 @@ lightning-storm:
   # Tốc độ bão sét visual.
   # Mỗi bao nhiêu tick thì spawn 1 đợt sét VISUAL (không gây damage)
   # Giá trị nhỏ = bão sét dày đặc hơn. VD: 3 = rất nhanh, 10 = chậm hơn
-  storm-interval: 3
+  storm-interval: 6
   # Sét ambient liên tục (visual only, tạo bầu không khí)
-  storm-bolts-min: 6
-  storm-bolts-max: 15
+  storm-bolts-min: 2
+  storm-bolts-max: 5
   # Sét visual mỗi lần damaging bolt (rải khắp 40x40)
-  visual-bolts-min: 8
-  visual-bolts-max: 24
+  visual-bolts-min: 3
+  visual-bolts-max: 8
   # Sét gần player (visual only, tạo cảm giác nguy hiểm)
-  close-bolts-min: 2
-  close-bolts-max: 6
+  close-bolts-min: 1
+  close-bolts-max: 2
 
   # ── SÉT SAU THÀNH CÔNG ──
   # Sét tiếp tục đánh trong lúc animation "actived" chạy
   success-storm-continue: true
   # Mỗi bao nhiêu tick đánh 1 lần (5 tick = 0.25 giây)
-  success-storm-interval: 5
+  success-storm-interval: 8
   # Số tia sét visual mỗi lần trong lúc success animation
-  success-storm-bolts: 10
+  success-storm-bolts: 4
