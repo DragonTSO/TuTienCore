@@ -573,6 +573,12 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         PlayerRealm pr = realmManager.getPlayerRealm(uuid);
         pr.setRealmId(realmId);
         pr.setSubRealm(subRealm);
+        // Keep the breakthrough counter in sync with the realm set directly (e.g. admin command),
+        // otherwise the stacking cultivation bonus stays stuck at the old value until the player
+        // performs a real breakthrough. Use max() so earned breakthroughs from past failures are
+        // never wiped when the realm is set.
+        int derived = RealmManager.deriveBreakthroughCount(realmId, subRealm);
+        pr.setBreakthroughCount(Math.max(pr.getBreakthroughCount(), derived));
         realmManager.savePlayerRealm(uuid);
     }
 

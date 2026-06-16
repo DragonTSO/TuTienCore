@@ -442,7 +442,31 @@ public class RealmManager implements Listener {
 
         PlayerRealm pr = new PlayerRealm(realmId, subRealm);
         pr.setBreakthroughCooldown(cooldown);
+
+        // Backfill the breakthrough counter for players that progressed before this feature existed:
+        // if the key is missing, derive the count from their current realm + sub-realm so they keep
+        // the stacking cultivation bonus they earned. New breakthroughs increment from there.
+        boolean needsBackfill = !playerDataConfig.contains(path + ".breakthrough-count");
+        int breakthroughCount = needsBackfill
+                ? deriveBreakthroughCount(realmId, subRealm)
+                : playerDataConfig.getInt(path + ".breakthrough-count", 0);
+        pr.setBreakthroughCount(breakthroughCount);
         playerRealms.put(uuid, pr);
+        if (needsBackfill && breakthroughCount > 0) {
+            savePlayerRealm(uuid);
+        }
+    }
+
+    /**
+     * Number of successful breakthroughs implied by a player's current progression, used to
+     * backfill the counter for players who advanced before breakthrough tracking existed.
+     * Each major realm above the first counts as 5 breakthroughs (4 sub-realm + 1 major),
+     * plus the sub-realm steps taken within the current realm.
+     */
+    static int deriveBreakthroughCount(int realmId, SubRealm subRealm) {
+        int majors = Math.max(0, realmId - 1);
+        int subSteps = subRealm == null ? 0 : subRealm.getOrder();
+        return majors * SubRealm.values().length + subSteps;
     }
 
     public void savePlayerRealm(UUID uuid) {
@@ -453,6 +477,7 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".realm-id", pr.getRealmId());
         playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
+        playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
 
         try {
             playerDataConfig.save(playerDataFile);
@@ -470,6 +495,7 @@ public class RealmManager implements Listener {
             playerDataConfig.set(path + ".realm-id", pr.getRealmId());
             playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
             playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
+            playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
         }
         try {
             playerDataConfig.save(playerDataFile);
@@ -815,6 +841,24 @@ public class RealmManager implements Listener {
         pr.setRealmId(nextRealmId);
         pr.setSubRealm(SubRealm.SO_KY);
         savePlayerRealm(uuid);
+    }
+
+    /**
+     * Number of successful breakthroughs (major + sub) the player has accumulated.
+     * This value never decreases, even when a breakthrough fails and the player is demoted.
+     */
+    public int getBreakthroughCount(UUID uuid) {
+        return getPlayerRealm(uuid).getBreakthroughCount();
+    }
+
+    /**
+     * Increment the player's breakthrough counter and persist it. Returns the new total.
+     */
+    public int incrementBreakthroughCount(UUID uuid) {
+        PlayerRealm pr = getPlayerRealm(uuid);
+        int total = pr.incrementBreakthroughCount();
+        savePlayerRealm(uuid);
+        return total;
     }
 
     /**

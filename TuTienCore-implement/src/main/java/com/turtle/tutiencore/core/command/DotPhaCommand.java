@@ -363,6 +363,46 @@ public class DotPhaCommand implements CommandExecutor, Listener {
         return ok ? "§a✔" : "§c✘";
     }
 
+    /**
+     * Build placeholders describing the stacking Tu Vi cultivation bonus that breakthroughs grant.
+     * Mirrors the formula in TuLuyenManager.getBreakthroughTuViBonus so the GUI matches actual gains.
+     */
+    private void putBreakthroughBonusPlaceholders(Map<String, String> placeholders, Player player) {
+        boolean enabled = plugin.getConfig().getBoolean("tu-luyen.breakthrough-bonus.enabled", true);
+        double perBreakthrough = plugin.getConfig().getDouble("tu-luyen.breakthrough-bonus.percent-per-breakthrough", 2.0D);
+        double max = plugin.getConfig().getDouble("tu-luyen.breakthrough-bonus.max-percent", 0.0D);
+        int count = realmManager.getBreakthroughCount(player.getUniqueId());
+
+        double current = capBreakthroughBonus(perBreakthrough * count, max);
+        double next = capBreakthroughBonus(perBreakthrough * (count + 1), max);
+        double gain = Math.max(0.0D, next - current);
+
+        placeholders.put("{breakthrough_bonus_current}", formatDecimal(current));
+        placeholders.put("{breakthrough_bonus_next}", formatDecimal(next));
+        placeholders.put("{breakthrough_bonus_gain}", formatDecimal(gain));
+        placeholders.put("{breakthrough_bonus_per}", formatDecimal(perBreakthrough));
+
+        String emptyLore = plugin.getConfig().getString("placeholders.breakthrough-bonus-empty-lore", "{_REMOVE_LINE_}");
+        if (!enabled || perBreakthrough <= 0.0D) {
+            placeholders.put("{breakthrough_bonus_lore}", emptyLore);
+            return;
+        }
+
+        String format = plugin.getConfig().getString("placeholders.breakthrough-bonus-lore-format",
+                " &d✦ &7Tu Vi tu luyện: &a+{breakthrough_bonus_current}% &7→ &a+{breakthrough_bonus_next}% &7(&b+{breakthrough_bonus_gain}%&7)");
+        String lore = format
+                .replace("{breakthrough_bonus_current}", formatDecimal(current))
+                .replace("{breakthrough_bonus_next}", formatDecimal(next))
+                .replace("{breakthrough_bonus_gain}", formatDecimal(gain))
+                .replace("{breakthrough_bonus_per}", formatDecimal(perBreakthrough));
+        placeholders.put("{breakthrough_bonus_lore}", lore);
+    }
+
+    private double capBreakthroughBonus(double value, double max) {
+        double result = Math.max(0.0D, value);
+        return max > 0.0D ? Math.min(result, max) : result;
+    }
+
     private String formatDecimal(double value) {
         if (value == Math.rint(value)) {
             return String.valueOf((long) value);
@@ -699,6 +739,7 @@ public class DotPhaCommand implements CommandExecutor, Listener {
             placeholders.put("{status_ready}", status(false));
             placeholders.put("{ready_text}", "Đã đạt cảnh giới tối đa");
         }
+        putBreakthroughBonusPlaceholders(placeholders, player);
         return placeholders;
     }
 

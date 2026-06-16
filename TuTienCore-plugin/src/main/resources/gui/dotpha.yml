@@ -12,6 +12,12 @@
 # {lightning_name}, {lightning_bolts}, {damage_per_bolt}, {total_damage}, {success_rate}
 # {status_tuvi}, {status_thuc_luc}, {status_money}, {status_cooldown}, {status_ready}
 # {ready_text}, {click_text}
+# Bonus Tu Vi cong don moi lan dot pha:
+# {breakthrough_bonus_lore} = dong lore dung san (an khi tat tinh nang)
+# {breakthrough_bonus_current} = % bonus hien tai
+# {breakthrough_bonus_next} = % bonus sau lan dot pha tiep theo
+# {breakthrough_bonus_gain} = % bonus tang them lan dot pha tiep theo
+# {breakthrough_bonus_per} = % bonus moi lan dot pha
 
 main-menu:
   title: "&8Đột Phá"
@@ -36,6 +42,9 @@ main-menu:
         - "&7 Cảnh giới tiếp theo: {breakthrough_target}"
         - "&7 Đột phá: {status_ready} &f{ready_text}"
         - ""
+        - "&7 Bonus Tu Vi hiện tại: &a+{breakthrough_bonus_current}%"
+        - "&7 Sau khi đột phá: &a+{breakthrough_bonus_next}% &7(&b+{breakthrough_bonus_gain}%&7)"
+        - ""
         - "&8Gợi ý:"
         - "&7 Vượt các tầng nhỏ để lên Viên Mãn,"
         - "&7 sau đó mới mở cảnh giới tiếp theo."
@@ -57,6 +66,9 @@ main-menu:
         - " {status_cooldown} &7Hồi phục: &e{cooldown}"
         - "{dot_pha_dan_lore}"
         - "{materials_lore}"
+        - ""
+        - "&8Phần thưởng đột phá:"
+        - "{breakthrough_bonus_lore}"
         - ""
         - "&8Lôi kiếp:"
         - "&7 Dạng lôi sắp đánh xuống: &c{lightning_name}"
@@ -126,6 +138,9 @@ confirm-menu:
         - "&8Thông tin:"
         - " &7Loại: &f{breakthrough_type}"
         - " &7Mục tiêu: {breakthrough_target}"
+        - ""
+        - "&7Phần thưởng đột phá:"
+        - "{breakthrough_bonus_lore}"
         - ""
         - "&8Lôi kiếp:"
         - "&7 Dạng lôi sắp đánh xuống: &c{lightning_name}"

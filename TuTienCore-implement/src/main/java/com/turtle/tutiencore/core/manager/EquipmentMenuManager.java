@@ -101,6 +101,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final Map<UUID, Set<String>> activeConsumables = new HashMap<>();
     private int durationSaveCounter;
     private long consumableCounter;
+    private volatile boolean dataDirty;
+    private final java.util.concurrent.atomic.AtomicBoolean dataWriteInProgress = new java.util.concurrent.atomic.AtomicBoolean(false);
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -116,9 +118,15 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickTimedEquipment, 20L, 20L);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::ensureOnlineBoundOffhands, 40L, 40L);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::flushDirtyData, 20L, 20L);
     }
 
     public void reload() {
+        // Flush any pending dirty data before we replace the in-memory config from disk,
+        // otherwise debounced changes would be lost when reassigning `data`.
+        if (dataDirty) {
+            saveDataFileNow();
+        }
         if (!configFile.exists()) {
             plugin.saveResource("equipment-menu.yml", false);
         }
@@ -144,15 +152,71 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (UUID uuid : equipped.keySet()) {
             savePlayer(uuid);
         }
-        saveDataFile();
+        saveDataFileNow();
     }
 
+    /**
+     * Marks the equipment data as dirty instead of writing immediately. The actual write is
+     * debounced and pushed off the main thread by {@link #flushDirtyData()} (runs once per second).
+     * <p>
+     * Previously this serialized the entire YAML (all players) and wrote it to disk synchronously on
+     * every inventory close / equip click / bound-offhand refresh, which caused MSPT spikes
+     * (YamlConfiguration.saveToString on the server thread). Collapsing many back-to-back saves into
+     * at most one write per second removes that hot path.
+     */
     private void saveDataFile() {
+        dataDirty = true;
+    }
+
+    /**
+     * Debounced flusher: serializes the data once per second (only when dirty) and writes it to disk
+     * asynchronously. Serialization stays on the main thread to take a consistent snapshot of the
+     * config map (which is mutated by savePlayer on the main thread); only the disk I/O is off-thread.
+     */
+    private void flushDirtyData() {
+        if (!dataDirty || dataWriteInProgress.get()) {
+            return;
+        }
+        dataDirty = false;
+
+        final String serialized;
+        try {
+            serialized = data.saveToString();
+        } catch (Throwable throwable) {
+            dataDirty = true;
+            plugin.getLogger().warning("Could not serialize equipment-data.yml: " + throwable.getMessage());
+            return;
+        }
+
+        dataWriteInProgress.set(true);
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                writeDataToDisk(serialized);
+            } catch (IOException exception) {
+                dataDirty = true;
+                plugin.getLogger().warning("Could not save equipment-data.yml: " + exception.getMessage());
+            } finally {
+                dataWriteInProgress.set(false);
+            }
+        });
+    }
+
+    /** Synchronous full write. Used on shutdown/reload where we must not lose data to a pending flush. */
+    private void saveDataFileNow() {
+        dataDirty = false;
         try {
             data.save(dataFile);
         } catch (IOException exception) {
             plugin.getLogger().warning("Could not save equipment-data.yml: " + exception.getMessage());
         }
+    }
+
+    private void writeDataToDisk(String serialized) throws IOException {
+        File parent = dataFile.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        java.nio.file.Files.write(dataFile.toPath(), serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public void removeAllOnlineModifiers() {
@@ -315,7 +379,15 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private void handleEquipmentClick(InventoryClickEvent event, Player player) {
         int raw = event.getRawSlot();
-        if (raw < 0 || raw >= event.getInventory().getSize()) return;
+        if (raw < 0) return;
+        if (raw >= event.getInventory().getSize()) {
+            // Click inside the player's own inventory while the GUI is open.
+            if (event.isShiftClick()) {
+                event.setCancelled(true);
+                handleQuickEquip(event, player);
+            }
+            return;
+        }
         EquipSlot slot = slotAt(raw);
         if (slot == null) {
             event.setCancelled(true);
@@ -358,6 +430,68 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         savePlayer(player.getUniqueId());
         saveDataFile();
         openEquipment(player);
+    }
+
+    private void handleQuickEquip(InventoryClickEvent event, Player player) {
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType().isAir()) {
+            return;
+        }
+
+        String type = mmoType(clicked);
+        if (type == null) {
+            player.sendMessage(message("invalid-item"));
+            return;
+        }
+
+        loadPlayer(player.getUniqueId());
+        Map<String, ItemStack> playerItems = equipped.computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>());
+
+        EquipSlot target = findQuickEquipSlot(type, playerItems);
+        if (target == null) {
+            player.sendMessage(message("invalid-item"));
+            return;
+        }
+
+        if (!canUseMmoItem(player, clicked)) {
+            return;
+        }
+
+        ItemStack one = clicked.clone();
+        one.setAmount(1);
+        if (!prepareTimedItemForEquip(target, one)) {
+            player.sendMessage(message("expired-item"));
+            return;
+        }
+
+        ItemStack old = playerItems.put(target.id(), one);
+        clicked.setAmount(clicked.getAmount() - 1);
+        event.setCurrentItem(clicked.getAmount() <= 0 ? null : clicked);
+        if (old != null) {
+            giveOrDrop(player, old);
+        }
+        sendEquipmentMessage(player, "equipped", target, one);
+
+        applyStats(player);
+        savePlayer(player.getUniqueId());
+        saveDataFile();
+        openEquipment(player);
+    }
+
+    private EquipSlot findQuickEquipSlot(String type, Map<String, ItemStack> playerItems) {
+        EquipSlot firstMatch = null;
+        for (EquipSlot slot : slots.values()) {
+            if (!slot.accepts(type)) {
+                continue;
+            }
+            if (firstMatch == null) {
+                firstMatch = slot;
+            }
+            if (playerItems.get(slot.id()) == null) {
+                return slot;
+            }
+        }
+        return firstMatch;
     }
 
     private void handleUpgradeClick(InventoryClickEvent event, Player player) {

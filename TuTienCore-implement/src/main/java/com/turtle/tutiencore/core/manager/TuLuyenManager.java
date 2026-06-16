@@ -4,6 +4,7 @@ import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
 import com.turtle.tutiencore.core.hook.TurtleIslandHook;
+import com.turtle.tutiencore.core.hook.TuTienForgeHook;
 import com.turtle.tutiencore.core.task.TuLuyenParticleTask;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.api.event.TuViGainEvent;
@@ -71,6 +72,7 @@ public class TuLuyenManager implements Listener {
     private final InfusionManager infusionManager;
     private final EquipmentMenuManager equipmentMenuManager;
     private final TurtleIslandHook turtleIslandHook;
+    private final TuTienForgeHook tuTienForgeHook;
     private MMOCoreActionBarSuppressor actionBarSuppressor;
 
     private final Map<UUID, ArmorStand> tuLuyenPlayers = new HashMap<>();
@@ -79,6 +81,10 @@ public class TuLuyenManager implements Listener {
     private final Map<UUID, Long> sessionTicks = new HashMap<>();
     private final Map<UUID, Long> autoFlySwordTicks = new HashMap<>();
     private final Map<UUID, Long> capWarningTimes = new HashMap<>();
+    // Cached preview reward + effective interval so the heavy per-tick recompute
+    // (permission scan, WorldGuard/TurtleIsland/weather reflection) only runs on a throttle.
+    private final Map<UUID, TuLuyenReward> previewRewardCache = new HashMap<>();
+    private final Map<UUID, Integer> effectiveIntervalCache = new HashMap<>();
     private BukkitRunnable task;
 
     public TuLuyenManager(JavaPlugin plugin, ConfigManager config, ZoneManager zoneManager, TuLuyenParticleTask lineTask,
@@ -91,6 +97,7 @@ public class TuLuyenManager implements Listener {
         this.infusionManager = infusionManager;
         this.equipmentMenuManager = equipmentMenuManager;
         this.turtleIslandHook = new TurtleIslandHook();
+        this.tuTienForgeHook = new TuTienForgeHook();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startTask();
     }
@@ -107,14 +114,26 @@ public class TuLuyenManager implements Listener {
                         continue;
                     }
 
-                    long tick = sessionTicks.merge(player.getUniqueId(), 1L, Long::sum);
+                    UUID uuid = player.getUniqueId();
+                    long tick = sessionTicks.merge(uuid, 1L, Long::sum);
                     if (tick % TICKS_PER_SECOND == 0L) {
-                        TuTien.getApi().addTuLuyenTotalSeconds(player.getUniqueId(), 1L);
+                        TuTien.getApi().addTuLuyenTotalSeconds(uuid, 1L);
                     }
 
-                    int effectiveInterval = getEffectiveTuLuyenInterval(player);
-                    TuLuyenReward previewReward = calculateReward(player, false);
-                    updateVisuals(player, previewReward, tick, effectiveInterval);
+                    // The preview reward + effective interval feed visuals only. Recomputing them every
+                    // tick is wasteful (permission scan + WorldGuard/TurtleIsland/weather reflection), so
+                    // refresh them on a throttle and reuse the cached value in between.
+                    int previewRefreshTicks = getPreviewRefreshTicks();
+                    int effectiveInterval = effectiveIntervalCache.getOrDefault(uuid, configManager.getTuLuyenInterval());
+                    TuLuyenReward previewReward = previewRewardCache.get(uuid);
+                    boolean refreshText = previewReward == null || tick % previewRefreshTicks == 0L;
+                    if (refreshText) {
+                        effectiveInterval = getEffectiveTuLuyenInterval(player);
+                        previewReward = calculateReward(player, false);
+                        effectiveIntervalCache.put(uuid, effectiveInterval);
+                        previewRewardCache.put(uuid, previewReward);
+                    }
+                    updateVisuals(player, previewReward, tick, effectiveInterval, refreshText);
 
                     if (shouldTriggerTuLuyenQuestMilestone(tick, TULUYEN_QUEST_TRIGGER_TICKS)) {
                         triggerTuLuyenQuestObjective(player);
@@ -195,6 +214,8 @@ public class TuLuyenManager implements Listener {
         sessionTicks.clear();
         autoFlySwordTicks.clear();
         capWarningTimes.clear();
+        previewRewardCache.clear();
+        effectiveIntervalCache.clear();
         for (UUID uuid : new ArrayList<>(bossBars.keySet())) {
             clearVisuals(uuid);
         }
@@ -211,6 +232,15 @@ public class TuLuyenManager implements Listener {
     public long getSessionSeconds(UUID uuid) {
         long ticks = sessionTicks.getOrDefault(uuid, 0L);
         return Math.max(0L, ticks / TICKS_PER_SECOND);
+    }
+
+    /**
+     * How often (in ticks) the visual preview reward + effective interval are recomputed.
+     * The preview only feeds the bossbar/hologram text, so it does not need to be recalculated
+     * every tick. Defaults to 20 (once per second); minimum 1.
+     */
+    private int getPreviewRefreshTicks() {
+        return Math.max(1, plugin.getConfig().getInt("tu-luyen.preview-refresh-ticks", 20));
     }
 
     public void setActionBarSuppressor(MMOCoreActionBarSuppressor actionBarSuppressor) {
@@ -275,6 +305,8 @@ public class TuLuyenManager implements Listener {
         sessionTicks.remove(player.getUniqueId());
         autoFlySwordTicks.remove(player.getUniqueId());
         capWarningTimes.remove(player.getUniqueId());
+        previewRewardCache.remove(player.getUniqueId());
+        effectiveIntervalCache.remove(player.getUniqueId());
         clearVisuals(player.getUniqueId());
         if (stand != null) {
             stand.removePassenger(player);
@@ -416,13 +448,15 @@ public class TuLuyenManager implements Listener {
         double permissionBonus = getTuViBonus(player);
         double islandBonus = getTurtleIslandCultivationBonusPercent(player);
         double equipmentBonus = getEquipmentTuViBonus(player);
+        double breakthroughBonus = getBreakthroughTuViBonus(player);
         FlySwordTuViBuff flySwordBuff = getEquippedFlySwordBuff(player);
         double flySwordBonus = flySwordBuff.tuViBonusPercent();
-        double bonus = permissionBonus + islandBonus + equipmentBonus + flySwordBonus;
+        double weatherBonus = getWeatherTuViBonus(player);
+        double bonus = permissionBonus + islandBonus + equipmentBonus + flySwordBonus + breakthroughBonus;
         double environmentBonus = getEnvironmentBonus(player);
         double infusionBonus = getInfusionTuViBonus(player);
         boolean islandEligible = rollLightning && isTurtleIslandCultivationEligible(player, islandBonus);
-        double totalPoints = basePoints * (1.0 + (bonus + environmentBonus + infusionBonus) / 100.0);
+        double totalPoints = basePoints * (1.0 + (bonus + environmentBonus + infusionBonus + weatherBonus) / 100.0);
         LightningBonusResult lightning = rollLightning
                 ? applyLightningBonus(totalPoints, configManager.isLightningBonusEnabled(),
                 configManager.getLightningBonusChancePercent(), configManager.getLightningBonusMultiplier(),
@@ -432,7 +466,34 @@ public class TuLuyenManager implements Listener {
         double cappedPoints = getCappedTuViReward(player, completionPoints);
         return new TuLuyenReward(basePoints, permissionBonus, islandBonus, bonus, environmentBonus,
                 infusionBonus, equipmentBonus, flySwordBonus, flySwordBuff.completionBonusPercent(),
-                cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
+                breakthroughBonus, weatherBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
+    }
+
+    /**
+     * Stacking Tu Vi cultivation bonus granted by the number of successful breakthroughs.
+     * Each breakthrough (major or sub-realm) adds a configurable percentage, optionally capped.
+     */
+    private double getBreakthroughTuViBonus(Player player) {
+        if (realmManager == null || player == null) {
+            return 0.0D;
+        }
+        if (!plugin.getConfig().getBoolean("tu-luyen.breakthrough-bonus.enabled", true)) {
+            return 0.0D;
+        }
+        double perBreakthrough = plugin.getConfig().getDouble("tu-luyen.breakthrough-bonus.percent-per-breakthrough", 5.0D);
+        if (perBreakthrough <= 0.0D) {
+            return 0.0D;
+        }
+        int count = realmManager.getBreakthroughCount(player.getUniqueId());
+        if (count <= 0) {
+            return 0.0D;
+        }
+        double total = perBreakthrough * count;
+        double max = plugin.getConfig().getDouble("tu-luyen.breakthrough-bonus.max-percent", 0.0D);
+        if (max > 0.0D) {
+            total = Math.min(total, max);
+        }
+        return Math.max(0.0D, total);
     }
 
     private double getEquipmentTuViBonus(Player player) {
@@ -543,6 +604,17 @@ public class TuLuyenManager implements Listener {
         return turtleIslandHook.getCultivationBonusPercent(player);
     }
 
+    /**
+     * Server-wide Tu Vi cultivation bonus (%) granted by the active virtual weather in TuTienForge.
+     * Read via a soft reflection hook; returns 0 when TuTienForge is absent or no weather is active.
+     */
+    private double getWeatherTuViBonus(Player player) {
+        if (player == null || !plugin.getConfig().getBoolean("tu-luyen.weather-bonus.enabled", true)) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, tuTienForgeHook.getActiveWeatherTuViBonusPercent());
+    }
+
     private boolean isTurtleIslandCultivationEligible(Player player, double islandBonus) {
         return islandBonus > 0.0 || turtleIslandHook.canReceiveCultivationBonus(player);
     }
@@ -605,7 +677,8 @@ public class TuLuyenManager implements Listener {
             return;
         }
 
-        double reward = configManager.rollPointsPerInterval() * (1.0D + buff.tuViBonusPercent() / 100.0D);
+        double reward = configManager.rollPointsPerInterval()
+                * (1.0D + (buff.tuViBonusPercent() + getBreakthroughTuViBonus(player) + getWeatherTuViBonus(player)) / 100.0D);
         TuViGainEvent event = createFlySwordAutoGainEvent(player, reward);
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled() || event.getAmount() <= 0.0D) {
@@ -862,6 +935,16 @@ public class TuLuyenManager implements Listener {
     }
 
     private void updateVisuals(Player player, TuLuyenReward reward, long tick, int intervalTicks) {
+        updateVisuals(player, reward, tick, intervalTicks, true);
+    }
+
+    /**
+     * @param refreshText when false, only the lightweight bossbar progress is updated; the bossbar
+     *                    title (PlaceholderAPI parsing) and FancyHologram text (heavy reflection) are
+     *                    skipped. They only change when the reward preview is recomputed, so refreshing
+     *                    them every tick wastes CPU and hurts MSPT/TPS.
+     */
+    private void updateVisuals(Player player, TuLuyenReward reward, long tick, int intervalTicks, boolean refreshText) {
         UUID uuid = player.getUniqueId();
         int effectiveIntervalTicks = Math.max(1, intervalTicks);
         double progress = (tick % effectiveIntervalTicks) / (double) effectiveIntervalTicks;
@@ -873,12 +956,16 @@ public class TuLuyenManager implements Listener {
             } else if (!bossBar.getPlayers().contains(player)) {
                 bossBar.addPlayer(player);
             }
-            bossBar.setTitle(applyRewardPlaceholders(player, plugin.getConfig().getString("tu-luyen.bossbar.title",
-                    "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Lửa Thần {infusion}% &7= &6{total}"), reward));
+            if (refreshText) {
+                bossBar.setTitle(applyRewardPlaceholders(player, plugin.getConfig().getString("tu-luyen.bossbar.title",
+                        "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7+ &5Lửa Thần {infusion}% &7= &6{total}"), reward));
+            }
             bossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
         }
 
-        updateFancyHologram(player, reward);
+        if (refreshText) {
+            updateFancyHologram(player, reward);
+        }
     }
 
     private void createFancyHologram(Player player) {
@@ -1184,7 +1271,7 @@ public class TuLuyenManager implements Listener {
                                           boolean translateColors) {
         double bonusPercent = permissionBonusPercent + islandBonusPercent;
         TuLuyenReward reward = new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent,
-                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, 0.0D, 0.0D, totalPoints, false,
+                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, totalPoints, false,
                 islandBonusPercent > 0.0D, islandBonusPercent > 0.0D);
         String result = applyRewardPlaceholdersRaw(text, reward);
         return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
@@ -1200,7 +1287,7 @@ public class TuLuyenManager implements Listener {
 
     private static String applyRewardPlaceholdersRaw(String text, TuLuyenReward reward) {
         double totalBonusPercent = reward.bonusPercent + reward.infusionBonusPercent;
-        double allBonusPercent = totalBonusPercent + reward.environmentBonusPercent;
+        double allBonusPercent = totalBonusPercent + reward.environmentBonusPercent + reward.weatherBonusPercent;
         return text
                 .replace("{base}", formatNumber(reward.basePoints))
                 .replace("{bonus}", formatPercent(reward.bonusPercent))
@@ -1217,8 +1304,14 @@ public class TuLuyenManager implements Listener {
                 .replace("{phikiem_bonus}", formatPercent(reward.flySwordBonusPercent))
                 .replace("{fly_sword_bonus}", formatPercent(reward.flySwordBonusPercent))
                 .replace("{fly_sword_completion_bonus}", formatPercent(reward.flySwordCompletionBonusPercent))
+                .replace("{breakthrough_bonus}", formatPercent(reward.breakthroughBonusPercent))
+                .replace("{dot_pha_bonus}", formatPercent(reward.breakthroughBonusPercent))
+                .replace("{dotpha_bonus}", formatPercent(reward.breakthroughBonusPercent))
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
                 .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
+                .replace("{weather_bonus}", formatPercent(reward.weatherBonusPercent))
+                .replace("{thoi_tiet_bonus}", formatPercent(reward.weatherBonusPercent))
+                .replace("{thoitiet_bonus}", formatPercent(reward.weatherBonusPercent))
                 .replace("{total}", formatNumber(reward.totalPoints));
     }
 
@@ -1292,6 +1385,8 @@ public class TuLuyenManager implements Listener {
         private final double equipmentBonusPercent;
         private final double flySwordBonusPercent;
         private final double flySwordCompletionBonusPercent;
+        private final double breakthroughBonusPercent;
+        private final double weatherBonusPercent;
         private final double totalPoints;
         private final boolean lightningTriggered;
         private final boolean externalBonusIncluded;
@@ -1300,7 +1395,8 @@ public class TuLuyenManager implements Listener {
         private TuLuyenReward(double basePoints, double permissionBonusPercent, double islandBonusPercent,
                               double bonusPercent, double environmentBonusPercent, double infusionBonusPercent,
                               double equipmentBonusPercent, double flySwordBonusPercent,
-                              double flySwordCompletionBonusPercent, double totalPoints,
+                              double flySwordCompletionBonusPercent, double breakthroughBonusPercent,
+                              double weatherBonusPercent, double totalPoints,
                               boolean lightningTriggered, boolean externalBonusIncluded, boolean turtleIslandEligible) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
@@ -1311,6 +1407,8 @@ public class TuLuyenManager implements Listener {
             this.equipmentBonusPercent = equipmentBonusPercent;
             this.flySwordBonusPercent = flySwordBonusPercent;
             this.flySwordCompletionBonusPercent = flySwordCompletionBonusPercent;
+            this.breakthroughBonusPercent = breakthroughBonusPercent;
+            this.weatherBonusPercent = weatherBonusPercent;
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
             this.externalBonusIncluded = externalBonusIncluded;

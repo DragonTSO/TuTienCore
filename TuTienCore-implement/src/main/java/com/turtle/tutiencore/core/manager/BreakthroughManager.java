@@ -990,6 +990,8 @@ public class BreakthroughManager implements Listener {
             // Major realm breakthrough success
             Realm oldRealm = realmManager.getPlayerCurrentRealm(uuid);
             realmManager.advanceRealm(uuid);
+            // Each successful breakthrough permanently boosts cultivation Tu Vi gain (stacking).
+            realmManager.incrementBreakthroughCount(uuid);
             Realm newRealm = realmManager.getPlayerCurrentRealm(uuid);
 
             // Fire success event for other plugins to react
@@ -1088,6 +1090,8 @@ public class BreakthroughManager implements Listener {
             PlayerRealm pr = realmManager.getPlayerRealm(uuid);
             SubRealm oldSub = pr.getSubRealm();
             pr.setSubRealm(session.targetSubRealm);
+            // Each successful breakthrough permanently boosts cultivation Tu Vi gain (stacking).
+            pr.incrementBreakthroughCount();
             realmManager.savePlayerRealm(uuid);
 
             Realm realm = realmManager.getPlayerCurrentRealm(uuid);

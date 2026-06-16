@@ -146,6 +146,10 @@ player-hologram:
 tu-luyen:
   # Thời gian (tick) để nhận Tu Vi (20 ticks = 1 giây)
   interval: 100
+  # Tần suất (tick) tính lại số Tu Vi xem trước hiển thị trên bossbar/hologram khi đang tu luyện.
+  # Chỉ ảnh hưởng phần HIỂN THỊ, không ảnh hưởng Tu Vi thực nhận. Tăng số này để giảm tải MSPT/TPS
+  # khi nhiều người tu luyện cùng lúc (mặc định 20 = mỗi giây cập nhật 1 lần).
+  preview-refresh-ticks: 20
   # Khoảng cách tối đa từ cực linh khí (blocks) để có thể /tuluyen
   max-distance: 10.0
   # Điểm Tu Vi nhận được mỗi lần.
@@ -154,6 +158,19 @@ tu-luyen:
   # false = chỉ lấy permission bonus cao nhất.
   permission-bonus:
     stack: true
+  # Mỗi lần đột phá thành công (đại cảnh giới + tiểu cảnh giới) cộng dồn thêm % bonus Tu Vi khi tu luyện.
+  # Ví dụ: percent-per-breakthrough = 2 => sau 10 lần đột phá player nhận +20% Tu Vi.
+  breakthrough-bonus:
+    enabled: true
+    # % bonus cộng thêm cho mỗi lần đột phá thành công.
+    percent-per-breakthrough: 2.0
+    # Giới hạn tối đa % bonus cộng dồn. 0 = không giới hạn.
+    max-percent: 0.0
+  # Thời tiết ảo của TuTienForge có thể cộng % bonus Tu Vi khi tu luyện (toàn server).
+  # Giá trị % được cấu hình trong TuTienForge config.yml (virtual-weather.weathers.<id>.tuvi-bonus).
+  # Đặt enabled: false để bỏ qua bonus thời tiết kể cả khi TuTienForge đang chạy.
+  weather-bonus:
+    enabled: true
   # Command để cho điểm Tu Vi, sử dụng %player% cho tên, và %points% cho số lượng
   give-command: "eco give %player% %points%"
   # Tỉ lệ Thiên Lôi ảo đánh xuống khi nhận Tu Vi. Nếu trúng, điểm Tu Vi lần đó được nhân multiplier.
@@ -381,6 +398,12 @@ placeholders:
   # Hỗ trợ placeholder: {status}, {have}, {required}
   dot-pha-dan-lore-format: " {status} &7Đột Phá Đan: &b{have} &7/ &e{required}"
   dot-pha-dan-empty-lore: "{_REMOVE_LINE_}"
+
+  # Dòng lore hiển thị bonus Tu Vi tu luyện cộng dồn sau khi đột phá thành công.
+  # Hỗ trợ placeholder: {breakthrough_bonus_current}, {breakthrough_bonus_next},
+  #                     {breakthrough_bonus_gain}, {breakthrough_bonus_per}
+  breakthrough-bonus-lore-format: " &d✦ &7Tu Vi tu luyện: &a+{breakthrough_bonus_current}% &7→ &a+{breakthrough_bonus_next}% &7(&b+{breakthrough_bonus_gain}%&7)"
+  breakthrough-bonus-empty-lore: "{_REMOVE_LINE_}"
 
   # Định dạng tiêu đề và từng dòng lore nguyên liệu trong Menu Đột Phá
   materials-header-lore: "&8ʏêᴜ ᴄầᴜ ᴠậᴛ ᴘʜẩᴍ ᴋʜáᴄ:"
