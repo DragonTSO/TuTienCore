@@ -1321,6 +1321,7 @@ public class TuLuyenManager implements Listener {
         lines.add("&fCơ bản: &b{base} Tu Vi");
         lines.add("&fBonus: &a{total_bonus}%");
         lines.add("&fMôi Trường Tu Luyện: &d{environment}%");
+        lines.add("&fThời Tiết: &b{weather_bonus}%");
         lines.add("&fLửa Thần: &5{infusion}%");
         lines.add("&fTổng Tu Vi Nhận Được: &6{total}");
         return lines;

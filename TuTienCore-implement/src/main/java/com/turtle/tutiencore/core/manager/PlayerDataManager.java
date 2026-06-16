@@ -31,6 +31,12 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private File file;
     private FileConfiguration config;
     private final Object configLock = new Object();
+    // Serializing players.yml happens on the main thread (consistent snapshot under configLock),
+    // but the disk write is pushed off-thread. diskWriteLock serializes the actual file writes so a
+    // sync save (shutdown) and a queued async save (player quit) never write the file concurrently.
+    private final Object diskWriteLock = new Object();
+    private final java.util.concurrent.atomic.AtomicLong saveSeq = new java.util.concurrent.atomic.AtomicLong();
+    private volatile long lastWrittenSeq = 0L;
     private final Map<UUID, Double> tuviCache = new HashMap<>();
     private final Map<UUID, Long> tuLuyenTotalSecondsCache = new HashMap<>();
     private final Map<UUID, List<OwnedInfusion>> infusionInventoryCache = new HashMap<>();
@@ -107,6 +113,27 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
             saveToDisk();
+        }
+    }
+
+    /**
+     * Like {@link #savePlayer(UUID)} but pushes the disk write off the main thread. The cache values
+     * are copied into the config under {@code configLock} on the calling (main) thread, so the
+     * snapshot is consistent; only the file write runs async. Use this on player quit to avoid
+     * blocking the main thread with a full-file YAML write. Do NOT use on shutdown.
+     */
+    public void savePlayerAsync(UUID uuid) {
+        synchronized (configLock) {
+            if (tuviCache.containsKey(uuid)) {
+                config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+            }
+            if (tuLuyenTotalSecondsCache.containsKey(uuid)) {
+                writeTuLuyenTime(uuid, tuLuyenTotalSecondsCache.get(uuid));
+            }
+            if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+                writeInfusionState(uuid);
+            }
+            saveToDiskAsync();
         }
     }
 
@@ -296,16 +323,65 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     private boolean saveToDisk() {
+        final String serialized;
+        final long seq;
         synchronized (configLock) {
             try {
                 sanitizeConfigBeforeSave();
-                config.save(file);
+                serialized = config.saveToString();
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
+                return false;
+            }
+            seq = saveSeq.incrementAndGet();
+        }
+        return writeSerialized(serialized, seq);
+    }
+
+    /**
+     * Serializes players.yml on the calling (main) thread for a consistent snapshot under
+     * {@code configLock}, then pushes the disk write off-thread. Use this on player quit so the
+     * full-file YAML write never blocks the main thread.
+     *
+     * <p>Must NOT be used on shutdown: the Bukkit scheduler is torn down before the async task can
+     * run, which would lose the write. Use {@link #saveToDisk()} (synchronous) there instead.
+     */
+    private void saveToDiskAsync() {
+        final String serialized;
+        final long seq;
+        synchronized (configLock) {
+            try {
+                sanitizeConfigBeforeSave();
+                serialized = config.saveToString();
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
+                return;
+            }
+            seq = saveSeq.incrementAndGet();
+        }
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeSerialized(serialized, seq));
+    }
+
+    /**
+     * Writes a pre-serialized snapshot to disk. {@code seq} is the snapshot's monotonic version;
+     * an older snapshot is dropped if a newer one already landed, so a slow async write can never
+     * overwrite fresher data. The write itself is serialized by {@code diskWriteLock}.
+     */
+    private boolean writeSerialized(String serialized, long seq) {
+        synchronized (diskWriteLock) {
+            if (seq <= lastWrittenSeq) {
+                return true; // A newer snapshot already hit disk; this one is stale, skip it.
+            }
+            try {
+                File parent = file.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    parent.mkdirs();
+                }
+                java.nio.file.Files.write(file.toPath(), serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                lastWrittenSeq = seq;
                 return true;
             } catch (IOException e) {
                 plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
-                return false;
-            } catch (RuntimeException e) {
-                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
                 return false;
             }
         }
@@ -727,7 +803,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        savePlayer(event.getPlayer().getUniqueId());
+        // Snapshot + serialize happens synchronously under configLock inside savePlayerAsync; only
+        // the disk write is off-thread, so evicting the caches immediately after is safe.
+        savePlayerAsync(event.getPlayer().getUniqueId());
         tuviCache.remove(event.getPlayer().getUniqueId());
         tuLuyenTotalSecondsCache.remove(event.getPlayer().getUniqueId());
         infusionInventoryCache.remove(event.getPlayer().getUniqueId());

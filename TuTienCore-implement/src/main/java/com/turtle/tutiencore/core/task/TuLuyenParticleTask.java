@@ -4,10 +4,19 @@ import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.particle.Particle;
+import com.github.retrooper.packetevents.protocol.particle.data.ParticleData;
+import com.github.retrooper.packetevents.protocol.particle.data.ParticleDustData;
+import com.github.retrooper.packetevents.protocol.particle.type.ParticleType;
+import com.github.retrooper.packetevents.protocol.particle.type.ParticleTypes;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.util.Vector3f;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
+
 import org.bukkit.ChatColor;
-import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -15,7 +24,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -37,6 +48,12 @@ public class TuLuyenParticleTask {
 
     // Animation state
     private double globalTick = 0;
+
+    // Viewers (as PacketEvents Users) within range of the player currently being processed by the
+    // aura task. Particles are streamed as clientbound packets instead of World.spawnParticle, which
+    // (a) is the requested packet-based approach and (b) is safe to call from the async aura task,
+    // unlike Bukkit's World.spawnParticle. The aura task is single-threaded, so a single field is fine.
+    private List<User> currentViewers = java.util.Collections.emptyList();
 
     // Default cyan color (fallback when no realm color)
     private static final int[][] DEFAULT_COLORS = {{0, 220, 255}, {100, 255, 230}};
@@ -266,8 +283,9 @@ public class TuLuyenParticleTask {
         Location base = player.getLocation();
         World world = player.getWorld();
 
-        // Skip work when nobody (including the player) is close enough to see the effect.
-        if (!hasNearbyViewer(world, base)) {
+        // Resolve viewers once per player per tick. Skip all geometry when nobody can see it.
+        currentViewers = resolveNearbyViewers(world, base);
+        if (currentViewers.isEmpty()) {
             return;
         }
 
@@ -437,11 +455,8 @@ public class TuLuyenParticleTask {
             spawnColoredDust(world, loc, r, g, b, size);
 
             if (endRodTrail && i % 3 == 0) {
-                try {
-                    world.spawnParticle(Particle.END_ROD, loc, 0,
-                            inward.getX(), inward.getY(), inward.getZ(), 0.08D + progress * 0.08D);
-                } catch (Exception ignored) {
-                }
+                spawnDirectionalParticle(ParticleTypes.END_ROD, loc,
+                        inward.getX(), inward.getY(), inward.getZ(), (float) (0.08D + progress * 0.08D), 0);
             }
         }
     }
@@ -523,10 +538,8 @@ public class TuLuyenParticleTask {
 
             Vector dir = chest.toVector().subtract(outerLoc.toVector()).normalize();
 
-            try {
-                world.spawnParticle(Particle.END_ROD, outerLoc, 0,
-                        dir.getX(), dir.getY(), dir.getZ(), 0.12);
-            } catch (Exception ignored) {}
+            spawnDirectionalParticle(ParticleTypes.END_ROD, outerLoc,
+                    (float) dir.getX(), (float) dir.getY(), (float) dir.getZ(), 0.12f, 0);
 
             spawnColoredDust(world, outerLoc, colors[1][0], colors[1][1], colors[1][2], 1.0f);
         }
@@ -601,52 +614,82 @@ public class TuLuyenParticleTask {
 
             Location loc = base.clone().add(x, y, z);
 
-            try {
-                world.spawnParticle(Particle.END_ROD, loc, 0, 0, 0.02, 0, 0.01);
-            } catch (Exception ignored) {}
+            spawnDirectionalParticle(ParticleTypes.END_ROD, loc, 0f, 0.02f, 0f, 0.01f, 0);
 
             // Enchantment particles
-            try {
-                world.spawnParticle(Particle.ENCHANT, base.clone().add(0, 1, 0), 2,
-                        1.5, 1.0, 1.5, 0.5);
-            } catch (Exception ignored) {}
+            spawnDirectionalParticle(ParticleTypes.ENCHANT, base.clone().add(0, 1, 0),
+                    1.5f, 1.0f, 1.5f, 0.5f, 2);
         }
     }
 
     /**
-     * Returns true when at least one player is within the configured view distance of the
-     * effect center, so we skip generating particles that nobody can see.
+     * Collect the PacketEvents {@link User}s within the configured view distance of the effect
+     * center. Particles are streamed only to these viewers, so we never build geometry nobody sees
+     * and never touch a Bukkit world object from the async aura thread.
      */
-    private boolean hasNearbyViewer(World world, Location center) {
+    private List<User> resolveNearbyViewers(World world, Location center) {
         double maxDistanceSquared = configManager.getCultViewDistanceSquared();
+        List<User> viewers = new ArrayList<>();
         for (Player viewer : world.getPlayers()) {
-            if (viewer.getLocation().distanceSquared(center) <= maxDistanceSquared) {
-                return true;
+            if (viewer.getLocation().distanceSquared(center) > maxDistanceSquared) {
+                continue;
+            }
+            User user = resolveUser(viewer);
+            if (user != null) {
+                viewers.add(user);
             }
         }
-        return false;
+        return viewers;
+    }
+
+    private User resolveUser(Player player) {
+        try {
+            User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
+            return (user != null && user.getChannel() != null) ? user : null;
+        } catch (RuntimeException exception) {
+            return null;
+        }
     }
 
     /**
-     * Utility: Spawn colored dust particle with version compatibility
+     * Utility: stream a colored dust particle to the current viewers as a clientbound packet.
      */
     private void spawnColoredDust(World world, Location loc, int r, int g, int b, float size) {
-        try {
-            Particle.DustOptions dust = new Particle.DustOptions(
-                    Color.fromRGB(
-                            Math.max(0, Math.min(255, r)),
-                            Math.max(0, Math.min(255, g)),
-                            Math.max(0, Math.min(255, b))
-                    ),
-                    size
-            );
-            world.spawnParticle(Particle.DUST, loc, 1, 0, 0, 0, 0, dust);
-        } catch (Exception e) {
-            // Fallback for older versions
+        ParticleDustData dust = new ParticleDustData(size,
+                Math.max(0, Math.min(255, r)),
+                Math.max(0, Math.min(255, g)),
+                Math.max(0, Math.min(255, b)));
+        emit(new Particle<>(ParticleTypes.DUST, dust), loc, 0f, 0f, 0f, 0f, 1);
+    }
+
+    /**
+     * Streams a non-dust particle (END_ROD, ENCHANT, ...) to the current viewers. {@code dx/dy/dz}
+     * are the packet offset/direction and {@code maxSpeed} the particle speed, matching the old
+     * {@code World.spawnParticle(type, loc, count, dx, dy, dz, speed)} call shape.
+     */
+    private void spawnDirectionalParticle(ParticleType<ParticleData> type, Location loc,
+                                          double dx, double dy, double dz, float maxSpeed, int count) {
+        emit(new Particle<>(type), loc, (float) dx, (float) dy, (float) dz, maxSpeed, count);
+    }
+
+    /**
+     * Streams a single particle packet to every nearby viewer resolved for the player currently
+     * being processed. Safe to call from the async aura task since it only builds and sends packets.
+     */
+    private void emit(Particle<?> particle, Location loc, float offsetX, float offsetY, float offsetZ,
+                      float maxSpeed, int count) {
+        List<User> viewers = currentViewers;
+        if (viewers.isEmpty()) {
+            return;
+        }
+        Vector3d position = new Vector3d(loc.getX(), loc.getY(), loc.getZ());
+        Vector3f offset = new Vector3f(offsetX, offsetY, offsetZ);
+        for (User user : viewers) {
             try {
-                world.spawnParticle(Particle.valueOf("REDSTONE"), loc, 0,
-                        r / 255.0, g / 255.0, b / 255.0, 1);
-            } catch (Exception ignored) {}
+                user.sendPacket(new WrapperPlayServerParticle(particle, true, position, offset, maxSpeed, count));
+            } catch (RuntimeException ignored) {
+                // A single viewer's channel may have closed mid-tick; keep streaming to the rest.
+            }
         }
     }
 

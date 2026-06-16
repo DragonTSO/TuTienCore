@@ -87,6 +87,11 @@ public final class KillRewardHologramManager {
         });
         displays.add(display);
 
+        // Animation step interval. The hologram only rises + fades, so updating every other tick
+        // (default) is visually indistinguishable but halves the per-tick wake-ups when many kill
+        // popups overlap (mob farms). Progress still advances by `interval` ticks so the popup
+        // finishes after the same `durationTicks` wall-clock duration regardless of the interval.
+        int interval = Math.max(1, plugin.getConfig().getInt("kill-reward-hologram.animation-interval-ticks", 2));
         new BukkitRunnable() {
             private int tick;
 
@@ -98,7 +103,7 @@ public final class KillRewardHologramManager {
                     return;
                 }
 
-                tick++;
+                tick += interval;
                 double progress = Math.min(1.0D, (double) tick / durationTicks);
                 display.teleport(start.clone().add(0.0D, rise * progress, 0.0D));
                 display.setTextOpacity(interpolateOpacity(startOpacity, endOpacity, progress));
@@ -109,7 +114,7 @@ public final class KillRewardHologramManager {
                     cancel();
                 }
             }
-        }.runTaskTimer(plugin, 1L, 1L);
+        }.runTaskTimer(plugin, interval, interval);
     }
 
     private String applyMoneyPlaceholders(String text, Player player, long baseMoney, long finalMoney,

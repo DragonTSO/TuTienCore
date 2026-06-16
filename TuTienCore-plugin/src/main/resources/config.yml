@@ -208,7 +208,7 @@ tu-luyen:
     update-interval: 20
     text-shadow: true
     see-through: false
-    # Placeholders: {bonus}=quyền+Tiên Phù, {infusion}=Lửa Thần, {total_bonus}=bonus+Lửa Thần, {all_bonus}=total_bonus+môi trường.
+    # Placeholders: {bonus}=quyền+Tiên Phù, {infusion}=Lửa Thần, {total_bonus}=bonus+Lửa Thần, {all_bonus}=total_bonus+môi trường+thời tiết, {weather_bonus}=thời tiết.
     lines:
       - "&eTrạng thái: &aBế quan tu luyện"
       - ""
@@ -217,6 +217,7 @@ tu-luyen:
       - "&aBonus: &a+{total_bonus}%"
       - "&5Lửa Thần: &d+{infusion}%"
       - "&dMôi Trường Tu Luyện: &d+{environment}%"
+      - "&bThời Tiết: &b+{weather_bonus}%"
       - "&6Tu Vi Thực Nhận: &6+{total}"
     team-bonus:
       enabled: true
