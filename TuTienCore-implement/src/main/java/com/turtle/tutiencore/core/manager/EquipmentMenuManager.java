@@ -1568,11 +1568,25 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private void loadPlayer(UUID uuid) {
         if (equipped.containsKey(uuid)) return;
+        Player online = Bukkit.getPlayer(uuid);
         Map<String, ItemStack> playerItems = new HashMap<>();
         for (String slotId : slots.keySet()) {
+            EquipSlot slot = slots.get(slotId);
             ItemStack item = data.getItemStack(uuid + "." + slotId);
+
+            // The raw serialized ItemStack can lose its MMOItems identity (custom NBT) across a
+            // server restart, which leaves the slot empty after relog (e.g. an equipped FLY_SWORD or
+            // DAN_DUOC vanishing from /trangbi). Fall back to regenerating the item from the stored
+            // MMOItems type + id — the same durable approach already used for the bound offhand —
+            // restoring any remaining duration for timed items.
+            if ((item == null || item.getType().isAir() || mmoType(item) == null) && online != null) {
+                ItemStack regenerated = regenerateSlotItem(online, uuid, slotId, slot);
+                if (regenerated != null) {
+                    item = regenerated;
+                }
+            }
+
             if (item != null && item.getType() != Material.AIR) {
-                EquipSlot slot = slots.get(slotId);
                 if (slot == null || prepareTimedItemForEquip(slot, item)) {
                     playerItems.put(slotId, item);
                 }
@@ -1584,8 +1598,68 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private void savePlayer(UUID uuid) {
         Map<String, ItemStack> playerItems = equipped.getOrDefault(uuid, Map.of());
         for (String slotId : slots.keySet()) {
-            data.set(uuid + "." + slotId, playerItems.get(slotId));
+            ItemStack item = playerItems.get(slotId);
+            data.set(uuid + "." + slotId, item);
+            writeSlotMeta(uuid, slotId, item);
         }
+    }
+
+    /**
+     * Persists the MMOItems identity (type + id) and remaining/total duration of an equipped item
+     * alongside the raw serialized ItemStack. These plain values always survive a YAML round-trip,
+     * so {@link #regenerateSlotItem} can rebuild the item if the raw ItemStack loses its MMOItems
+     * NBT across a restart.
+     */
+    private void writeSlotMeta(UUID uuid, String slotId, ItemStack item) {
+        String path = uuid + ".mmo-meta." + slotId;
+        if (item == null || item.getType().isAir()) {
+            data.set(path, null);
+            return;
+        }
+        String type = mmoType(item);
+        String id = mmoId(item);
+        if (type == null || id == null || type.isBlank() || id.isBlank()) {
+            // Not an MMOItems-backed item; there is nothing to regenerate from later.
+            data.set(path, null);
+            return;
+        }
+        data.set(path + ".type", type);
+        data.set(path + ".id", id);
+        long remaining = remainingDurationSeconds(item);
+        data.set(path + ".remaining-seconds", remaining >= 0L ? remaining : null);
+        long total = persistentDurationSeconds(item, durationTotalKey);
+        data.set(path + ".total-seconds", total > 0L ? total : null);
+    }
+
+    /**
+     * Rebuilds an equipped item from its stored MMOItems type + id when the raw serialized ItemStack
+     * could not be restored. Returns {@code null} when no identity was stored (legacy data) or the
+     * MMOItems template no longer exists.
+     */
+    private ItemStack regenerateSlotItem(Player player, UUID uuid, String slotId, EquipSlot slot) {
+        String path = uuid + ".mmo-meta." + slotId;
+        String type = data.getString(path + ".type");
+        String id = data.getString(path + ".id");
+        if (type == null || id == null || type.isBlank() || id.isBlank()) {
+            return null;
+        }
+        ItemStack regenerated = createMmoItem(player, type, id);
+        if (regenerated == null || regenerated.getType().isAir()) {
+            return null;
+        }
+        regenerated.setAmount(1);
+        if (slot != null && slot.duration().enabled() && data.contains(path + ".remaining-seconds")) {
+            long total = data.getLong(path + ".total-seconds", 0L);
+            if (total <= 0L) {
+                total = initialDurationSeconds(slot, regenerated);
+            }
+            if (total > 0L) {
+                setTotalDurationSeconds(regenerated, total);
+            }
+            setRemainingDurationSeconds(slot, regenerated, Math.max(0L, data.getLong(path + ".remaining-seconds")));
+            updateDurationItemLore(slot, regenerated);
+        }
+        return regenerated;
     }
 
     private EquipSlot slotAt(int guiSlot) {
