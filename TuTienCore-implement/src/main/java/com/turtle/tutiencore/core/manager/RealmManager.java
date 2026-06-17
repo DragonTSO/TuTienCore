@@ -449,16 +449,18 @@ public class RealmManager implements Listener {
         PlayerRealm pr = new PlayerRealm(realmId, subRealm);
         pr.setBreakthroughCooldown(cooldown);
 
-        // Backfill the breakthrough counter for players that progressed before this feature existed:
-        // if the key is missing, derive the count from their current realm + sub-realm so they keep
-        // the stacking cultivation bonus they earned. New breakthroughs increment from there.
-        boolean needsBackfill = !playerDataConfig.contains(path + ".breakthrough-count");
-        int breakthroughCount = needsBackfill
-                ? deriveBreakthroughCount(realmId, subRealm)
-                : playerDataConfig.getInt(path + ".breakthrough-count", 0);
+        // Backfill / reconcile the breakthrough counter against the player's current progression.
+        // The current realm + sub-realm implies a minimum number of breakthroughs, so we take the
+        // higher of the stored value and the derived value. This both seeds players that progressed
+        // before this feature existed (missing key) and repairs players whose stored count is out of
+        // sync with their realm (e.g. realm was set directly before the sync fix existed). The count
+        // only ever moves up, never down, so naturally-earned breakthroughs are preserved.
+        int storedCount = playerDataConfig.getInt(path + ".breakthrough-count", 0);
+        int derivedCount = deriveBreakthroughCount(realmId, subRealm);
+        int breakthroughCount = Math.max(storedCount, derivedCount);
         pr.setBreakthroughCount(breakthroughCount);
         playerRealms.put(uuid, pr);
-        if (needsBackfill && breakthroughCount > 0) {
+        if (breakthroughCount != storedCount) {
             savePlayerRealm(uuid);
         }
     }
