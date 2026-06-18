@@ -1,29 +1,76 @@
 package com.turtle.tutiencore.core.manager;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
+import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.entity.Display;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.text.DecimalFormat;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Kill-reward "+money" popup, rendered as a <b>packet-based</b> TEXT_DISPLAY instead of a real
+ * Bukkit entity.
+ *
+ * <p>The previous implementation called {@code World.spawn(TextDisplay)} per kill. Spark showed
+ * the cost was almost entirely Minecraft's own entity machinery — {@code CraftRegionAccessor.spawn}
+ * → {@code ServerLevel.addEntity} → chunk-system entity tracking — not the plugin code. On a mob
+ * farm those add up.
+ *
+ * <p>Here we never create a server-side entity. We allocate a fake entity id, send a SPAWN_ENTITY +
+ * ENTITY_METADATA packet to the nearby players only, animate it (rise + fade) by streaming
+ * ENTITY_TELEPORT + ENTITY_METADATA packets, and DESTROY_ENTITIES at the end. Nothing touches the
+ * world entity list, chunk tracker, or the main-thread tick beyond building packets — and the
+ * animation loop runs async since packet sends are thread-safe.
+ */
 public final class KillRewardHologramManager {
 
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
     private static final Pattern MINI_HEX_PATTERN = Pattern.compile("<#([A-Fa-f0-9]{6})>");
     private static final DecimalFormat INTEGER_FORMAT = new DecimalFormat("#,###");
 
+    // Fake entity ids for client-only displays. Started high so they never collide with the
+    // server's own incrementally-assigned (low, positive) entity ids within a session.
+    private static final AtomicInteger ENTITY_ID = new AtomicInteger(Integer.MAX_VALUE / 2);
+
+    // ─── TEXT_DISPLAY metadata indices (MC 1.21.x) ──────────────────────────────
+    private static final int IDX_BILLBOARD = 15;
+    private static final int IDX_TEXT = 23;
+    private static final int IDX_LINE_WIDTH = 24;
+    private static final int IDX_BACKGROUND = 25;
+    private static final int IDX_TEXT_OPACITY = 26;
+    private static final int IDX_DISPLAY_FLAGS = 27;
+
+    private static final byte BILLBOARD_CENTER = 3;
+    private static final byte FLAG_SHADOW = 0x01;
+    private static final byte FLAG_SEE_THROUGH = 0x02;
+
     private final JavaPlugin plugin;
-    private final Set<TextDisplay> displays = ConcurrentHashMap.newKeySet();
+
+    // Active popups (entityId -> viewers) so a plugin disable can destroy any still-animating ones.
+    private final Map<Integer, List<User>> activePopups = new ConcurrentHashMap<>();
 
     public KillRewardHologramManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -49,12 +96,10 @@ public final class KillRewardHologramManager {
     }
 
     public void removeAll() {
-        for (TextDisplay display : new HashSet<>(displays)) {
-            if (display != null && display.isValid()) {
-                display.remove();
-            }
+        for (Map.Entry<Integer, List<User>> entry : activePopups.entrySet()) {
+            destroy(entry.getValue(), entry.getKey());
         }
-        displays.clear();
+        activePopups.clear();
     }
 
     private void spawn(Location location, String text) {
@@ -69,52 +114,128 @@ public final class KillRewardHologramManager {
         boolean shadow = plugin.getConfig().getBoolean("kill-reward-hologram.shadow", true);
         boolean seeThrough = plugin.getConfig().getBoolean("kill-reward-hologram.see-through", true);
         int lineWidth = Math.max(1, plugin.getConfig().getInt("kill-reward-hologram.line-width", 160));
+        double viewDistance = Math.max(1.0D, plugin.getConfig().getDouble("kill-reward-hologram.view-distance", 48.0D));
 
         double randomX = randomRadius <= 0.0D ? 0.0D : (Math.random() - 0.5D) * randomRadius * 2.0D;
         double randomZ = randomRadius <= 0.0D ? 0.0D : (Math.random() - 0.5D) * randomRadius * 2.0D;
-        Location start = location.clone().add(xOffset + randomX, yOffset, zOffset + randomZ);
+        final double startX = location.getX() + xOffset + randomX;
+        final double startY = location.getY() + yOffset;
+        final double startZ = location.getZ() + zOffset;
 
-        TextDisplay display = location.getWorld().spawn(start, TextDisplay.class, hologram -> {
-            hologram.setText(colorize(text));
-            hologram.setBillboard(Display.Billboard.CENTER);
-            hologram.setShadowed(shadow);
-            hologram.setSeeThrough(seeThrough);
-            hologram.setTextOpacity(startOpacity);
-            hologram.setLineWidth(lineWidth);
-            hologram.setGravity(false);
-            hologram.setPersistent(false);
-            hologram.setInvulnerable(true);
-        });
-        displays.add(display);
+        // Resolve viewers on the main thread (reads Bukkit player locations); after this the popup
+        // only sends packets, which is thread-safe.
+        List<User> viewers = resolveNearbyViewers(location.getWorld(), startX, startY, startZ, viewDistance * viewDistance);
+        if (viewers.isEmpty()) {
+            return;
+        }
 
-        // Animation step interval. The hologram only rises + fades, so updating every other tick
-        // (default) is visually indistinguishable but halves the per-tick wake-ups when many kill
-        // popups overlap (mob farms). Progress still advances by `interval` ticks so the popup
-        // finishes after the same `durationTicks` wall-clock duration regardless of the interval.
+        final int entityId = ENTITY_ID.getAndIncrement();
+        final String json = legacyToJson(colorize(text));
+
+        // Spawn + initial metadata.
+        WrapperPlayServerSpawnEntity spawn = new WrapperPlayServerSpawnEntity(
+                entityId, Optional.of(UUID.randomUUID()), EntityTypes.TEXT_DISPLAY,
+                new Vector3d(startX, startY, startZ), 0f, 0f, 0f, 0, Optional.empty());
+        WrapperPlayServerEntityMetadata metadata = new WrapperPlayServerEntityMetadata(
+                entityId, buildMetadata(json, startOpacity, lineWidth, shadow, seeThrough));
+        for (User user : viewers) {
+            send(user, spawn);
+            send(user, metadata);
+        }
+
+        activePopups.put(entityId, viewers);
+
+        // Animation interval. The popup only rises + fades, so updating every other tick (default)
+        // is visually indistinguishable but halves the per-step packet bursts when many kill popups
+        // overlap (mob farms). Progress advances by `interval` ticks so the popup still finishes
+        // after the same `durationTicks` wall-clock duration.
         int interval = Math.max(1, plugin.getConfig().getInt("kill-reward-hologram.animation-interval-ticks", 2));
         new BukkitRunnable() {
             private int tick;
 
             @Override
             public void run() {
-                if (display.isDead() || !display.isValid()) {
-                    displays.remove(display);
-                    cancel();
-                    return;
-                }
-
                 tick += interval;
                 double progress = Math.min(1.0D, (double) tick / durationTicks);
-                display.teleport(start.clone().add(0.0D, rise * progress, 0.0D));
-                display.setTextOpacity(interpolateOpacity(startOpacity, endOpacity, progress));
+                double y = startY + rise * progress;
+                byte opacity = interpolateOpacity(startOpacity, endOpacity, progress);
+
+                WrapperPlayServerEntityTeleport teleport = new WrapperPlayServerEntityTeleport(
+                        entityId, new Vector3d(startX, y, startZ), 0f, 0f, false);
+                WrapperPlayServerEntityMetadata fade = new WrapperPlayServerEntityMetadata(
+                        entityId, List.of(new EntityData<>(IDX_TEXT_OPACITY, EntityDataTypes.BYTE, opacity)));
+                for (User user : viewers) {
+                    send(user, teleport);
+                    send(user, fade);
+                }
 
                 if (tick >= durationTicks) {
-                    displays.remove(display);
-                    display.remove();
+                    destroy(viewers, entityId);
+                    activePopups.remove(entityId);
                     cancel();
                 }
             }
-        }.runTaskTimer(plugin, interval, interval);
+        }.runTaskTimerAsynchronously(plugin, interval, interval);
+    }
+
+    /**
+     * Collect the PacketEvents {@link User}s within {@code maxDistanceSquared} of the popup origin.
+     * Packets are streamed only to these viewers, matching the render-distance visibility the real
+     * entity used to have without ever creating an entity.
+     */
+    private List<User> resolveNearbyViewers(World world, double x, double y, double z, double maxDistanceSquared) {
+        List<User> viewers = new ArrayList<>();
+        for (Player viewer : world.getPlayers()) {
+            Location loc = viewer.getLocation();
+            double dx = loc.getX() - x;
+            double dy = loc.getY() - y;
+            double dz = loc.getZ() - z;
+            if (dx * dx + dy * dy + dz * dz > maxDistanceSquared) {
+                continue;
+            }
+            try {
+                User user = PacketEvents.getAPI().getPlayerManager().getUser(viewer);
+                if (user != null && user.getChannel() != null) {
+                    viewers.add(user);
+                }
+            } catch (RuntimeException ignored) {
+                // PacketEvents not ready for this viewer; skip them.
+            }
+        }
+        return viewers;
+    }
+
+    private List<EntityData<?>> buildMetadata(String json, byte opacity, int lineWidth, boolean shadow, boolean seeThrough) {
+        byte flags = 0;
+        if (shadow) flags |= FLAG_SHADOW;
+        if (seeThrough) flags |= FLAG_SEE_THROUGH;
+
+        List<EntityData<?>> data = new ArrayList<>(6);
+        data.add(new EntityData<>(IDX_BILLBOARD, EntityDataTypes.BYTE, BILLBOARD_CENTER));
+        data.add(new EntityData<>(IDX_TEXT, EntityDataTypes.COMPONENT, json));
+        data.add(new EntityData<>(IDX_LINE_WIDTH, EntityDataTypes.INT, lineWidth));
+        data.add(new EntityData<>(IDX_BACKGROUND, EntityDataTypes.INT, 0));
+        data.add(new EntityData<>(IDX_TEXT_OPACITY, EntityDataTypes.BYTE, opacity));
+        data.add(new EntityData<>(IDX_DISPLAY_FLAGS, EntityDataTypes.BYTE, flags));
+        return data;
+    }
+
+    private void destroy(List<User> viewers, int entityId) {
+        if (viewers == null || viewers.isEmpty()) {
+            return;
+        }
+        WrapperPlayServerDestroyEntities destroy = new WrapperPlayServerDestroyEntities(entityId);
+        for (User user : viewers) {
+            send(user, destroy);
+        }
+    }
+
+    private void send(User user, Object packet) {
+        try {
+            user.sendPacket((com.github.retrooper.packetevents.wrapper.PacketWrapper<?>) packet);
+        } catch (RuntimeException ignored) {
+            // A single viewer's channel may have closed mid-animation; keep streaming to the rest.
+        }
     }
 
     private String applyMoneyPlaceholders(String text, Player player, long baseMoney, long finalMoney,
@@ -162,6 +283,33 @@ public final class KillRewardHologramManager {
         }
         matcher.appendTail(builder);
         return builder.toString();
+    }
+
+    /**
+     * Wraps legacy section-coded text into a minimal JSON text component. The client renders the
+     * embedded section codes, so this preserves the existing color/format output without needing an
+     * Adventure serializer on the classpath. Only JSON string escaping is applied.
+     */
+    private static String legacyToJson(String legacy) {
+        StringBuilder out = new StringBuilder("{\"text\":\"");
+        for (int i = 0; i < legacy.length(); i++) {
+            char c = legacy.charAt(i);
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
+        }
+        return out.append("\"}").toString();
     }
 
     private static byte parseOpacity(int value) {

@@ -187,9 +187,16 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Debounced flusher: serializes the data once per second (only when dirty) and writes it to disk
-     * asynchronously. Serialization stays on the main thread to take a consistent snapshot of the
-     * config map (which is mutated by savePlayer on the main thread); only the disk I/O is off-thread.
+     * Debounced flusher: snapshots the data once per second (only when dirty) and both serializes
+     * <em>and</em> writes it to disk asynchronously.
+     * <p>
+     * The expensive part of a YAML save is {@code YamlConfiguration.saveToString()} —
+     * SnakeYAML's node-tree construction ({@code toNodeTree}) plus string emission
+     * ({@code Serializer.serialize}). Previously that ran on the main thread (Spark showed it at
+     * ~12% of server-thread time) and only the disk I/O was off-thread. We now take a cheap,
+     * mutation-safe snapshot of the config tree on the main thread (cloning ItemStacks so the
+     * async serializer never touches live items that {@link #tickTimedEquipment} mutates each
+     * second) and push the whole serialize+write onto the async thread.
      * <p>
      * Each async task is stamped with the current {@link #writeGeneration}. If
      * {@link #saveDataFileNow()} runs while the task is queued or in-flight, it bumps the generation
@@ -202,12 +209,15 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         dataDirty = false;
 
-        final String serialized;
+        // Cheap main-thread snapshot: copies the config tree and clones ItemStacks. This avoids the
+        // costly SnakeYAML serialization on the tick while guaranteeing the async serializer works
+        // on an isolated, immutable-by-then structure (no shared live ItemStack references).
+        final YamlConfiguration snapshot;
         try {
-            serialized = data.saveToString();
+            snapshot = snapshotData();
         } catch (Throwable throwable) {
             dataDirty = true;
-            plugin.getLogger().warning("Could not serialize equipment-data.yml: " + throwable.getMessage());
+            plugin.getLogger().warning("Could not snapshot equipment-data.yml: " + throwable.getMessage());
             return;
         }
 
@@ -215,18 +225,53 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         dataWriteInProgress.set(true);
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                // A newer saveDataFileNow() call has superseded this snapshot — skip the write.
+                // A newer saveDataFileNow() call has superseded this snapshot — skip the work.
+                if (writeGeneration.get() != myGeneration) {
+                    return;
+                }
+                // Heavy serialization now happens off the server thread.
+                String serialized = snapshot.saveToString();
+                // Re-check the generation: a sync write may have landed while we were serializing.
                 if (writeGeneration.get() != myGeneration) {
                     return;
                 }
                 writeDataToDisk(serialized);
-            } catch (IOException exception) {
+            } catch (Throwable throwable) {
                 dataDirty = true;
-                plugin.getLogger().warning("Could not save equipment-data.yml: " + exception.getMessage());
+                plugin.getLogger().warning("Could not save equipment-data.yml: " + throwable.getMessage());
             } finally {
                 dataWriteInProgress.set(false);
             }
         });
+    }
+
+    /**
+     * Builds an isolated copy of the live {@link #data} configuration on the main thread so that the
+     * expensive YAML serialization can run on an async thread without racing concurrent mutations.
+     * <p>
+     * Immutable leaf values (strings, numbers, booleans) are copied by reference — safe to share.
+     * {@link ItemStack} values are {@link ItemStack#clone() cloned} because the same instances live
+     * in the {@link #equipped} map and have their meta mutated by {@link #tickTimedEquipment} (the
+     * per-second duration countdown); sharing them with the async serializer would risk torn reads
+     * or {@code ConcurrentModificationException} during node-tree construction.
+     */
+    private YamlConfiguration snapshotData() {
+        YamlConfiguration copy = new YamlConfiguration();
+        copySection(data, copy);
+        return copy;
+    }
+
+    private void copySection(ConfigurationSection from, ConfigurationSection to) {
+        for (String key : from.getKeys(false)) {
+            Object value = from.get(key);
+            if (value instanceof ConfigurationSection section) {
+                copySection(section, to.createSection(key));
+            } else if (value instanceof ItemStack item) {
+                to.set(key, item.clone());
+            } else {
+                to.set(key, value);
+            }
+        }
     }
 
     /**
