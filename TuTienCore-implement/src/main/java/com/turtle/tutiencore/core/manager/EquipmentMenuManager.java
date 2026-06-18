@@ -5,6 +5,7 @@ import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
+import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import io.lumine.mythic.lib.api.item.NBTItem;
 import io.lumine.mythic.lib.api.player.MMOPlayerData;
 import io.lumine.mythic.lib.api.stat.StatInstance;
@@ -87,7 +88,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
     private final File configFile;
-    private final File dataFile;
     private final NamespacedKey actionKey;
     private final NamespacedKey boundOffhandKey;
     private final NamespacedKey durationRemainingKey;
@@ -96,6 +96,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private FileConfiguration config;
     private FileConfiguration data;
+    // Per-player file store (data/equipment/<uuid>.yml). `data` is kept as an in-memory aggregate
+    // (loaded from every per-player file at startup) so existing uuid-prefixed read code is
+    // unchanged; the debounced flusher writes only the files of players marked dirty.
+    private PerPlayerYamlStore store;
+    // UUIDs whose in-memory data changed since the last flush. flushDirtyData() drains this set and
+    // writes one small file per dirty player instead of re-serializing every player.
+    private final Set<UUID> dirtyPlayers = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<String, EquipSlot> slots = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack>> equipped = new HashMap<>();
     private final Map<UUID, Set<String>> activeConsumables = new HashMap<>();
@@ -111,18 +118,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final Set<UUID> pendingSlotRegen = new HashSet<>();
     private int durationSaveCounter;
     private long consumableCounter;
-    private volatile boolean dataDirty;
-    private final java.util.concurrent.atomic.AtomicBoolean dataWriteInProgress = new java.util.concurrent.atomic.AtomicBoolean(false);
-    // Monotonically-increasing counter stamped onto every async write. saveDataFileNow() bumps it
-    // before writing synchronously so that any older async task that completes afterwards knows its
-    // snapshot is stale and must not touch the file.
-    private final java.util.concurrent.atomic.AtomicLong writeGeneration = new java.util.concurrent.atomic.AtomicLong(0);
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
         this.realmManager = realmManager;
         this.configFile = new File(plugin.getDataFolder(), "equipment-menu.yml");
-        this.dataFile = new File(plugin.getDataFolder(), "equipment-data.yml");
         this.actionKey = new NamespacedKey(plugin, "equipment_action");
         this.boundOffhandKey = new NamespacedKey(plugin, "equipment_bound_offhand");
         this.durationRemainingKey = new NamespacedKey(plugin, "equipment_duration_remaining_seconds");
@@ -136,18 +136,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     public void reload() {
-        // Flush any pending dirty data before we replace the in-memory config from disk,
-        // otherwise debounced changes would be lost when reassigning `data`.
-        // Also wait for any in-flight async write so the disk is fully up-to-date before
-        // we read it back; without this wait the reload could pick up a stale snapshot.
-        if (dataDirty || dataWriteInProgress.get()) {
-            saveDataFileNow();
+        // Flush any pending per-player changes synchronously before reloading from disk so debounced
+        // edits are not lost when we rebuild the in-memory aggregate.
+        saveDataFileNow();
+        if (store == null) {
+            store = new PerPlayerYamlStore(plugin, "equipment");
         }
         if (!configFile.exists()) {
             plugin.saveResource("equipment-menu.yml", false);
         }
         config = YamlConfiguration.loadConfiguration(configFile);
-        data = YamlConfiguration.loadConfiguration(dataFile);
+        data = loadAggregateData();
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeConsumableStats(player);
         }
@@ -163,6 +162,26 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
     }
 
+    /**
+     * Builds the in-memory aggregate {@link #data} from every {@code data/equipment/<uuid>.yml} file.
+     * Each per-player file stores its data under the {@code <uuid>.*} prefix (preserved by the
+     * migrator), so merging is a straight section copy and all existing uuid-prefixed read code works
+     * unchanged.
+     */
+    private YamlConfiguration loadAggregateData() {
+        YamlConfiguration aggregate = new YamlConfiguration();
+        File[] files = store.getFolder().listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File playerFile : files) {
+                YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+                for (String key : playerConfig.getKeys(false)) {
+                    aggregate.set(key, playerConfig.get(key));
+                }
+            }
+        }
+        return aggregate;
+    }
+
     public void saveAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             saveCurrentBoundOffhandState(player);
@@ -174,91 +193,65 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Marks the equipment data as dirty instead of writing immediately. The actual write is
-     * debounced and pushed off the main thread by {@link #flushDirtyData()} (runs once per second).
-     * <p>
-     * Previously this serialized the entire YAML (all players) and wrote it to disk synchronously on
-     * every inventory close / equip click / bound-offhand refresh, which caused MSPT spikes
-     * (YamlConfiguration.saveToString on the server thread). Collapsing many back-to-back saves into
-     * at most one write per second removes that hot path.
+     * Retained for call-site compatibility. Players to persist are now tracked per-UUID by
+     * {@link #savePlayer(UUID)} and {@link #saveBoundOffhandState(UUID, String, String)} (which know
+     * the UUID), so this no longer needs a global dirty flag. {@link #flushDirtyData()} drains the
+     * dirty set once per second.
      */
     private void saveDataFile() {
-        dataDirty = true;
+        // no-op: dirty tracking moved into the per-UUID save methods.
+    }
+
+    /** Marks a player's data as needing a disk flush. */
+    private void markDirty(UUID uuid) {
+        if (uuid != null) {
+            dirtyPlayers.add(uuid);
+        }
     }
 
     /**
-     * Debounced flusher: snapshots the data once per second (only when dirty) and both serializes
-     * <em>and</em> writes it to disk asynchronously.
+     * Debounced flusher (runs once per second): writes one small {@code data/equipment/<uuid>.yml}
+     * file per dirty player, instead of re-serializing every player into a single monolithic YAML.
      * <p>
-     * The expensive part of a YAML save is {@code YamlConfiguration.saveToString()} —
-     * SnakeYAML's node-tree construction ({@code toNodeTree}) plus string emission
-     * ({@code Serializer.serialize}). Previously that ran on the main thread (Spark showed it at
-     * ~12% of server-thread time) and only the disk I/O was off-thread. We now take a cheap,
-     * mutation-safe snapshot of the config tree on the main thread (cloning ItemStacks so the
-     * async serializer never touches live items that {@link #tickTimedEquipment} mutates each
-     * second) and push the whole serialize+write onto the async thread.
-     * <p>
-     * Each async task is stamped with the current {@link #writeGeneration}. If
-     * {@link #saveDataFileNow()} runs while the task is queued or in-flight, it bumps the generation
-     * so the stale task silently skips the file write — preventing it from clobbering the newer
-     * synchronous write.
+     * The snapshot of each player's section is taken on the main thread (cloning ItemStacks so the
+     * async serializer never touches live items that {@link #tickTimedEquipment} mutates each second);
+     * the heavy {@code saveToString} + disk write happen off-thread inside the store.
      */
     private void flushDirtyData() {
-        if (!dataDirty || dataWriteInProgress.get()) {
+        if (dirtyPlayers.isEmpty()) {
             return;
         }
-        dataDirty = false;
-
-        // Cheap main-thread snapshot: copies the config tree and clones ItemStacks. This avoids the
-        // costly SnakeYAML serialization on the tick while guaranteeing the async serializer works
-        // on an isolated, immutable-by-then structure (no shared live ItemStack references).
-        final YamlConfiguration snapshot;
-        try {
-            snapshot = snapshotData();
-        } catch (Throwable throwable) {
-            dataDirty = true;
-            plugin.getLogger().warning("Could not snapshot equipment-data.yml: " + throwable.getMessage());
-            return;
+        for (UUID uuid : new ArrayList<>(dirtyPlayers)) {
+            dirtyPlayers.remove(uuid);
+            writePlayerData(uuid, true);
         }
-
-        final long myGeneration = writeGeneration.get();
-        dataWriteInProgress.set(true);
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                // A newer saveDataFileNow() call has superseded this snapshot — skip the work.
-                if (writeGeneration.get() != myGeneration) {
-                    return;
-                }
-                // Heavy serialization now happens off the server thread.
-                String serialized = snapshot.saveToString();
-                // Re-check the generation: a sync write may have landed while we were serializing.
-                if (writeGeneration.get() != myGeneration) {
-                    return;
-                }
-                writeDataToDisk(serialized);
-            } catch (Throwable throwable) {
-                dataDirty = true;
-                plugin.getLogger().warning("Could not save equipment-data.yml: " + throwable.getMessage());
-            } finally {
-                dataWriteInProgress.set(false);
-            }
-        });
     }
 
     /**
-     * Builds an isolated copy of the live {@link #data} configuration on the main thread so that the
-     * expensive YAML serialization can run on an async thread without racing concurrent mutations.
-     * <p>
-     * Immutable leaf values (strings, numbers, booleans) are copied by reference — safe to share.
-     * {@link ItemStack} values are {@link ItemStack#clone() cloned} because the same instances live
-     * in the {@link #equipped} map and have their meta mutated by {@link #tickTimedEquipment} (the
-     * per-second duration countdown); sharing them with the async serializer would risk torn reads
-     * or {@code ConcurrentModificationException} during node-tree construction.
+     * Snapshots ONE player's {@code <uuid>.*} subtree from the aggregate {@link #data} (cloning
+     * ItemStacks) and writes it to {@code data/equipment/<uuid>.yml}. {@code async} chooses off-thread
+     * (1s flusher) vs inline (quit / shutdown / reload).
      */
-    private YamlConfiguration snapshotData() {
-        YamlConfiguration copy = new YamlConfiguration();
-        copySection(data, copy);
-        return copy;
+    private void writePlayerData(UUID uuid, boolean async) {
+        final YamlConfiguration out = new YamlConfiguration();
+        ConfigurationSection section = data.getConfigurationSection(uuid.toString());
+        if (section != null) {
+            copySection(section, out.createSection(uuid.toString()));
+        }
+        final String serialized;
+        try {
+            serialized = out.saveToString();
+        } catch (Throwable throwable) {
+            markDirty(uuid); // retry on a later flush
+            plugin.getLogger().warning("Could not serialize equipment/" + uuid + ".yml: " + throwable.getMessage());
+            return;
+        }
+        long seq = store.nextSeq(uuid);
+        if (async) {
+            store.writeAsync(uuid, serialized, seq);
+        } else {
+            store.writeSync(uuid, serialized, seq);
+        }
     }
 
     private void copySection(ConfigurationSection from, ConfigurationSection to) {
@@ -275,28 +268,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Synchronous full write. Used on shutdown/reload where we must not lose data to a pending flush.
-     * Bumps {@link #writeGeneration} so any in-flight async write task knows its snapshot is stale
-     * and must not overwrite the file that this method is about to produce.
+     * Synchronous flush of every dirty player. Used on shutdown / reload / quit where the write must
+     * complete before returning (the scheduler may be gone). Each player is a small single-file write.
      */
     private void saveDataFileNow() {
-        dataDirty = false;
-        // Bump before writing so any async task that checks afterwards sees the new generation
-        // and skips its (older) file write.
-        writeGeneration.incrementAndGet();
-        try {
-            data.save(dataFile);
-        } catch (IOException exception) {
-            plugin.getLogger().warning("Could not save equipment-data.yml: " + exception.getMessage());
+        if (dirtyPlayers.isEmpty()) {
+            return;
         }
-    }
-
-    private void writeDataToDisk(String serialized) throws IOException {
-        File parent = dataFile.getParentFile();
-        if (parent != null && !parent.exists()) {
-            parent.mkdirs();
+        for (UUID uuid : new ArrayList<>(dirtyPlayers)) {
+            dirtyPlayers.remove(uuid);
+            writePlayerData(uuid, false);
         }
-        java.nio.file.Files.write(dataFile.toPath(), serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public void removeAllOnlineModifiers() {
@@ -433,6 +415,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (event.getPlayer().hasMetadata("NPC")) {
+            return; // TurtleClone/NPC fakes: never persist data.
+        }
         UUID uuid = event.getPlayer().getUniqueId();
         saveCurrentBoundOffhandState(event.getPlayer());
         savePlayer(uuid);
@@ -445,10 +430,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         pendingSlotRegen.remove(uuid);
         removeStats(event.getPlayer());
         removeConsumableStats(event.getPlayer());
-        // Write synchronously after removing from cache so the correct data is on disk before the
-        // player can rejoin. saveDataFileNow() bumps writeGeneration so any queued async write
-        // (stale snapshot) will not clobber this save.
-        saveDataFileNow();
+        // Write this player's file synchronously after removing from cache so the correct data is on
+        // disk before they can rejoin. The per-file seq guard ensures a slow queued async write of an
+        // older snapshot will not clobber this save.
+        writePlayerData(uuid, false);
+        dirtyPlayers.remove(uuid);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -824,6 +810,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
         data.set(path + ".type", normalizedType);
         data.set(path + ".id", normalizedId);
+        markDirty(uuid);
     }
 
     private ItemStack createMmoItem(Player player, String typeId, String itemId) {
@@ -1823,6 +1810,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             data.set(uuid + "." + slotId, item);
             writeSlotMeta(uuid, slotId, item);
         }
+        markDirty(uuid);
     }
 
     /**

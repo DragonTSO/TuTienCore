@@ -1,6 +1,7 @@
 package com.turtle.tutiencore.core.manager;
 
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.RealmTier;
@@ -48,13 +49,10 @@ public class RealmManager implements Listener {
 
     // Player data
     private FileConfiguration playerDataConfig;
-    private File playerDataFile;
-    // Serialization of player-realms.yml happens on the main thread; the disk write can be pushed
-    // off-thread on quit. diskWriteLock serializes the actual writes and saveSeq/lastWrittenSeq make
-    // sure a slow async write never clobbers a newer snapshot (or a synchronous shutdown save).
-    private final Object diskWriteLock = new Object();
-    private final java.util.concurrent.atomic.AtomicLong saveSeq = new java.util.concurrent.atomic.AtomicLong();
-    private volatile long lastWrittenSeq = 0L;
+    // Per-player file store (data/realms/<uuid>.yml). The aggregate `playerDataConfig` is kept in
+    // memory (loaded from all per-player files at startup) so existing read code works unchanged;
+    // saves write only the single player's file rather than re-serializing every player.
+    private PerPlayerYamlStore store;
 
     // Sub-realm breakthrough settings
     private int subSoKyToTrungKyBolts, subTrungKyToHauKyBolts, subHauKyToDinhPhongBolts, subDinhPhongToVienManBolts;
@@ -421,16 +419,48 @@ public class RealmManager implements Listener {
     // ==========================================
 
     private void loadPlayerData() {
-        playerDataFile = new File(plugin.getDataFolder(), "player-realms.yml");
-        if (!playerDataFile.exists()) {
-            try {
-                playerDataFile.createNewFile();
-            } catch (IOException e) {
-                plugin.getLogger().severe("Could not create player-realms.yml!");
-                e.printStackTrace();
+        store = new PerPlayerYamlStore(plugin, "realms");
+        // Aggregate in-memory config built from every per-player file. Each per-player file stores
+        // its data under the <uuid>.* prefix (preserved by the migrator), so merging is a straight
+        // section copy and existing uuid-prefixed read code keeps working unchanged.
+        playerDataConfig = new YamlConfiguration();
+        File[] files = store.getFolder().listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File playerFile : files) {
+                YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+                for (String key : playerConfig.getKeys(false)) {
+                    playerDataConfig.set(key, playerConfig.get(key));
+                }
             }
         }
-        playerDataConfig = YamlConfiguration.loadConfiguration(playerDataFile);
+    }
+
+    /**
+     * Serializes ONE player's {@code <uuid>.*} subtree from the aggregate config and writes it to
+     * {@code data/realms/<uuid>.yml}. {@code async} chooses off-thread (quit) vs inline (shutdown).
+     */
+    private void writeRealmFile(UUID uuid, boolean async) {
+        YamlConfiguration out = new YamlConfiguration();
+        org.bukkit.configuration.ConfigurationSection section = playerDataConfig.getConfigurationSection(uuid.toString());
+        if (section != null) {
+            org.bukkit.configuration.ConfigurationSection target = out.createSection(uuid.toString());
+            for (String key : section.getKeys(false)) {
+                target.set(key, section.get(key));
+            }
+        }
+        final String serialized;
+        try {
+            serialized = out.saveToString();
+        } catch (RuntimeException e) {
+            plugin.getLogger().severe("Could not serialize realms/" + uuid + ".yml: " + e.getMessage());
+            return;
+        }
+        long seq = store.nextSeq(uuid);
+        if (async) {
+            store.writeAsync(uuid, serialized, seq);
+        } else {
+            store.writeSync(uuid, serialized, seq);
+        }
     }
 
     public void loadPlayerRealm(UUID uuid) {
@@ -486,22 +516,14 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-
-        final String serialized;
-        try {
-            serialized = playerDataConfig.saveToString();
-        } catch (RuntimeException e) {
-            plugin.getLogger().severe("Could not serialize player-realms.yml: " + e.getMessage());
-            return;
-        }
-        writeRealmsSerialized(serialized, saveSeq.incrementAndGet());
+        writeRealmFile(uuid, false);
     }
 
     /**
      * Like {@link #savePlayerRealm(UUID)} but pushes the disk write off the main thread. The config
-     * values are written and serialized synchronously on the calling (main) thread for a consistent
-     * snapshot; only the file write runs async. Use this on player quit. Do NOT use on shutdown, since
-     * the scheduler is torn down before the async task can run.
+     * values are written synchronously on the calling (main) thread for a consistent snapshot; only
+     * the file write runs async. Use this on player quit. Do NOT use on shutdown, since the scheduler
+     * is torn down before the async task can run.
      */
     public void savePlayerRealmAsync(UUID uuid) {
         PlayerRealm pr = playerRealms.get(uuid);
@@ -512,43 +534,12 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-
-        final String serialized;
-        try {
-            serialized = playerDataConfig.saveToString();
-        } catch (RuntimeException e) {
-            plugin.getLogger().severe("Could not serialize player-realms.yml: " + e.getMessage());
-            return;
-        }
-        final long seq = saveSeq.incrementAndGet();
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeRealmsSerialized(serialized, seq));
-    }
-
-    /**
-     * Writes a pre-serialized snapshot to disk. {@code seq} is the snapshot's monotonic version; an
-     * older snapshot is dropped if a newer one already landed, so a slow async write can never
-     * overwrite fresher data. The write itself is serialized by {@code diskWriteLock}.
-     */
-    private void writeRealmsSerialized(String serialized, long seq) {
-        synchronized (diskWriteLock) {
-            if (seq <= lastWrittenSeq) {
-                return; // A newer snapshot already hit disk; this one is stale, skip it.
-            }
-            try {
-                File parent = playerDataFile.getParentFile();
-                if (parent != null && !parent.exists()) {
-                    parent.mkdirs();
-                }
-                java.nio.file.Files.write(playerDataFile.toPath(),
-                        serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                lastWrittenSeq = seq;
-            } catch (IOException e) {
-                plugin.getLogger().severe("Could not save player-realms.yml: " + e.getMessage());
-            }
-        }
+        writeRealmFile(uuid, true);
     }
 
     public void saveAllPlayerRealms() {
+        // Synchronous per-player writes (used on shutdown). Each is a small single-player
+        // serialization rather than one monolithic full-file write.
         for (UUID uuid : playerRealms.keySet()) {
             PlayerRealm pr = playerRealms.get(uuid);
             if (pr == null) continue;
@@ -557,17 +548,8 @@ public class RealmManager implements Listener {
             playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
             playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
             playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
+            writeRealmFile(uuid, false);
         }
-        // Synchronous write (used on shutdown). Routed through the seq-guarded writer so a slow
-        // async quit-save queued just before shutdown can never overwrite this final snapshot.
-        final String serialized;
-        try {
-            serialized = playerDataConfig.saveToString();
-        } catch (RuntimeException e) {
-            plugin.getLogger().severe("Could not serialize player-realms.yml: " + e.getMessage());
-            return;
-        }
-        writeRealmsSerialized(serialized, saveSeq.incrementAndGet());
     }
 
     // ==========================================
@@ -1427,6 +1409,9 @@ public class RealmManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (event.getPlayer().hasMetadata("NPC")) {
+            return; // TurtleClone/NPC fakes: never persist data.
+        }
         // Snapshot + serialize happens synchronously inside savePlayerRealmAsync; only the disk
         // write is off-thread, so removing the in-memory realm right after is safe.
         savePlayerRealmAsync(event.getPlayer().getUniqueId());

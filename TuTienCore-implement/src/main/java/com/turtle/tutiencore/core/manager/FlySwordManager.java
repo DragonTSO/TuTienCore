@@ -1,6 +1,7 @@
 package com.turtle.tutiencore.core.manager;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
+import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -65,8 +66,11 @@ public class FlySwordManager implements Listener {
     // Players whose flight is suspended during a breakthrough (đột phá).
     // Maps to the flight state snapshot to restore afterwards.
     private final Map<UUID, boolean[]> breakthroughFlightSnapshots = new HashMap<>();
-    private final File dataFile;
     private YamlConfiguration data;
+    // Per-player file store (data/fly-swords/<uuid>.yml). `data` is an in-memory aggregate (loaded
+    // from every per-player file at startup, keyed under players.<uuid> like the legacy layout);
+    // setLevel writes only the changed player's file.
+    private PerPlayerYamlStore store;
     private BukkitRunnable followTask;
     private EquipmentMenuManager equipmentMenuManager;
 
@@ -108,7 +112,6 @@ public class FlySwordManager implements Listener {
     public FlySwordManager(JavaPlugin plugin, EquipmentMenuManager equipmentMenuManager) {
         this.plugin = plugin;
         this.equipmentMenuManager = equipmentMenuManager;
-        this.dataFile = new File(plugin.getDataFolder(), "fly-swords.yml");
         loadData();
         loadConfig();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -796,14 +799,47 @@ public class FlySwordManager implements Listener {
         if (!plugin.getDataFolder().exists()) {
             plugin.getDataFolder().mkdirs();
         }
-        data = YamlConfiguration.loadConfiguration(dataFile);
+        store = new PerPlayerYamlStore(plugin, "fly-swords");
+        // In-memory aggregate built from every per-player file. Each file keeps the legacy
+        // players.<uuid>.* layout (preserved by the migrator), so getLevel/setLevel paths are unchanged.
+        data = new YamlConfiguration();
+        File[] files = store.getFolder().listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File playerFile : files) {
+                YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+                org.bukkit.configuration.ConfigurationSection players = playerConfig.getConfigurationSection("players");
+                if (players == null) {
+                    continue;
+                }
+                for (String uuidKey : players.getKeys(false)) {
+                    data.set("players." + uuidKey, players.get(uuidKey));
+                }
+            }
+        }
     }
 
-    private void saveData() {
+    /**
+     * Writes ONE player's {@code players.<uuid>} subtree to {@code data/fly-swords/<uuid>.yml}.
+     * Off-thread while enabled; inline on shutdown.
+     */
+    private void writePlayer(UUID uuid) {
+        YamlConfiguration out = new YamlConfiguration();
+        Object playerSection = data.get("players." + uuid);
+        if (playerSection != null) {
+            out.set("players." + uuid, playerSection);
+        }
+        final String serialized;
         try {
-            data.save(dataFile);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not save fly-swords.yml: " + e.getMessage());
+            serialized = out.saveToString();
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Could not serialize fly-swords/" + uuid + ".yml: " + e.getMessage());
+            return;
+        }
+        long seq = store.nextSeq(uuid);
+        if (plugin.isEnabled()) {
+            store.writeAsync(uuid, serialized, seq);
+        } else {
+            store.writeSync(uuid, serialized, seq);
         }
     }
 
@@ -813,7 +849,7 @@ public class FlySwordManager implements Listener {
 
     private void setLevel(UUID uuid, int level) {
         data.set("players." + uuid + ".level", level);
-        saveData();
+        writePlayer(uuid);
     }
 
     private String getModelId(Player player) {

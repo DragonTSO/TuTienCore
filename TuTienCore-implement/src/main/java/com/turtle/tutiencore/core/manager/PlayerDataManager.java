@@ -5,6 +5,7 @@ import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.infusion.OwnedInfusion;
+import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -28,15 +29,14 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private static final int MAX_INFUSION_INVENTORY = 270;
 
     private final JavaPlugin plugin;
-    private File file;
     private FileConfiguration config;
+    // Per-player file store (data/players/<uuid>.yml). The in-memory `config` is kept as an
+    // aggregate of every player's section (loaded from all per-player files at startup) so the
+    // leaderboard can scan all players cheaply; saves, however, write only the single player's
+    // section to their own file instead of re-serializing every player.
+    private PerPlayerYamlStore store;
+    // Guards mutations of the aggregate `config` so a per-player snapshot is always consistent.
     private final Object configLock = new Object();
-    // Serializing players.yml happens on the main thread (consistent snapshot under configLock),
-    // but the disk write is pushed off-thread. diskWriteLock serializes the actual file writes so a
-    // sync save (shutdown) and a queued async save (player quit) never write the file concurrently.
-    private final Object diskWriteLock = new Object();
-    private final java.util.concurrent.atomic.AtomicLong saveSeq = new java.util.concurrent.atomic.AtomicLong();
-    private volatile long lastWrittenSeq = 0L;
     private final Map<UUID, Double> tuviCache = new HashMap<>();
     private final Map<UUID, Long> tuLuyenTotalSecondsCache = new HashMap<>();
     private final Map<UUID, List<OwnedInfusion>> infusionInventoryCache = new HashMap<>();
@@ -71,16 +71,61 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         if (!plugin.getDataFolder().exists()) {
             plugin.getDataFolder().mkdirs();
         }
-        file = new File(plugin.getDataFolder(), "players.yml");
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                plugin.getLogger().severe("Could not create players.yml!");
-                e.printStackTrace();
+        store = new PerPlayerYamlStore(plugin, "players");
+        // Aggregate in-memory config, built from every per-player file. Disk writes go to the
+        // per-player store, not to a single monolithic file.
+        config = new YamlConfiguration();
+        loadAllPlayerFiles();
+    }
+
+    /**
+     * Loads every {@code data/players/<uuid>.yml} into the aggregate {@link #config}. Each per-player
+     * file already stores its data under the {@code <uuid>.*} prefix (preserved by the migrator), so
+     * merging is a straight section copy and all existing uuid-prefixed read code keeps working.
+     */
+    private void loadAllPlayerFiles() {
+        File folder = store.getFolder();
+        File[] files = folder.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files == null) {
+            return;
+        }
+        synchronized (configLock) {
+            for (File playerFile : files) {
+                YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+                for (String key : playerConfig.getKeys(false)) {
+                    config.set(key, playerConfig.get(key));
+                }
             }
         }
-        config = YamlConfiguration.loadConfiguration(file);
+    }
+
+    /**
+     * Serializes a single player's {@code <uuid>.*} subtree from the aggregate config and writes it
+     * to {@code data/players/<uuid>.yml}. Returns the serialized snapshot + a fresh write sequence,
+     * or {@code null} if the player has no data. Caller must hold {@link #configLock}.
+     */
+    private SinglePlayerSnapshot snapshotPlayer(UUID uuid) {
+        ConfigurationSection section = config.getConfigurationSection(uuid.toString());
+        YamlConfiguration out = new YamlConfiguration();
+        if (section != null) {
+            // Re-nest under the uuid prefix so the on-disk layout matches what loadAllPlayerFiles
+            // expects and what the migrator produced.
+            ConfigurationSection target = out.createSection(uuid.toString());
+            for (String key : section.getKeys(false)) {
+                target.set(key, section.get(key));
+            }
+        }
+        String serialized;
+        try {
+            serialized = out.saveToString();
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Could not serialize players/" + uuid + ".yml: " + e.getMessage());
+            return null;
+        }
+        return new SinglePlayerSnapshot(serialized, store.nextSeq(uuid));
+    }
+
+    private record SinglePlayerSnapshot(String serialized, long seq) {
     }
 
     public void saveAll() {
@@ -97,7 +142,19 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             for (UUID uuid : uuids) {
                 writeInfusionState(uuid);
             }
-            saveToDisk();
+            // Write every loaded player's file synchronously (used on shutdown). Each is a small
+            // single-player serialization rather than one monolithic full-file write.
+            Set<UUID> all = new HashSet<>();
+            for (String key : config.getKeys(false)) {
+                try {
+                    all.add(UUID.fromString(key));
+                } catch (IllegalArgumentException ignored) {
+                    // Non-UUID top-level key; skip.
+                }
+            }
+            for (UUID uuid : all) {
+                writePlayerSync(uuid);
+            }
         }
     }
 
@@ -112,15 +169,15 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                 writeInfusionState(uuid);
             }
-            saveToDisk();
         }
+        writePlayerSync(uuid);
     }
 
     /**
      * Like {@link #savePlayer(UUID)} but pushes the disk write off the main thread. The cache values
      * are copied into the config under {@code configLock} on the calling (main) thread, so the
      * snapshot is consistent; only the file write runs async. Use this on player quit to avoid
-     * blocking the main thread with a full-file YAML write. Do NOT use on shutdown.
+     * blocking the main thread with a YAML write. Do NOT use on shutdown.
      */
     public void savePlayerAsync(UUID uuid) {
         synchronized (configLock) {
@@ -133,8 +190,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                 writeInfusionState(uuid);
             }
-            saveToDiskAsync();
         }
+        writePlayerAsync(uuid);
     }
 
     public boolean savePlayerSafely(UUID uuid) {
@@ -148,8 +205,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                 writeInfusionState(uuid);
             }
-            return saveToDisk();
         }
+        return writePlayerSync(uuid);
     }
 
     /**
@@ -344,69 +401,41 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         }
     }
 
-    private boolean saveToDisk() {
-        final String serialized;
-        final long seq;
+    /**
+     * Synchronously serializes and writes ONE player's data file ({@code data/players/<uuid>.yml}).
+     * Use on shutdown / safe-save paths where the write must complete before returning. Only this
+     * player's small subtree is serialized, not every player.
+     */
+    private boolean writePlayerSync(UUID uuid) {
+        final SinglePlayerSnapshot snap;
         synchronized (configLock) {
-            try {
-                sanitizeConfigBeforeSave();
-                serialized = config.saveToString();
-            } catch (RuntimeException e) {
-                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
-                return false;
-            }
-            seq = saveSeq.incrementAndGet();
+            sanitizePlayerBeforeSave(uuid);
+            snap = snapshotPlayer(uuid);
         }
-        return writeSerialized(serialized, seq);
+        if (snap == null) {
+            return false;
+        }
+        store.writeSync(uuid, snap.serialized(), snap.seq());
+        return true;
     }
 
     /**
-     * Serializes players.yml on the calling (main) thread for a consistent snapshot under
-     * {@code configLock}, then pushes the disk write off-thread. Use this on player quit so the
-     * full-file YAML write never blocks the main thread.
+     * Serializes ONE player's data under {@code configLock} (consistent snapshot) then writes it to
+     * disk off the main thread. Use on player quit so the YAML write never blocks the tick.
      *
      * <p>Must NOT be used on shutdown: the Bukkit scheduler is torn down before the async task can
-     * run, which would lose the write. Use {@link #saveToDisk()} (synchronous) there instead.
+     * run, which would lose the write. Use {@link #writePlayerSync(UUID)} there instead.
      */
-    private void saveToDiskAsync() {
-        final String serialized;
-        final long seq;
+    private void writePlayerAsync(UUID uuid) {
+        final SinglePlayerSnapshot snap;
         synchronized (configLock) {
-            try {
-                sanitizeConfigBeforeSave();
-                serialized = config.saveToString();
-            } catch (RuntimeException e) {
-                plugin.getLogger().warning("Could not serialize players.yml: " + e.getMessage());
-                return;
-            }
-            seq = saveSeq.incrementAndGet();
+            sanitizePlayerBeforeSave(uuid);
+            snap = snapshotPlayer(uuid);
         }
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeSerialized(serialized, seq));
-    }
-
-    /**
-     * Writes a pre-serialized snapshot to disk. {@code seq} is the snapshot's monotonic version;
-     * an older snapshot is dropped if a newer one already landed, so a slow async write can never
-     * overwrite fresher data. The write itself is serialized by {@code diskWriteLock}.
-     */
-    private boolean writeSerialized(String serialized, long seq) {
-        synchronized (diskWriteLock) {
-            if (seq <= lastWrittenSeq) {
-                return true; // A newer snapshot already hit disk; this one is stale, skip it.
-            }
-            try {
-                File parent = file.getParentFile();
-                if (parent != null && !parent.exists()) {
-                    parent.mkdirs();
-                }
-                java.nio.file.Files.write(file.toPath(), serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                lastWrittenSeq = seq;
-                return true;
-            } catch (IOException e) {
-                plugin.getLogger().warning("Could not save players.yml: " + e.getMessage());
-                return false;
-            }
+        if (snap == null) {
+            return;
         }
+        store.writeAsync(uuid, snap.serialized(), snap.seq());
     }
 
     private void sanitizeConfigBeforeSave() {
@@ -426,6 +455,57 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             }
             if (!Objects.equals(value, sanitized)) {
                 config.set(path, sanitized);
+            }
+        }
+    }
+
+    /**
+     * Sanitizes only ONE player's subtree ({@code <uuid>.*}) before a per-player save, mirroring
+     * {@link #sanitizeConfigBeforeSave()} but scoped to a single player so a quit save never has to
+     * walk every player's keys. Caller must hold {@link #configLock}.
+     */
+    private void sanitizePlayerBeforeSave(UUID uuid) {
+        ConfigurationSection section = config.getConfigurationSection(uuid.toString());
+        if (section == null) {
+            return;
+        }
+
+        // Infusion inventory rows: coerce to clean string/long maps (drops malformed rows).
+        String inventoryPath = uuid + ".infusion.inventory";
+        if (config.isList(inventoryPath)) {
+            List<?> rawRows = config.getList(inventoryPath, Collections.emptyList());
+            List<Map<String, Object>> sanitizedRows = new ArrayList<>();
+            for (Object rawRow : rawRows) {
+                if (!(rawRow instanceof Map<?, ?> row)) {
+                    continue;
+                }
+                String id = asString(row.get("id"));
+                String typeId = asString(row.get("type"));
+                String rarityId = asString(row.get("rarity"));
+                if (id.isBlank() || typeId.isBlank() || rarityId.isBlank()) {
+                    continue;
+                }
+                Map<String, Object> sanitizedRow = new LinkedHashMap<>();
+                sanitizedRow.put("id", id);
+                sanitizedRow.put("type", typeId);
+                sanitizedRow.put("rarity", rarityId);
+                sanitizedRow.put("created-at", asLong(row.get("created-at"), System.currentTimeMillis()));
+                sanitizedRows.add(sanitizedRow);
+            }
+            config.set(inventoryPath, sanitizedRows);
+        }
+
+        // Sanitize every scalar leaf under this player's subtree.
+        for (String relative : new ArrayList<>(section.getKeys(true))) {
+            Object value = section.get(relative);
+            if (value == null || value instanceof ConfigurationSection) {
+                continue;
+            }
+            Object sanitized = sanitizeYamlValue(value);
+            if (sanitized == null) {
+                section.set(relative, null);
+            } else if (!Objects.equals(value, sanitized)) {
+                section.set(relative, sanitized);
             }
         }
     }
@@ -816,7 +896,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        // Automatically save names to config for the top system
+        if (isClone(event.getPlayer())) {
+            return; // TurtleClone fakes are packet-only; never create real data for them.
+        }
         synchronized (configLock) {
             config.set(event.getPlayer().getUniqueId().toString() + ".name", event.getPlayer().getName());
         }
@@ -825,6 +907,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (isClone(event.getPlayer())) {
+            return;
+        }
         // Snapshot + serialize happens synchronously under configLock inside savePlayerAsync; only
         // the disk write is off-thread, so evicting the caches immediately after is safe.
         savePlayerAsync(event.getPlayer().getUniqueId());
@@ -832,6 +917,15 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         tuLuyenTotalSecondsCache.remove(event.getPlayer().getUniqueId());
         infusionInventoryCache.remove(event.getPlayer().getUniqueId());
         equippedInfusionIdCache.remove(event.getPlayer().getUniqueId());
+    }
+
+    /**
+     * @return {@code true} if the player is a fake/NPC (e.g. a TurtleClone packet-fake or a Citizens
+     * NPC). Such "players" must never have real data created or saved. TurtleClone fakes are
+     * packet-only and normally never reach these listeners, but this guard is defensive.
+     */
+    private boolean isClone(Player player) {
+        return player == null || player.hasMetadata("NPC");
     }
 
     // --- TOP SYSTEM ---

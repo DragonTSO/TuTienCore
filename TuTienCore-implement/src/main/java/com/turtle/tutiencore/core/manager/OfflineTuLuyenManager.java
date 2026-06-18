@@ -2,6 +2,7 @@ package com.turtle.tutiencore.core.manager;
 
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.config.ConfigManager;
+import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -46,9 +47,11 @@ public class OfflineTuLuyenManager implements Listener {
     private final Set<UUID> openGuis = new HashSet<>();
     private final Set<UUID> pendingResourcePackOpen = new HashSet<>();
 
-    private File file;
     private FileConfiguration data;
     private FileConfiguration guiConfig;
+    // Per-player file store (data/offline-tuluyen/<uuid>.yml). `data` is an in-memory aggregate
+    // (loaded from every per-player file at startup); save(uuid) writes only that player's file.
+    private PerPlayerYamlStore store;
 
     public OfflineTuLuyenManager(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -57,33 +60,40 @@ public class OfflineTuLuyenManager implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    public void save() {
-        // Snapshot on the calling (main) thread, then write to disk off-thread so player
-        // join/quit never blocks the server tick on file I/O.
-        final String snapshot = data.saveToString();
-        if (plugin.isEnabled()) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> writeSnapshot(snapshot));
-        } else {
-            // Plugin disabling — must write synchronously since the scheduler is shutting down.
-            writeSnapshot(snapshot);
+    /**
+     * Persists ONE player's offline-cultivation data to {@code data/offline-tuluyen/<uuid>.yml}.
+     * Off-thread while enabled; inline on shutdown.
+     */
+    public void save(UUID uuid) {
+        if (uuid == null) {
+            return;
         }
+        writePlayer(uuid);
     }
 
-    private synchronized void writeSnapshot(String snapshot) {
-        try {
-            java.nio.file.Files.writeString(file.toPath(), snapshot,
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not save offline-tuluyen.yml: " + e.getMessage());
+    /**
+     * Writes every loaded player's offline-cultivation file. Used on shutdown; each is a small
+     * single-player write (inline, since the scheduler is being torn down).
+     */
+    public void saveAll() {
+        for (String key : data.getKeys(false)) {
+            try {
+                writePlayer(UUID.fromString(key));
+            } catch (IllegalArgumentException ignored) {
+                // Non-UUID top-level key; skip.
+            }
         }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (event.getPlayer().hasMetadata("NPC")) {
+            return; // TurtleClone/NPC fakes: never persist data.
+        }
         UUID uuid = event.getPlayer().getUniqueId();
         pendingResourcePackOpen.remove(uuid);
         data.set(path(uuid, "last-offline-start"), System.currentTimeMillis());
-        save();
+        save(uuid);
     }
 
     @EventHandler
@@ -114,7 +124,7 @@ public class OfflineTuLuyenManager implements Listener {
                 data.set(path(uuid, "last-earned-multiplier"), multiplier);
             }
         }
-        save();
+        save(uuid);
 
         if (getPendingTuVi(uuid) > 0) {
             queueOfflineGuiOpen(player);
@@ -204,16 +214,49 @@ public class OfflineTuLuyenManager implements Listener {
         if (!plugin.getDataFolder().exists()) {
             plugin.getDataFolder().mkdirs();
         }
-        file = new File(plugin.getDataFolder(), "offline-tuluyen.yml");
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                plugin.getLogger().warning("Could not create offline-tuluyen.yml: " + e.getMessage());
+        store = new PerPlayerYamlStore(plugin, "offline-tuluyen");
+        // In-memory aggregate built from every per-player file. Each file stores its data under the
+        // <uuid>.* prefix (preserved by the migrator), so the path(uuid, child) read code is unchanged.
+        data = new YamlConfiguration();
+        File[] files = store.getFolder().listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File playerFile : files) {
+                YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+                for (String key : playerConfig.getKeys(false)) {
+                    data.set(key, playerConfig.get(key));
+                }
             }
         }
-        data = YamlConfiguration.loadConfiguration(file);
         loadGuiConfig();
+    }
+
+    /**
+     * Serializes ONE player's {@code <uuid>.*} subtree and writes it to
+     * {@code data/offline-tuluyen/<uuid>.yml}. Off-thread while the plugin is enabled; inline on
+     * shutdown (scheduler gone).
+     */
+    private void writePlayer(UUID uuid) {
+        YamlConfiguration out = new YamlConfiguration();
+        org.bukkit.configuration.ConfigurationSection section = data.getConfigurationSection(uuid.toString());
+        if (section != null) {
+            org.bukkit.configuration.ConfigurationSection target = out.createSection(uuid.toString());
+            for (String key : section.getKeys(false)) {
+                target.set(key, section.get(key));
+            }
+        }
+        final String serialized;
+        try {
+            serialized = out.saveToString();
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Could not serialize offline-tuluyen/" + uuid + ".yml: " + e.getMessage());
+            return;
+        }
+        long seq = store.nextSeq(uuid);
+        if (plugin.isEnabled()) {
+            store.writeAsync(uuid, serialized, seq);
+        } else {
+            store.writeSync(uuid, serialized, seq);
+        }
     }
 
     private void loadGuiConfig() {
@@ -317,7 +360,7 @@ public class OfflineTuLuyenManager implements Listener {
         data.set(path(uuid, "last-earned-seconds"), null);
         data.set(path(uuid, "last-real-offline-seconds"), null);
         data.set(path(uuid, "last-earned-multiplier"), null);
-        save();
+        save(uuid);
 
         player.sendMessage(message(x2 ? "claim-x2-success" : "claim-success",
                 x2 ? "&aĐã nhận &e%reward% Tu Vi &atừ tu luyện offline &b(x2)&a."

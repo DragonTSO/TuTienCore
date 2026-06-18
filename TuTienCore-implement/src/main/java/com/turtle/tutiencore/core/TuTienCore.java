@@ -1,6 +1,7 @@
 package com.turtle.tutiencore.core;
 
 import com.turtle.tutiencore.api.TuTien;
+import com.turtle.tutiencore.core.storage.DataMigrator;
 import com.turtle.tutiencore.core.command.CanhGioiCommand;
 import com.turtle.tutiencore.core.command.CommandAliasManager;
 import com.turtle.tutiencore.core.command.DotPhaCommand;
@@ -91,7 +92,11 @@ public class TuTienCore {
         }
         
         this.configManager = new ConfigManager(plugin);
-        
+
+        // Migrate legacy monolithic YAML files into per-player files BEFORE any manager loads its
+        // data. Idempotent: a no-op once migrated (legacy files are renamed to *.migrated-*.bak).
+        new DataMigrator(plugin).migrateAll();
+
         // Setup API and Player Data
         this.playerDataManager = new PlayerDataManager(plugin);
         TuTien.setApi(playerDataManager);
@@ -244,7 +249,7 @@ public class TuTienCore {
             flySwordManager.stopTask();
         }
         if (offlineTuLuyenManager != null) {
-            offlineTuLuyenManager.save();
+            offlineTuLuyenManager.saveAll();
         }
         if (playerHologramManager != null) {
             playerHologramManager.stop();
