@@ -99,10 +99,24 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final Map<String, EquipSlot> slots = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack>> equipped = new HashMap<>();
     private final Map<UUID, Set<String>> activeConsumables = new HashMap<>();
+    // Lightweight identity cache: survives the equipped-map eviction on quit so that a player who
+    // relogs within the same JVM session can have their slots restored instantly without touching
+    // the YAML or waiting for MMOItems PlayerData to load.
+    // Structure: uuid -> (slotId -> SlotIdentity)
+    private final Map<UUID, Map<String, SlotIdentity>> slotIdentityCache = new HashMap<>();
+    // Players who still have at least one equipped slot that needs to be regenerated from its stored
+    // MMOItems identity (type + id). Regeneration can fail right after join because MMOItems has not
+    // finished loading the player's PlayerData yet; these players are retried on later loadPlayer
+    // calls (driven by the 1s tickTimedEquipment loop) until every slot is restored.
+    private final Set<UUID> pendingSlotRegen = new HashSet<>();
     private int durationSaveCounter;
     private long consumableCounter;
     private volatile boolean dataDirty;
     private final java.util.concurrent.atomic.AtomicBoolean dataWriteInProgress = new java.util.concurrent.atomic.AtomicBoolean(false);
+    // Monotonically-increasing counter stamped onto every async write. saveDataFileNow() bumps it
+    // before writing synchronously so that any older async task that completes afterwards knows its
+    // snapshot is stale and must not touch the file.
+    private final java.util.concurrent.atomic.AtomicLong writeGeneration = new java.util.concurrent.atomic.AtomicLong(0);
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -124,7 +138,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     public void reload() {
         // Flush any pending dirty data before we replace the in-memory config from disk,
         // otherwise debounced changes would be lost when reassigning `data`.
-        if (dataDirty) {
+        // Also wait for any in-flight async write so the disk is fully up-to-date before
+        // we read it back; without this wait the reload could pick up a stale snapshot.
+        if (dataDirty || dataWriteInProgress.get()) {
             saveDataFileNow();
         }
         if (!configFile.exists()) {
@@ -138,6 +154,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         activeConsumables.clear();
         loadSlots();
         equipped.clear();
+        pendingSlotRegen.clear();
+        slotIdentityCache.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayer(player.getUniqueId());
             applyStats(player);
@@ -172,6 +190,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
      * Debounced flusher: serializes the data once per second (only when dirty) and writes it to disk
      * asynchronously. Serialization stays on the main thread to take a consistent snapshot of the
      * config map (which is mutated by savePlayer on the main thread); only the disk I/O is off-thread.
+     * <p>
+     * Each async task is stamped with the current {@link #writeGeneration}. If
+     * {@link #saveDataFileNow()} runs while the task is queued or in-flight, it bumps the generation
+     * so the stale task silently skips the file write — preventing it from clobbering the newer
+     * synchronous write.
      */
     private void flushDirtyData() {
         if (!dataDirty || dataWriteInProgress.get()) {
@@ -188,9 +211,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return;
         }
 
+        final long myGeneration = writeGeneration.get();
         dataWriteInProgress.set(true);
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
+                // A newer saveDataFileNow() call has superseded this snapshot — skip the write.
+                if (writeGeneration.get() != myGeneration) {
+                    return;
+                }
                 writeDataToDisk(serialized);
             } catch (IOException exception) {
                 dataDirty = true;
@@ -201,9 +229,16 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         });
     }
 
-    /** Synchronous full write. Used on shutdown/reload where we must not lose data to a pending flush. */
+    /**
+     * Synchronous full write. Used on shutdown/reload where we must not lose data to a pending flush.
+     * Bumps {@link #writeGeneration} so any in-flight async write task knows its snapshot is stale
+     * and must not overwrite the file that this method is about to produce.
+     */
     private void saveDataFileNow() {
         dataDirty = false;
+        // Bump before writing so any async task that checks afterwards sees the new generation
+        // and skips its (older) file write.
+        writeGeneration.incrementAndGet();
         try {
             data.save(dataFile);
         } catch (IOException exception) {
@@ -293,6 +328,18 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             inventory.setItem(slot.guiSlot(), equippedItem == null ? emptySlotItem(slot) : displayEquippedItem(slot, equippedItem));
         }
         player.openInventory(inventory);
+        // If some slots are still pending regeneration (MMOItems PlayerData not ready yet), schedule
+        // a deferred refresh so the GUI auto-corrects once the items become available rather than
+        // showing empty placeholder slots until the player closes and reopens.
+        if (pendingSlotRegen.contains(player.getUniqueId())) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline() && pendingSlotRegen.contains(player.getUniqueId())) {
+                    loadPlayer(player.getUniqueId());
+                    refreshOpenEquipment(player);
+                    applyStats(player);
+                }
+            }, 40L);
+        }
     }
 
     private void openUpgrade(Player player) {
@@ -315,19 +362,48 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     public void onJoin(PlayerJoinEvent event) {
         loadPlayer(event.getPlayer().getUniqueId());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            applyStats(event.getPlayer());
-            ensureBoundOffhand(event.getPlayer());
+            Player player = event.getPlayer();
+            if (player == null || !player.isOnline()) return;
+            applyStats(player);
+            ensureBoundOffhand(player);
+            // If any slot is still pending regeneration (MMOItems PlayerData not ready at join time),
+            // force a retry now that the player has been online for a full second. This covers cases
+            // where tickTimedEquipment hasn't fired yet or MMOItems takes longer than usual to load.
+            if (pendingSlotRegen.contains(player.getUniqueId())) {
+                loadPlayer(player.getUniqueId());
+                applyStats(player);
+            }
         }, 20L);
+        // Second retry at 3 seconds — belt-and-suspenders for slow MMOItems PlayerData loads.
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Player player = event.getPlayer();
+            if (player == null || !player.isOnline()) return;
+            if (pendingSlotRegen.contains(player.getUniqueId())) {
+                loadPlayer(player.getUniqueId());
+                applyStats(player);
+                refreshOpenEquipment(player);
+            }
+        }, 60L);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
         saveCurrentBoundOffhandState(event.getPlayer());
-        savePlayer(event.getPlayer().getUniqueId());
-        saveDataFile();
+        savePlayer(uuid);
+        // Remove from the cache immediately after saving so that any InventoryCloseEvent that
+        // Paper fires after PlayerQuitEvent (for players who disconnect with a GUI open) finds no
+        // entry in `equipped` and skips its own savePlayer call. Without this ordering,
+        // onInventoryClose would write an empty map and mark the data dirty, causing flushDirtyData
+        // to later overwrite the correct on-disk state with nulls.
+        equipped.remove(uuid);
+        pendingSlotRegen.remove(uuid);
         removeStats(event.getPlayer());
         removeConsumableStats(event.getPlayer());
-        equipped.remove(event.getPlayer().getUniqueId());
+        // Write synchronously after removing from cache so the correct data is on disk before the
+        // player can rejoin. saveDataFileNow() bumps writeGeneration so any queued async write
+        // (stale snapshot) will not clobber this save.
+        saveDataFileNow();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -371,10 +447,15 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player player) {
-            savePlayer(player.getUniqueId());
-            saveDataFile();
-        }
+        if (!(event.getPlayer() instanceof Player player)) return;
+        // Skip if the player has already been removed from the equipped cache (i.e. onQuit already
+        // ran and called savePlayer + saveDataFileNow). On Paper, InventoryCloseEvent fires after
+        // PlayerQuitEvent for disconnecting players, so equipped.remove(uuid) will have already
+        // executed; calling savePlayer here would persist an empty map and overwrite the correct
+        // on-disk data written by onQuit.
+        if (!equipped.containsKey(player.getUniqueId())) return;
+        savePlayer(player.getUniqueId());
+        saveDataFile();
     }
 
     private void handleEquipmentClick(InventoryClickEvent event, Player player) {
@@ -424,6 +505,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             event.setCursor(cursor.getAmount() <= 0 ? null : cursor);
             if (old != null) giveOrDrop(player, old);
             sendEquipmentMessage(player, "equipped", slot, one);
+            plugin.getLogger().info("[EquipClick] " + player.getName() + " equipped " + mmoType(one) + ":" + mmoId(one)
+                    + " into slot=" + slot.id() + " guiSlot=" + slot.guiSlot()
+                    + " playerItemsSize=" + playerItems.size()
+                    + " playerItemsKeys=" + playerItems.keySet());
         }
 
         applyStats(player);
@@ -704,6 +789,34 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             return MMOItems.plugin.getItem(type, normalize(itemId), PlayerData.get(player));
         } catch (Throwable throwable) {
             plugin.getLogger().warning("Could not create bound offhand MMOItem " + typeId + ":" + itemId + ": " + throwable.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Like {@link #createMmoItem} but logs at a finer level so slot-restore failures are
+     * distinguishable from bound-offhand failures in the server log.
+     */
+    private ItemStack createMmoItemForSlot(Player player, String typeId, String itemId, String slotId) {
+        if (typeId == null || typeId.isBlank() || itemId == null || itemId.isBlank()) return null;
+        try {
+            Type type = MMOItems.plugin.getTypes().get(normalize(typeId));
+            if (type == null) {
+                plugin.getLogger().warning("[EquipSlot] regenerate " + slotId + ": MMOItems type not found: " + typeId);
+                return null;
+            }
+            net.Indyuce.mmoitems.api.player.PlayerData pd = PlayerData.get(player);
+            if (pd == null) {
+                plugin.getLogger().fine("[EquipSlot] regenerate " + slotId + ": MMOItems PlayerData not ready for " + player.getName() + " (will retry)");
+                return null;
+            }
+            ItemStack result = MMOItems.plugin.getItem(type, normalize(itemId), pd);
+            if (result == null || result.getType().isAir()) {
+                plugin.getLogger().warning("[EquipSlot] regenerate " + slotId + ": MMOItems returned null/air for " + typeId + ":" + itemId + " (player=" + player.getName() + ")");
+            }
+            return result;
+        } catch (Throwable throwable) {
+            plugin.getLogger().warning("[EquipSlot] regenerate " + slotId + " (" + typeId + ":" + itemId + ") failed for " + player.getName() + ": " + throwable.getMessage());
             return null;
         }
     }
@@ -1567,36 +1680,99 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private void loadPlayer(UUID uuid) {
-        if (equipped.containsKey(uuid)) return;
+        // Fast path: a fully-restored player is cached and never re-scans the YAML. Players whose
+        // equipped gear could not be regenerated yet (MMOItems PlayerData not ready) are kept in
+        // pendingSlotRegen and fall through to a cheap, slot-scoped retry below.
+        if (equipped.containsKey(uuid) && !pendingSlotRegen.contains(uuid)) return;
+
         Player online = Bukkit.getPlayer(uuid);
-        Map<String, ItemStack> playerItems = new HashMap<>();
+        boolean firstLoad = !equipped.containsKey(uuid);
+        Map<String, ItemStack> playerItems = equipped.computeIfAbsent(uuid, ignored -> new HashMap<>());
+        Map<String, SlotIdentity> identityCache = slotIdentityCache.get(uuid);
+        boolean stillPending = false;
+        boolean restoredAny = false;
+
         for (String slotId : slots.keySet()) {
+            if (playerItems.containsKey(slotId)) {
+                // Already restored on an earlier pass.
+                continue;
+            }
+
             EquipSlot slot = slots.get(slotId);
-            ItemStack item = data.getItemStack(uuid + "." + slotId);
+
+            // --- Priority 1: in-memory identity cache (same-session relog, survives equipped eviction) ---
+            // This path never touches YAML or MMOItems PlayerData, so it always succeeds instantly.
+            SlotIdentity cached = identityCache != null ? identityCache.get(slotId) : null;
+            if (cached != null && online != null) {
+                ItemStack fromCache = createMmoItemForSlot(online, cached.type(), cached.id(), slotId);
+                if (fromCache != null && !fromCache.getType().isAir()) {
+                    fromCache.setAmount(1);
+                    if (slot != null && slot.duration().enabled() && cached.hasDuration()) {
+                        long total = cached.totalSeconds() > 0 ? cached.totalSeconds() : initialDurationSeconds(slot, fromCache);
+                        if (total > 0) setTotalDurationSeconds(fromCache, total);
+                        setRemainingDurationSeconds(slot, fromCache, Math.max(0L, cached.remainingSeconds()));
+                        updateDurationItemLore(slot, fromCache);
+                    }
+                    if (slot == null || prepareTimedItemForEquip(slot, fromCache)) {
+                        playerItems.put(slotId, fromCache);
+                        restoredAny = true;
+                        plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " LOADED from cache (" + cached.type() + ":" + cached.id() + ")");
+                        continue;
+                    }
+                }
+                // Cache hit but MMOItems not ready yet — retry on a later pass.
+                stillPending = true;
+                continue;
+            }
+
+            // --- Priority 2: raw ItemStack from YAML (first load / server restart) ---
+            ItemStack item = firstLoad ? data.getItemStack(uuid + "." + slotId) : null;
 
             // The raw serialized ItemStack can lose its MMOItems identity (custom NBT) across a
-            // server restart, which leaves the slot empty after relog (e.g. an equipped FLY_SWORD or
-            // DAN_DUOC vanishing from /trangbi). Fall back to regenerating the item from the stored
-            // MMOItems type + id — the same durable approach already used for the bound offhand —
-            // restoring any remaining duration for timed items.
-            if ((item == null || item.getType().isAir() || mmoType(item) == null) && online != null) {
-                ItemStack regenerated = regenerateSlotItem(online, uuid, slotId, slot);
-                if (regenerated != null) {
-                    item = regenerated;
+            // server restart. Fall back to regenerating from stored mmo-meta type+id.
+            if (item == null || item.getType().isAir() || mmoType(item) == null) {
+                if (online != null) {
+                    ItemStack regenerated = regenerateSlotItem(online, uuid, slotId, slot);
+                    if (regenerated != null) {
+                        item = regenerated;
+                        restoredAny = true;
+                    } else if (hasStoredSlotIdentity(uuid, slotId)) {
+                        // Identity exists but MMOItems could not build it yet; retry on a later pass.
+                        stillPending = true;
+                        continue;
+                    }
+                } else if (hasStoredSlotIdentity(uuid, slotId)) {
+                    stillPending = true;
+                    continue;
                 }
             }
 
             if (item != null && item.getType() != Material.AIR) {
                 if (slot == null || prepareTimedItemForEquip(slot, item)) {
                     playerItems.put(slotId, item);
+                    restoredAny = true;
+                    plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " LOADED from YAML");
+                } else {
+                    plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " REJECTED by prepareTimedItem");
                 }
             }
         }
-        equipped.put(uuid, playerItems);
+
+        if (stillPending) {
+            pendingSlotRegen.add(uuid);
+        } else {
+            pendingSlotRegen.remove(uuid);
+        }
+        // Re-apply stats for any slot restored on a deferred pass so bonuses are not missed.
+        if (restoredAny && !firstLoad && online != null && online.isOnline()) {
+            applyStats(online);
+            refreshOpenEquipment(online);
+        }
     }
 
     private void savePlayer(UUID uuid) {
-        Map<String, ItemStack> playerItems = equipped.getOrDefault(uuid, Map.of());
+        Map<String, ItemStack> playerItems = equipped.get(uuid);
+        if (playerItems == null) return;
         for (String slotId : slots.keySet()) {
             ItemStack item = playerItems.get(slotId);
             data.set(uuid + "." + slotId, item);
@@ -1609,11 +1785,17 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
      * alongside the raw serialized ItemStack. These plain values always survive a YAML round-trip,
      * so {@link #regenerateSlotItem} can rebuild the item if the raw ItemStack loses its MMOItems
      * NBT across a restart.
+     * <p>
+     * Also updates the in-memory {@link #slotIdentityCache} so that a player who relogs within
+     * the same JVM session can have their slots restored immediately without a YAML read.
      */
     private void writeSlotMeta(UUID uuid, String slotId, ItemStack item) {
         String path = uuid + ".mmo-meta." + slotId;
         if (item == null || item.getType().isAir()) {
             data.set(path, null);
+            // Clear from in-memory cache too.
+            Map<String, SlotIdentity> playerCache = slotIdentityCache.get(uuid);
+            if (playerCache != null) playerCache.remove(slotId);
             return;
         }
         String type = mmoType(item);
@@ -1621,6 +1803,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (type == null || id == null || type.isBlank() || id.isBlank()) {
             // Not an MMOItems-backed item; there is nothing to regenerate from later.
             data.set(path, null);
+            Map<String, SlotIdentity> playerCache = slotIdentityCache.get(uuid);
+            if (playerCache != null) playerCache.remove(slotId);
             return;
         }
         data.set(path + ".type", type);
@@ -1629,6 +1813,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         data.set(path + ".remaining-seconds", remaining >= 0L ? remaining : null);
         long total = persistentDurationSeconds(item, durationTotalKey);
         data.set(path + ".total-seconds", total > 0L ? total : null);
+        // Update in-memory identity cache — this is the authoritative fast path for same-session
+        // relogs so we never depend on YAML ItemStack deserialization or MMOItems timing.
+        slotIdentityCache.computeIfAbsent(uuid, k -> new HashMap<>())
+                .put(slotId, new SlotIdentity(type, id, remaining >= 0L ? remaining : -1L, total > 0L ? total : 0L));
     }
 
     /**
@@ -1636,6 +1824,24 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
      * could not be restored. Returns {@code null} when no identity was stored (legacy data) or the
      * MMOItems template no longer exists.
      */
+    /**
+     * Returns {@code true} when a durable MMOItems identity (type + id) is stored for the slot, so a
+     * failed regeneration is worth retrying once MMOItems has finished loading the player's data.
+     */
+    private boolean hasStoredSlotIdentity(UUID uuid, String slotId) {
+        String path = uuid + ".mmo-meta." + slotId;
+        String type = data.getString(path + ".type");
+        String id = data.getString(path + ".id");
+        return type != null && !type.isBlank() && id != null && !id.isBlank();
+    }
+
+    private void refreshOpenEquipment(Player player) {
+        if (player == null) return;
+        for (EquipSlot slot : slots.values()) {
+            refreshOpenEquipmentSlot(player, slot);
+        }
+    }
+
     private ItemStack regenerateSlotItem(Player player, UUID uuid, String slotId, EquipSlot slot) {
         String path = uuid + ".mmo-meta." + slotId;
         String type = data.getString(path + ".type");
@@ -1643,22 +1849,28 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (type == null || id == null || type.isBlank() || id.isBlank()) {
             return null;
         }
-        ItemStack regenerated = createMmoItem(player, type, id);
+        ItemStack regenerated = createMmoItemForSlot(player, type, id, slotId);
         if (regenerated == null || regenerated.getType().isAir()) {
             return null;
         }
         regenerated.setAmount(1);
+        long remaining = -1L;
+        long total = 0L;
         if (slot != null && slot.duration().enabled() && data.contains(path + ".remaining-seconds")) {
-            long total = data.getLong(path + ".total-seconds", 0L);
+            total = data.getLong(path + ".total-seconds", 0L);
             if (total <= 0L) {
                 total = initialDurationSeconds(slot, regenerated);
             }
             if (total > 0L) {
                 setTotalDurationSeconds(regenerated, total);
             }
-            setRemainingDurationSeconds(slot, regenerated, Math.max(0L, data.getLong(path + ".remaining-seconds")));
+            remaining = Math.max(0L, data.getLong(path + ".remaining-seconds"));
+            setRemainingDurationSeconds(slot, regenerated, remaining);
             updateDurationItemLore(slot, regenerated);
         }
+        // Populate the in-memory identity cache so subsequent same-session reloads use the fast path.
+        slotIdentityCache.computeIfAbsent(uuid, k -> new HashMap<>())
+                .put(slotId, new SlotIdentity(type, id, remaining, total));
         return regenerated;
     }
 
@@ -2468,5 +2680,15 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     private record BoundOffhandState(String type, String id) {
+    }
+
+    /**
+     * Lightweight snapshot of what is (or was) equipped in a slot. Stored in
+     * {@link #slotIdentityCache} and survives the {@link #equipped} eviction on quit so players
+     * who relog within the same JVM session can have their slots rebuilt instantly — no YAML
+     * round-trip, no MMOItems PlayerData timing dependency.
+     */
+    private record SlotIdentity(String type, String id, long remainingSeconds, long totalSeconds) {
+        boolean hasDuration() { return remainingSeconds >= 0; }
     }
 }

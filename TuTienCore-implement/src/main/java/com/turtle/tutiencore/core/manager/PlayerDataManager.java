@@ -152,6 +152,28 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         }
     }
 
+    /**
+     * Flushes in-memory caches to the config map without serializing or writing to disk.
+     * Use this when you need the config to reflect current cache state (e.g., for top queries)
+     * but don't need a full disk save. Avoids the expensive sanitize + YAML serialization.
+     */
+    public void flushCachesToConfig() {
+        synchronized (configLock) {
+            for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
+                config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
+            }
+            for (Map.Entry<UUID, Long> entry : tuLuyenTotalSecondsCache.entrySet()) {
+                writeTuLuyenTime(entry.getKey(), entry.getValue());
+            }
+            Set<UUID> uuids = new HashSet<>();
+            uuids.addAll(infusionInventoryCache.keySet());
+            uuids.addAll(equippedInfusionIdCache.keySet());
+            for (UUID uuid : uuids) {
+                writeInfusionState(uuid);
+            }
+        }
+    }
+
     public void loadPlayer(UUID uuid) {
         synchronized (configLock) {
             double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
@@ -819,7 +841,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private long lastTopTuLuyenTimeUpdate = 0;
 
     public void updateTop() {
-        saveAll(); // Ensure memory is flushed to config first
+        flushCachesToConfig(); // Flush caches to config map (no disk write, no serialization)
         Map<String, Double> allTuVi = new HashMap<>();
 
         synchronized (configLock) {
@@ -852,7 +874,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     public void updateTopTuLuyenTime() {
-        saveAll(); // Ensure memory is flushed to config first
+        flushCachesToConfig(); // Flush caches to config map (no disk write, no serialization)
         Map<String, Long> allTimes = new HashMap<>();
 
         synchronized (configLock) {
