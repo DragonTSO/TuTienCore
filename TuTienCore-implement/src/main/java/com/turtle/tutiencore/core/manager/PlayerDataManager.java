@@ -6,6 +6,7 @@ import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.infusion.OwnedInfusion;
 import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -46,6 +47,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     private RealmManager realmManager;
     private BreakthroughManager breakthroughManager;
     private TuLuyenManager tuLuyenManager;
+    private PlayerProgressDatabaseSync databaseSync;
 
     public PlayerDataManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -65,6 +67,10 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         this.realmManager = realmManager;
         this.breakthroughManager = breakthroughManager;
         this.tuLuyenManager = tuLuyenManager;
+    }
+
+    public void setDatabaseSync(PlayerProgressDatabaseSync databaseSync) {
+        this.databaseSync = databaseSync;
     }
 
     private void setup() {
@@ -170,7 +176,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
-        writePlayerSync(uuid);
+        if (writePlayerSync(uuid)) {
+            syncDatabase(uuid);
+        }
     }
 
     /**
@@ -191,6 +199,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
+        syncDatabase(uuid);
         writePlayerAsync(uuid);
     }
 
@@ -206,7 +215,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
-        return writePlayerSync(uuid);
+        boolean saved = writePlayerSync(uuid);
+        if (saved) {
+            syncDatabase(uuid);
+        }
+        return saved;
     }
 
     /**
@@ -661,6 +674,12 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     @Override
     public void setTuVi(UUID uuid, double amount) {
         tuviCache.put(uuid, amount);
+    }
+
+    private void syncDatabase(UUID uuid) {
+        if (databaseSync != null && realmManager != null) {
+            databaseSync.sync(uuid);
+        }
     }
 
     @Override

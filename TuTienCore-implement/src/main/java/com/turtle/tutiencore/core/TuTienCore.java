@@ -34,6 +34,10 @@ import com.turtle.tutiencore.core.manager.ThauThiManager;
 import com.turtle.tutiencore.core.manager.ZoneManager;
 import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
+import com.turtle.tutiencore.core.storage.DatabaseSettings;
+import com.turtle.tutiencore.core.storage.DriverManagerDataSource;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabase;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 import com.turtle.tutiencore.core.task.SphereParticleTask;
 import com.turtle.tutiencore.core.task.TuLuyenParticleTask;
 
@@ -77,6 +81,7 @@ public class TuTienCore {
     private KillRewardHologramManager killRewardHologramManager;
     private CommandAliasManager commandAliasManager;
     private ThauThiManager thauThiManager;
+    private PlayerProgressDatabaseSync databaseSync;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -152,6 +157,19 @@ public class TuTienCore {
 
         // Inject managers into API impl so it can delegate calls
         this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
+
+        DatabaseSettings databaseSettings = DatabaseSettings.from(plugin.getConfig());
+        if (databaseSettings.enabled()) {
+            if (!"mysql".equalsIgnoreCase(databaseSettings.type())) {
+                plugin.getLogger().warning("Unsupported TuTienCore database.type: " + databaseSettings.type());
+            } else {
+                PlayerProgressDatabase database = new PlayerProgressDatabase(new DriverManagerDataSource(databaseSettings));
+                this.databaseSync = new PlayerProgressDatabaseSync(plugin, playerDataManager, realmManager, database);
+                this.playerDataManager.setDatabaseSync(databaseSync);
+                this.realmManager.setDatabaseSync(databaseSync);
+                this.databaseSync.initialize();
+            }
+        }
 
         // Register commands
         // Register /dotpha command

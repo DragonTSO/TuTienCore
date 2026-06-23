@@ -6,6 +6,7 @@ import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.RealmTier;
 import com.turtle.tutiencore.api.realm.SubRealm;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -53,6 +54,7 @@ public class RealmManager implements Listener {
     // memory (loaded from all per-player files at startup) so existing read code works unchanged;
     // saves write only the single player's file rather than re-serializing every player.
     private PerPlayerYamlStore store;
+    private PlayerProgressDatabaseSync databaseSync;
 
     // Sub-realm breakthrough settings
     private int subSoKyToTrungKyBolts, subTrungKyToHauKyBolts, subHauKyToDinhPhongBolts, subDinhPhongToVienManBolts;
@@ -110,6 +112,12 @@ public class RealmManager implements Listener {
         }
     }
 
+    public record BreakthroughCountSyncResult(int oldCount, int newCount) {
+        public boolean changed() {
+            return oldCount != newCount;
+        }
+    }
+
     // Default bolt settings (fallback when per-realm not specified)
     private int defaultLightningBolts;
     private double defaultDamagePerBolt;
@@ -139,6 +147,14 @@ public class RealmManager implements Listener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayerRealm(player.getUniqueId());
         }
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
+    }
+
+    public void setDatabaseSync(PlayerProgressDatabaseSync databaseSync) {
+        this.databaseSync = databaseSync;
     }
 
     // ==========================================
@@ -507,6 +523,34 @@ public class RealmManager implements Listener {
         return majors * SubRealm.values().length + subSteps;
     }
 
+    static BreakthroughCountSyncResult syncBreakthroughCount(PlayerRealm pr) {
+        int oldCount = pr.getBreakthroughCount();
+        int newCount = deriveBreakthroughCount(pr.getRealmId(), pr.getSubRealm());
+        if (oldCount != newCount) {
+            pr.setBreakthroughCount(newCount);
+        }
+        return new BreakthroughCountSyncResult(oldCount, newCount);
+    }
+
+    public BreakthroughCountSyncResult syncBreakthroughCount(UUID uuid) {
+        if (!playerRealms.containsKey(uuid)) {
+            if (!hasStoredPlayerRealm(uuid)) {
+                return null;
+            }
+            loadPlayerRealm(uuid);
+        }
+        PlayerRealm pr = getPlayerRealm(uuid);
+        BreakthroughCountSyncResult result = syncBreakthroughCount(pr);
+        if (result.changed()) {
+            savePlayerRealm(uuid);
+        }
+        return result;
+    }
+
+    public boolean hasStoredPlayerRealm(UUID uuid) {
+        return playerRealms.containsKey(uuid) || playerDataConfig.contains(uuid.toString());
+    }
+
     public void savePlayerRealm(UUID uuid) {
         PlayerRealm pr = playerRealms.get(uuid);
         if (pr == null) return;
@@ -517,6 +561,7 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
         writeRealmFile(uuid, false);
+        syncDatabase(uuid);
     }
 
     /**
@@ -535,6 +580,14 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
         writeRealmFile(uuid, true);
+        syncDatabase(uuid);
+    }
+
+    private void syncDatabase(UUID uuid) {
+        if (databaseSync != null) {
+            databaseSync.sync(uuid);
+        }
+    }
     }
 
     public void saveAllPlayerRealms() {

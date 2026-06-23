@@ -3,6 +3,20 @@
 
 debug: false
 
+# Optional MySQL sync for Pterodactyl databases.
+# This only stores: player name, Tu Vi, major realm, and sub-realm.
+# YAML files still store the full plugin data.
+database:
+  enabled: false
+  type: mysql
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "tutiencore"
+    username: "root"
+    password: ""
+    use-ssl: false
+
 # Settings for the default action bar
 action-bar:
 
