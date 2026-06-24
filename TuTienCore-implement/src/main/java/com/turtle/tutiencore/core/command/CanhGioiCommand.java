@@ -139,13 +139,18 @@ public class CanhGioiCommand implements CommandExecutor, TabCompleter {
         PlayerRealm pr = realmManager.getPlayerRealm(target.getUniqueId());
         pr.setRealmId(realmId);
         pr.setSubRealm(subRealm);
+        RealmManager.BreakthroughCountSyncResult syncResult = realmManager.syncBreakthroughCount(target.getUniqueId());
         realmManager.savePlayerRealm(target.getUniqueId());
+        realmManager.applyStatBonus(target);
 
         // Feedback
         String display = targetRealm.getSubRealmDisplayNameTranslated(subRealm);
         sender.sendMessage("§a✅ Đã set cảnh giới cho §e" + target.getName() + "§a:");
         sender.sendMessage("§7  Cảnh giới: " + display);
         sender.sendMessage("§7  ID: §e" + realmId + " §7| Tầng: §e" + subRealm.getDisplayName());
+        if (syncResult.changed()) {
+            sender.sendMessage("§7  Breakthrough count: §c" + syncResult.oldCount() + " §7→ §a" + syncResult.newCount());
+        }
 
         // Notify target
         target.sendMessage("§a✨ Cảnh giới của bạn đã được thay đổi: " + display);

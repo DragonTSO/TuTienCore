@@ -10,6 +10,7 @@ import net.Indyuce.mmoitems.api.event.MMOItemsReloadEvent;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -22,6 +23,7 @@ import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.text.Normalizer;
@@ -33,10 +35,13 @@ import java.util.regex.Pattern;
 
 public final class MMOItemsRealmRequirementHook implements Listener {
 
+    private static final String BOUND_OFFHAND_KEY = "equipment_bound_offhand";
+
     private final JavaPlugin plugin;
     private final RealmManager realmManager;
     private final ConfigManager configManager;
     private final MMOItemsRealmRequirementStat stat;
+    private final NamespacedKey boundOffhandKey;
     private boolean initialized;
 
     public MMOItemsRealmRequirementHook(JavaPlugin plugin, RealmManager realmManager, ConfigManager configManager) {
@@ -44,6 +49,7 @@ public final class MMOItemsRealmRequirementHook implements Listener {
         this.realmManager = realmManager;
         this.configManager = configManager;
         this.stat = new MMOItemsRealmRequirementStat(realmManager, configManager);
+        this.boundOffhandKey = new NamespacedKey(plugin, BOUND_OFFHAND_KEY);
     }
 
     public void register() {
@@ -222,7 +228,16 @@ public final class MMOItemsRealmRequirementHook implements Listener {
         }
 
         slot.clear(inventory);
+        if (slot == EquipmentSlotKind.OFF_HAND && isBoundOffhandItem(item)) {
+            return;
+        }
         overflow.putAll(inventory.addItem(item));
+    }
+
+    private boolean isBoundOffhandItem(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getPersistentDataContainer().has(boundOffhandKey, PersistentDataType.BYTE);
     }
 
     private enum EquipmentSlotKind {

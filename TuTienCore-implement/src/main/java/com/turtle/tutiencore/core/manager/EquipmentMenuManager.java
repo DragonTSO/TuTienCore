@@ -1723,6 +1723,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         Map<String, SlotIdentity> identityCache = slotIdentityCache.get(uuid);
         boolean stillPending = false;
         boolean restoredAny = false;
+        boolean migratedYamlIdentity = false;
 
         for (String slotId : slots.keySet()) {
             if (playerItems.containsKey(slotId)) {
@@ -1783,6 +1784,8 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 if (slot == null || prepareTimedItemForEquip(slot, item)) {
                     playerItems.put(slotId, item);
                     restoredAny = true;
+                    writeSlotMeta(uuid, slotId, item);
+                    migratedYamlIdentity = true;
                     plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " LOADED from YAML");
                 } else {
                     plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " REJECTED by prepareTimedItem");
@@ -1799,6 +1802,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (restoredAny && !firstLoad && online != null && online.isOnline()) {
             applyStats(online);
             refreshOpenEquipment(online);
+        }
+        if (migratedYamlIdentity) {
+            saveDataFile();
         }
     }
 

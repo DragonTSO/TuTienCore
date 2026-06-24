@@ -588,7 +588,6 @@ public class RealmManager implements Listener {
             databaseSync.sync(uuid);
         }
     }
-    }
 
     public void saveAllPlayerRealms() {
         // Synchronous per-player writes (used on shutdown). Each is a small single-player

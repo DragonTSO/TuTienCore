@@ -25,6 +25,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -37,13 +38,16 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -165,6 +169,9 @@ public class TuLuyenManager implements Listener {
                         continue;
                     }
 
+                    reward = reward.withExternalEventAmount(finalAmount);
+                    previewRewardCache.put(uuid, reward);
+
                     // Give Points via API, capped at the next breakthrough requirement even after external event edits.
                     TuTien.getApi().addTuVi(player.getUniqueId(), finalAmount);
                     triggerTurtleIslandCultivationFire(player);
@@ -181,6 +188,9 @@ public class TuLuyenManager implements Listener {
                                 .replace("%points%", String.valueOf((int) finalAmount));
                         if (reward.bonusPercent > 0) {
                             msg += " §8┃ §a+" + formatPercent(reward.bonusPercent) + "% bonus";
+                        }
+                        if (reward.externalBonusPercent > 0) {
+                            msg += " §8┃ §a+" + formatPercent(reward.externalBonusPercent) + "% ngoại lực";
                         }
                         if (reward.infusionBonusPercent > 0) {
                             msg += " §8┃ §d+" + formatPercent(reward.infusionBonusPercent) + "% Lửa Thần";
@@ -395,17 +405,19 @@ public class TuLuyenManager implements Listener {
      *   /lp group svip permission set tutiencore.tuvi.bonus.50
      */
     private double getTuViBonus(Player player) {
-        String prefix = "tutiencore.tuvi.bonus.";
         List<String> permissions = new ArrayList<>();
 
         for (org.bukkit.permissions.PermissionAttachmentInfo perm : player.getEffectivePermissions()) {
             String name = perm.getPermission();
-            if (perm.getValue() && name.startsWith(prefix)) {
+            if (perm.getValue()) {
                 permissions.add(name);
             }
         }
 
-        return resolveTuViBonus(permissions, isTuViPermissionBonusStacked());
+        FileConfiguration rankupConfig = loadRankupConfig();
+        return rankupConfig == null
+                ? resolveTuViBonus(permissions, isTuViPermissionBonusStacked())
+                : resolveTuViBonus(permissions, rankupConfig);
     }
 
     static double resolveHighestTuViBonus(Collection<String> permissions) {
@@ -427,6 +439,92 @@ public class TuLuyenManager implements Listener {
 
         return stack ? totalBonus : highestBonus;
     }
+
+    static double resolveTuViBonus(Collection<String> permissions, FileConfiguration rankupConfig) {
+        boolean stack = rankupConfig.contains("rankup.stack-bonuses")
+                ? rankupConfig.getBoolean("rankup.stack-bonuses", true)
+                : rankupConfig.getBoolean("rankup.preserve-current-rank-perks", true);
+        RankupBonusResult rankupBonus = resolveRankupTuViBonus(permissions, rankupConfig, stack);
+        Set<String> rankupBonusPermissions = rankupBonus.bonusPermissions();
+        List<String> directBonusPermissions = new ArrayList<>();
+        for (String permission : permissions) {
+            if (permission.startsWith("tutiencore.tuvi.bonus.") && !rankupBonusPermissions.contains(permission)) {
+                directBonusPermissions.add(permission);
+            }
+        }
+
+        return rankupBonus.bonus() + resolveTuViBonus(directBonusPermissions, stack);
+    }
+
+    private static RankupBonusResult resolveRankupTuViBonus(Collection<String> permissions,
+                                                           FileConfiguration config,
+                                                           boolean stack) {
+        ConfigurationSection ranks = config.getConfigurationSection("ranks");
+        if (ranks == null) {
+            return new RankupBonusResult(0.0D, Set.of());
+        }
+
+        double totalBonus = 0.0D;
+        double highestBonus = 0.0D;
+        int highestOrder = Integer.MIN_VALUE;
+        Set<String> rankupBonusPermissions = new HashSet<>();
+        for (String rankId : ranks.getKeys(false)) {
+            ConfigurationSection rank = ranks.getConfigurationSection(rankId);
+            if (rank == null || !hasAnyPermission(permissions, rank)) {
+                continue;
+            }
+
+            double bonus = Math.max(0.0D, rank.getDouble("bonuses.tuvi", 0.0D));
+            rankupBonusPermissions.addAll(rank.getStringList("permissions"));
+            if (stack) {
+                totalBonus += bonus;
+                continue;
+            }
+
+            int order = rank.getInt("order", parseRankOrder(rankId));
+            if (order >= highestOrder) {
+                highestOrder = order;
+                highestBonus = bonus;
+            }
+        }
+
+        return new RankupBonusResult(stack ? totalBonus : highestBonus, rankupBonusPermissions);
+    }
+
+    private static boolean hasAnyPermission(Collection<String> permissions, ConfigurationSection rank) {
+        String rankPermission = rank.getString("permission", "");
+        if (!rankPermission.isBlank() && permissions.contains(rankPermission)) {
+            return true;
+        }
+        for (String permission : rank.getStringList("permissions")) {
+            if (permissions.contains(permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int parseRankOrder(String rankId) {
+        String digits = rankId == null ? "" : rankId.replaceAll("[^0-9]", "");
+        if (digits.isBlank()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private FileConfiguration loadRankupConfig() {
+        File file = new File(plugin.getDataFolder(), "rankup.yml");
+        if (!file.exists()) {
+            return null;
+        }
+        return YamlConfiguration.loadConfiguration(file);
+    }
+
+    record RankupBonusResult(double bonus, Set<String> bonusPermissions) {}
 
     private boolean isTuViPermissionBonusStacked() {
         return plugin.getConfig().getBoolean("tu-luyen.permission-bonus.stack", true);
@@ -466,7 +564,7 @@ public class TuLuyenManager implements Listener {
         double cappedPoints = getCappedTuViReward(player, completionPoints);
         return new TuLuyenReward(basePoints, permissionBonus, islandBonus, bonus, environmentBonus,
                 infusionBonus, equipmentBonus, flySwordBonus, flySwordBuff.completionBonusPercent(),
-                breakthroughBonus, weatherBonus, cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
+                breakthroughBonus, weatherBonus, 0.0D, cappedPoints, lightning.triggered(), islandBonus > 0.0, islandEligible);
     }
 
     /**
@@ -1271,8 +1369,23 @@ public class TuLuyenManager implements Listener {
                                           boolean translateColors) {
         double bonusPercent = permissionBonusPercent + islandBonusPercent;
         TuLuyenReward reward = new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent,
-                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, totalPoints, false,
+                bonusPercent, environmentBonusPercent, infusionBonusPercent, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, totalPoints, false,
                 islandBonusPercent > 0.0D, islandBonusPercent > 0.0D);
+        String result = applyRewardPlaceholdersRaw(text, reward);
+        return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
+    }
+
+    static String applyRewardPlaceholdersWithExternalBonus(String text, double basePoints, double permissionBonusPercent,
+                                                           double islandBonusPercent, double equipmentBonusPercent,
+                                                           double environmentBonusPercent, double infusionBonusPercent,
+                                                           double totalPoints, boolean translateColors) {
+        double bonusPercent = permissionBonusPercent + islandBonusPercent + equipmentBonusPercent;
+        double baseTotal = basePoints * (1.0D + (bonusPercent + environmentBonusPercent + infusionBonusPercent) / 100.0D);
+        TuLuyenReward reward = new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent,
+                bonusPercent, environmentBonusPercent, infusionBonusPercent, equipmentBonusPercent, 0.0D,
+                0.0D, 0.0D, 0.0D, 0.0D, totalPoints, false,
+                islandBonusPercent > 0.0D, islandBonusPercent > 0.0D)
+                .withExternalEventAmount(totalPoints, baseTotal);
         String result = applyRewardPlaceholdersRaw(text, reward);
         return translateColors ? ChatColor.translateAlternateColorCodes('&', result) : result;
     }
@@ -1286,7 +1399,7 @@ public class TuLuyenManager implements Listener {
     }
 
     private static String applyRewardPlaceholdersRaw(String text, TuLuyenReward reward) {
-        double totalBonusPercent = reward.bonusPercent + reward.infusionBonusPercent;
+        double totalBonusPercent = reward.bonusPercent + reward.infusionBonusPercent + reward.externalBonusPercent;
         double allBonusPercent = totalBonusPercent + reward.environmentBonusPercent + reward.weatherBonusPercent;
         return text
                 .replace("{base}", formatNumber(reward.basePoints))
@@ -1307,6 +1420,8 @@ public class TuLuyenManager implements Listener {
                 .replace("{breakthrough_bonus}", formatPercent(reward.breakthroughBonusPercent))
                 .replace("{dot_pha_bonus}", formatPercent(reward.breakthroughBonusPercent))
                 .replace("{dotpha_bonus}", formatPercent(reward.breakthroughBonusPercent))
+                .replace("{external_bonus}", formatPercent(reward.externalBonusPercent))
+                .replace("{ngoai_luc_bonus}", formatPercent(reward.externalBonusPercent))
                 .replace("{environment}", formatPercent(reward.environmentBonusPercent))
                 .replace("{infusion}", formatPercent(reward.infusionBonusPercent))
                 .replace("{weather_bonus}", formatPercent(reward.weatherBonusPercent))
@@ -1388,6 +1503,7 @@ public class TuLuyenManager implements Listener {
         private final double flySwordCompletionBonusPercent;
         private final double breakthroughBonusPercent;
         private final double weatherBonusPercent;
+        private final double externalBonusPercent;
         private final double totalPoints;
         private final boolean lightningTriggered;
         private final boolean externalBonusIncluded;
@@ -1397,7 +1513,7 @@ public class TuLuyenManager implements Listener {
                               double bonusPercent, double environmentBonusPercent, double infusionBonusPercent,
                               double equipmentBonusPercent, double flySwordBonusPercent,
                               double flySwordCompletionBonusPercent, double breakthroughBonusPercent,
-                              double weatherBonusPercent, double totalPoints,
+                              double weatherBonusPercent, double externalBonusPercent, double totalPoints,
                               boolean lightningTriggered, boolean externalBonusIncluded, boolean turtleIslandEligible) {
             this.basePoints = basePoints;
             this.permissionBonusPercent = permissionBonusPercent;
@@ -1410,10 +1526,28 @@ public class TuLuyenManager implements Listener {
             this.flySwordCompletionBonusPercent = flySwordCompletionBonusPercent;
             this.breakthroughBonusPercent = breakthroughBonusPercent;
             this.weatherBonusPercent = weatherBonusPercent;
+            this.externalBonusPercent = externalBonusPercent;
             this.totalPoints = totalPoints;
             this.lightningTriggered = lightningTriggered;
             this.externalBonusIncluded = externalBonusIncluded;
             this.turtleIslandEligible = turtleIslandEligible;
+        }
+
+        private TuLuyenReward withExternalEventAmount(double eventAmount) {
+            return withExternalEventAmount(eventAmount, totalPoints);
+        }
+
+        private TuLuyenReward withExternalEventAmount(double eventAmount, double originalAmount) {
+            double safeOriginal = Math.max(0.0D, originalAmount);
+            double safeEventAmount = Math.max(0.0D, eventAmount);
+            double externalBonus = safeOriginal <= 0.0D || safeEventAmount <= safeOriginal
+                    ? 0.0D
+                    : ((safeEventAmount / safeOriginal) - 1.0D) * 100.0D;
+            return new TuLuyenReward(basePoints, permissionBonusPercent, islandBonusPercent, bonusPercent,
+                    environmentBonusPercent, infusionBonusPercent, equipmentBonusPercent, flySwordBonusPercent,
+                    flySwordCompletionBonusPercent, breakthroughBonusPercent, weatherBonusPercent, externalBonus,
+                    safeEventAmount, lightningTriggered, externalBonusIncluded || externalBonus > 0.0D,
+                    turtleIslandEligible);
         }
     }
 

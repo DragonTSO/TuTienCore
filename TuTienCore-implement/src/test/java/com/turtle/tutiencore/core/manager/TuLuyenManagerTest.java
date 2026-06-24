@@ -44,6 +44,56 @@ class TuLuyenManagerTest {
     }
 
     @Test
+    void resolvesVipRankTuViBonusFromRankupConfig() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("rankup.stack-bonuses", true);
+        config.set("ranks.vip1.order", 1);
+        config.set("ranks.vip1.permission", "tutiencore.vip.1");
+        config.set("ranks.vip1.bonuses.tuvi", 10.0);
+        config.set("ranks.vip2.order", 2);
+        config.set("ranks.vip2.permission", "tutiencore.vip.2");
+        config.set("ranks.vip2.bonuses.tuvi", 30.0);
+
+        assertEquals(40.0, TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.vip.1",
+                "tutiencore.vip.2"
+        ), config));
+    }
+
+    @Test
+    void resolvesHighestVipRankTuViBonusWhenRankupStackingIsDisabled() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("rankup.stack-bonuses", false);
+        config.set("ranks.vip1.order", 1);
+        config.set("ranks.vip1.permission", "tutiencore.vip.1");
+        config.set("ranks.vip1.bonuses.tuvi", 10.0);
+        config.set("ranks.vip2.order", 2);
+        config.set("ranks.vip2.permission", "tutiencore.vip.2");
+        config.set("ranks.vip2.bonuses.tuvi", 30.0);
+
+        assertEquals(30.0, TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.vip.1",
+                "tutiencore.vip.2"
+        ), config));
+    }
+
+    @Test
+    void doesNotDoubleCountRankupTuViBonusPermission() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("rankup.stack-bonuses", true);
+        config.set("ranks.vip2.order", 2);
+        config.set("ranks.vip2.permission", "tutiencore.vip.2");
+        config.set("ranks.vip2.bonuses.tuvi", 30.0);
+        config.set("ranks.vip2.permissions", List.of("tutiencore.tuvi.bonus.30"));
+
+        assertEquals(45.0, TuLuyenManager.resolveTuViBonus(List.of(
+                "tutiencore.vip.2",
+                "tutiencore.tuvi.bonus.30",
+                "tutiencore.tuvi.bonus.15"
+        ), config));
+    }
+
+    @Test
     void appliesTeamBonusHologramPlaceholders() {
         assertEquals(List.of("&aTông môn: &f+20% &7x1.2"),
                 TuLuyenManager.applyTeamBonusPlaceholders(
@@ -72,6 +122,22 @@ class TuLuyenManagerTest {
                         3.0,
                         20.0,
                         13.8,
+                        false
+                ));
+    }
+
+    @Test
+    void appliesExternalEventBonusToHologramPlaceholders() {
+        assertEquals("&fBonus: &a+25% &8| &6Total 125",
+                TuLuyenManager.applyRewardPlaceholdersWithExternalBonus(
+                        "&fBonus: &a+{total_bonus}% &8| &6Total {total}",
+                        100.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        125.0,
                         false
                 ));
     }
