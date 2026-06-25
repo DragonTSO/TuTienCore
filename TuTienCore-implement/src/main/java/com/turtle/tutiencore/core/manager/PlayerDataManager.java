@@ -316,13 +316,13 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         }
 
         // ── Step 2: overwrite with JSON cache SYNCHRONOUSLY (no async, no wait) ──
-        // The JSON cache is always written before async DB, so it is always >= YAML and >= DB.
-        // Reading it here prevents Tu Vi from ever showing 0 to the player.
         if (databaseSync != null) {
             LocalDataCache cache = databaseSync.getLocalCache();
             if (cache != null) {
                 LocalDataCache.PlayerProgressSnapshot snap = cache.loadPlayerProgress(uuid);
                 if (snap != null) {
+                    plugin.getLogger().info("[TuTienCore] loadPlayer " + uuid
+                            + " cache hit: tuvi=" + snap.tuvi() + " realm=" + snap.realmId());
                     tuviCache.put(uuid, snap.tuvi());
                     tuLuyenTotalSecondsCache.put(uuid, snap.tuLuyenSeconds());
                     List<OwnedInfusion> infusions = new ArrayList<>();
@@ -330,7 +330,6 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                         infusions.add(new OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
                     }
                     replaceInfusionInventory(uuid, infusions, snap.equippedInfusionId());
-                    // Apply realm from cache immediately (no async needed)
                     if (realmManager != null) {
                         com.turtle.tutiencore.api.realm.SubRealm subRealm = com.turtle.tutiencore.api.realm.SubRealm.SO_KY;
                         try { subRealm = com.turtle.tutiencore.api.realm.SubRealm.valueOf(snap.subRealm()); }
@@ -341,13 +340,13 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                         realm.setBreakthroughCooldown(snap.breakthroughCooldown());
                         realmManager.setPlayerRealmObject(uuid, realm);
                     }
-                    // Cache hit → no DB load needed (cache is always newer)
                     return;
+                } else {
+                    plugin.getLogger().info("[TuTienCore] loadPlayer " + uuid + " cache MISS — will use DB or YAML");
                 }
             }
         }
 
-        // ── Step 3: no cache → async DB load (first join or post-clean-shutdown) ──
         if (databaseSync != null) {
             databaseSync.loadFromDatabase(uuid);
         }
@@ -766,10 +765,16 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     @Override
     public void setTuVi(UUID uuid, double amount) {
+        double old = tuviCache.getOrDefault(uuid, -1.0);
         tuviCache.put(uuid, amount);
-        // Write to JSON cache immediately so data survives fast relog/crash.
-        // Throttled: only write if the value changed by at least 1 point OR it's been 5s since
-        // last write — avoids excessive file I/O during tu luyen (called every interval).
+        if (old > 0 && amount == 0) {
+            // Log suspicious Tu Vi reset to diagnose root cause
+            Exception trace = new Exception("setTuVi reset to 0 (was " + old + ") for " + uuid);
+            plugin.getLogger().warning("[TuTienCore] SUSPICIOUS setTuVi=0 for " + uuid + " (was " + old + ")");
+            for (StackTraceElement el : trace.getStackTrace()) {
+                plugin.getLogger().warning("  at " + el);
+            }
+        }
         writeTuViCacheThrottled(uuid, amount);
     }
 
@@ -812,6 +817,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         // Update throttle state so writeTuViCacheThrottled knows we just wrote
         lastTuViCacheWrite.put(uuid, System.currentTimeMillis());
         lastTuViCacheValue.put(uuid, tuvi);
+
+        plugin.getLogger().info("[TuTienCore] forceSyncPlayerCache " + uuid
+                + " tuvi=" + tuvi + " realm=" + realmId + " sub=" + subRealm);
 
         cache.savePlayerProgress(uuid, playerName, tuvi, tuLuyenSeconds, equippedInfId,
                 infusions, realmId, subRealm, btCount, btCooldown);
