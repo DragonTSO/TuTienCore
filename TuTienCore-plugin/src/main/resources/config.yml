@@ -3,6 +3,12 @@
 
 debug: false
 
+# Auto-save interval for player data (Tu Vi, Realm, etc.)
+# Saves online player data periodically to prevent data loss on server crash.
+# Value in seconds. Minimum: 10, Maximum: 600 (10 minutes).
+# Default: 30 seconds. Set to 0 to disable (not recommended).
+auto-save-interval-seconds: 30
+
 # Optional MySQL sync for Pterodactyl databases.
 # This only stores: player name, Tu Vi, major realm, and sub-realm.
 # YAML files still store the full plugin data.

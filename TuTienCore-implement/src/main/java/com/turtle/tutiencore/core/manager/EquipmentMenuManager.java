@@ -428,6 +428,11 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         // to later overwrite the correct on-disk state with nulls.
         equipped.remove(uuid);
         pendingSlotRegen.remove(uuid);
+        // Clear slot identity cache to prevent stale data from being restored on fast rejoin before
+        // the disk write completes. Without this, a player who quits and immediately rejoins could
+        // load from the in-memory cache while the YAML still holds the old snapshot, causing
+        // duplicate items to appear in their inventory.
+        slotIdentityCache.remove(uuid);
         removeStats(event.getPlayer());
         removeConsumableStats(event.getPlayer());
         // Write this player's file synchronously after removing from cache so the correct data is on
@@ -1758,38 +1763,24 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 continue;
             }
 
-            // --- Priority 2: raw ItemStack from YAML (first load / server restart) ---
-            ItemStack item = firstLoad ? data.getItemStack(uuid + "." + slotId) : null;
-
-            // The raw serialized ItemStack can lose its MMOItems identity (custom NBT) across a
-            // server restart. Fall back to regenerating from stored mmo-meta type+id.
-            if (item == null || item.getType().isAir() || mmoType(item) == null) {
-                if (online != null) {
-                    ItemStack regenerated = regenerateSlotItem(online, uuid, slotId, slot);
-                    if (regenerated != null) {
-                        item = regenerated;
-                        restoredAny = true;
-                    } else if (hasStoredSlotIdentity(uuid, slotId)) {
-                        // Identity exists but MMOItems could not build it yet; retry on a later pass.
-                        stillPending = true;
-                        continue;
-                    }
+            // --- Priority 2: Regenerate from stored mmo-meta (type + id + duration) ---
+            // Raw ItemStack serialization was removed to prevent stale data from causing duplicate
+            // items. Every load regenerates a fresh item from the MMOItems template, ensuring clean
+            // state that can never conflict with existing inventory items.
+            if (online != null) {
+                ItemStack regenerated = regenerateSlotItem(online, uuid, slotId, slot);
+                if (regenerated != null) {
+                    playerItems.put(slotId, regenerated);
+                    restoredAny = true;
+                    plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " REGENERATED from mmo-meta");
                 } else if (hasStoredSlotIdentity(uuid, slotId)) {
+                    // Identity exists but MMOItems could not build it yet; retry on a later pass.
                     stillPending = true;
                     continue;
                 }
-            }
-
-            if (item != null && item.getType() != Material.AIR) {
-                if (slot == null || prepareTimedItemForEquip(slot, item)) {
-                    playerItems.put(slotId, item);
-                    restoredAny = true;
-                    writeSlotMeta(uuid, slotId, item);
-                    migratedYamlIdentity = true;
-                    plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " LOADED from YAML");
-                } else {
-                    plugin.getLogger().info("[EquipLoad] " + uuid + " slot=" + slotId + " REJECTED by prepareTimedItem");
-                }
+            } else if (hasStoredSlotIdentity(uuid, slotId)) {
+                stillPending = true;
+                continue;
             }
         }
 
@@ -1803,9 +1794,6 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
             applyStats(online);
             refreshOpenEquipment(online);
         }
-        if (migratedYamlIdentity) {
-            saveDataFile();
-        }
     }
 
     private void savePlayer(UUID uuid) {
@@ -1813,7 +1801,12 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         if (playerItems == null) return;
         for (String slotId : slots.keySet()) {
             ItemStack item = playerItems.get(slotId);
-            data.set(uuid + "." + slotId, item);
+            // Only persist mmo-meta (type + id + duration) instead of the raw serialized ItemStack.
+            // This prevents stale ItemStack data from being restored across a restart, which could
+            // cause duplicate items if the player inventory still holds the original item due to a
+            // timing issue. Regenerating from mmo-meta on each load ensures a clean, single-source
+            // restore that can never conflict with existing inventory items.
+            data.set(uuid + "." + slotId, null);
             writeSlotMeta(uuid, slotId, item);
         }
         markDirty(uuid);

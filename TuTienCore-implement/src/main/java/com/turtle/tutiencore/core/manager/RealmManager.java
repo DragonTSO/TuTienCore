@@ -143,6 +143,16 @@ public class RealmManager implements Listener {
         loadPlayerData();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
+        // Auto-save online player realm data periodically to prevent data loss on crash
+        long intervalSeconds = Math.max(10L, Math.min(600L, plugin.getConfig().getLong("auto-save-interval-seconds", 30L)));
+        if (intervalSeconds > 0) {
+            long intervalTicks = intervalSeconds * 20L;
+            plugin.getServer().getScheduler().runTaskTimer(plugin, this::saveOnlinePlayers, intervalTicks, intervalTicks);
+            plugin.getLogger().info("RealmManager auto-save enabled: every " + intervalSeconds + " seconds");
+        } else {
+            plugin.getLogger().warning("RealmManager auto-save is DISABLED! Data will be lost on crash.");
+        }
+
         // Load online players (in case of reload)
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayerRealm(player.getUniqueId());
@@ -593,6 +603,24 @@ public class RealmManager implements Listener {
         // Synchronous per-player writes (used on shutdown). Each is a small single-player
         // serialization rather than one monolithic full-file write.
         for (UUID uuid : playerRealms.keySet()) {
+            PlayerRealm pr = playerRealms.get(uuid);
+            if (pr == null) continue;
+            String path = uuid.toString();
+            playerDataConfig.set(path + ".realm-id", pr.getRealmId());
+            playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
+            playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
+            playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
+            writeRealmFile(uuid, false);
+        }
+    }
+
+    /**
+     * Auto-save for online players only, called periodically to prevent data loss on crash.
+     * Writes each online player's realm file to disk synchronously.
+     */
+    private void saveOnlinePlayers() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
             PlayerRealm pr = playerRealms.get(uuid);
             if (pr == null) continue;
             String path = uuid.toString();

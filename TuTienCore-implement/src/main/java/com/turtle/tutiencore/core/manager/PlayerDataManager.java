@@ -54,6 +54,16 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         setup();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
+        // Auto-save online player data periodically to prevent data loss on crash
+        long intervalSeconds = Math.max(10L, Math.min(600L, plugin.getConfig().getLong("auto-save-interval-seconds", 30L)));
+        if (intervalSeconds > 0) {
+            long intervalTicks = intervalSeconds * 20L;
+            plugin.getServer().getScheduler().runTaskTimer(plugin, this::saveOnlinePlayers, intervalTicks, intervalTicks);
+            plugin.getLogger().info("PlayerDataManager auto-save enabled: every " + intervalSeconds + " seconds");
+        } else {
+            plugin.getLogger().warning("PlayerDataManager auto-save is DISABLED! Data will be lost on crash.");
+        }
+
         // Load online players (in case of plugin reload)
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayer(player.getUniqueId());
@@ -159,6 +169,28 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 }
             }
             for (UUID uuid : all) {
+                writePlayerSync(uuid);
+            }
+        }
+    }
+
+    /**
+     * Auto-save for online players only, called periodically to prevent data loss on crash.
+     * Flushes in-memory caches to config, then writes each online player's file to disk.
+     */
+    private void saveOnlinePlayers() {
+        synchronized (configLock) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                UUID uuid = player.getUniqueId();
+                if (tuviCache.containsKey(uuid)) {
+                    config.set(uuid.toString() + ".tuvi", tuviCache.get(uuid));
+                }
+                if (tuLuyenTotalSecondsCache.containsKey(uuid)) {
+                    writeTuLuyenTime(uuid, tuLuyenTotalSecondsCache.get(uuid));
+                }
+                if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
+                    writeInfusionState(uuid);
+                }
                 writePlayerSync(uuid);
             }
         }
