@@ -182,11 +182,12 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
-        // Save every loaded player to database (blocking, used on shutdown)
+        // Force-write JSON cache then DB (blocking) for every loaded player on shutdown
         Set<UUID> all = new HashSet<>();
         all.addAll(tuviCache.keySet());
         all.addAll(tuLuyenTotalSecondsCache.keySet());
         for (UUID uuid : all) {
+            forceSyncPlayerCache(uuid);
             if (databaseSync != null) {
                 databaseSync.syncBlocking(uuid);
             }
@@ -212,8 +213,10 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 }
             }
         }
-        // DB saves (async per player)
+        // Force-write JSON cache for every online player (guarantees cache is always current)
+        // then fire async DB saves
         for (Player player : Bukkit.getOnlinePlayers()) {
+            forceSyncPlayerCache(player.getUniqueId());
             syncDatabase(player.getUniqueId());
         }
     }
@@ -230,12 +233,14 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
+        forceSyncPlayerCache(uuid);
         syncDatabase(uuid);
     }
 
     /**
      * Like {@link #savePlayer(UUID)} but uses async DB write.
-     * Use this on player quit to avoid blocking the main thread.
+     * The JSON cache is written SYNCHRONOUSLY first (before caches are evicted) so a fast
+     * relog always has a valid cache to read from.
      * Do NOT use on shutdown.
      */
     public void savePlayerAsync(UUID uuid) {
@@ -250,6 +255,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
+        // Force-write JSON cache synchronously BEFORE async DB and BEFORE caches are evicted.
+        // This is the critical write that prevents Tu Vi → 0 on fast relog.
+        forceSyncPlayerCache(uuid);
         syncDatabase(uuid);
     }
 
@@ -265,6 +273,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
+        forceSyncPlayerCache(uuid);
         syncDatabase(uuid);
         return true;
     }
@@ -292,12 +301,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     public void loadPlayer(UUID uuid) {
-        // Seed in-memory caches with defaults first (player might be brand new)
+        // ── Step 1: seed from YAML aggregate (immediate, always available) ──
         synchronized (configLock) {
             double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
             tuviCache.put(uuid, tuvi);
             tuLuyenTotalSecondsCache.put(uuid, readTuLuyenTotalSeconds(uuid));
-
             InfusionState state = readInfusionState(uuid);
             infusionInventoryCache.put(uuid, new ArrayList<>(state.inventory()));
             if (state.equippedId() == null || state.equippedId().isBlank()) {
@@ -306,8 +314,40 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 equippedInfusionIdCache.put(uuid, state.equippedId());
             }
         }
-        // Overwrite defaults from database (async — the main thread continues with YAML values
-        // until the DB response arrives, which is typically within one tick on LAN servers)
+
+        // ── Step 2: overwrite with JSON cache SYNCHRONOUSLY (no async, no wait) ──
+        // The JSON cache is always written before async DB, so it is always >= YAML and >= DB.
+        // Reading it here prevents Tu Vi from ever showing 0 to the player.
+        if (databaseSync != null) {
+            LocalDataCache cache = databaseSync.getLocalCache();
+            if (cache != null) {
+                LocalDataCache.PlayerProgressSnapshot snap = cache.loadPlayerProgress(uuid);
+                if (snap != null) {
+                    tuviCache.put(uuid, snap.tuvi());
+                    tuLuyenTotalSecondsCache.put(uuid, snap.tuLuyenSeconds());
+                    List<OwnedInfusion> infusions = new ArrayList<>();
+                    for (LocalDataCache.InfusionEntry e : snap.infusions()) {
+                        infusions.add(new OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
+                    }
+                    replaceInfusionInventory(uuid, infusions, snap.equippedInfusionId());
+                    // Apply realm from cache immediately (no async needed)
+                    if (realmManager != null) {
+                        com.turtle.tutiencore.api.realm.SubRealm subRealm = com.turtle.tutiencore.api.realm.SubRealm.SO_KY;
+                        try { subRealm = com.turtle.tutiencore.api.realm.SubRealm.valueOf(snap.subRealm()); }
+                        catch (IllegalArgumentException ignored) {}
+                        com.turtle.tutiencore.api.realm.PlayerRealm realm =
+                                new com.turtle.tutiencore.api.realm.PlayerRealm(snap.realmId(), subRealm);
+                        realm.setBreakthroughCount(snap.breakthroughCount());
+                        realm.setBreakthroughCooldown(snap.breakthroughCooldown());
+                        realmManager.setPlayerRealmObject(uuid, realm);
+                    }
+                    // Cache hit → no DB load needed (cache is always newer)
+                    return;
+                }
+            }
+        }
+
+        // ── Step 3: no cache → async DB load (first join or post-clean-shutdown) ──
         if (databaseSync != null) {
             databaseSync.loadFromDatabase(uuid);
         }
@@ -733,10 +773,54 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         writeTuViCacheThrottled(uuid, amount);
     }
 
+    /**
+     * Force-writes the complete player snapshot to the JSON cache, bypassing throttle.
+     * Called on quit to guarantee the cache is always up-to-date before caches are evicted.
+     */
+    private void forceSyncPlayerCache(UUID uuid) {
+        if (databaseSync == null) return;
+        LocalDataCache cache = databaseSync.getLocalCache();
+        if (cache == null) return;
+
+        double tuvi = tuviCache.getOrDefault(uuid, 0.0);
+        long tuLuyenSeconds = tuLuyenTotalSecondsCache.getOrDefault(uuid, 0L);
+        String equippedInfId = equippedInfusionIdCache.get(uuid);
+        List<OwnedInfusion> inventoryList = infusionInventoryCache.getOrDefault(uuid, Collections.emptyList());
+        List<LocalDataCache.InfusionEntry> infusions = new ArrayList<>();
+        for (OwnedInfusion inf : inventoryList) {
+            infusions.add(new LocalDataCache.InfusionEntry(inf.id(), inf.typeId(), inf.rarityId(), inf.createdAt()));
+        }
+
+        int realmId = 1;
+        String subRealm = "SO_KY";
+        int btCount = 0;
+        long btCooldown = 0L;
+        String playerName = null;
+
+        if (realmManager != null) {
+            com.turtle.tutiencore.api.realm.PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+            realmId = pr.getRealmId();
+            subRealm = pr.getSubRealm().name();
+            btCount = pr.getBreakthroughCount();
+            btCooldown = pr.getBreakthroughCooldown();
+        }
+
+        // Try to get player name
+        org.bukkit.OfflinePlayer op = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+        if (op.getName() != null) playerName = op.getName();
+
+        // Update throttle state so writeTuViCacheThrottled knows we just wrote
+        lastTuViCacheWrite.put(uuid, System.currentTimeMillis());
+        lastTuViCacheValue.put(uuid, tuvi);
+
+        cache.savePlayerProgress(uuid, playerName, tuvi, tuLuyenSeconds, equippedInfId,
+                infusions, realmId, subRealm, btCount, btCooldown);
+    }
+
     private final Map<UUID, Long> lastTuViCacheWrite = new HashMap<>();
     private final Map<UUID, Double> lastTuViCacheValue = new HashMap<>();
-    private static final long TUVI_CACHE_WRITE_INTERVAL_MS = 5000L; // max 1 write per 5s per player
-    private static final double TUVI_CACHE_WRITE_THRESHOLD = 1.0;   // or write if changed by >= 1
+    private static final long TUVI_CACHE_WRITE_INTERVAL_MS = 5000L;
+    private static final double TUVI_CACHE_WRITE_THRESHOLD = 1.0;
 
     /**
      * Writes Tu Vi to JSON cache, throttled to avoid excessive disk I/O during tu luyen.
