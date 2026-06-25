@@ -68,17 +68,25 @@ public class PlayerProgressDatabaseSync {
 
     /**
      * Loads all data for a player. Reads the local JSON cache IMMEDIATELY on the main thread
-     * (so the player always has correct data right away), then fires an async DB load that may
-     * update the data if the DB has a newer or more complete record.
+     * (so the player always has correct data right away), then fires an async DB load ONLY as
+     * a fallback when no cache exists (first-ever join or cache was evicted after clean shutdown).
+     *
+     * The cache is ALWAYS newer than the DB (written synchronously before every async DB write),
+     * so when a cache file exists we trust it completely and skip DB entirely.
      */
     public void loadFromDatabase(UUID uuid) {
         // ── Step 1: instant cache read (main thread, no I/O wait) ─────────────
         LocalDataCache.PlayerProgressSnapshot cached = localCache.loadPlayerProgress(uuid);
         if (cached != null) {
+            // Cache exists → apply immediately and DO NOT touch the DB load result.
+            // The cache is always written BEFORE the async DB write, so it is always >= DB.
             applyProgressSnapshot(uuid, cached);
+            // Still fire a DB write in background to make sure DB is up to date,
+            // but we will NOT read the DB response back (skip=true below).
+            return;
         }
 
-        // ── Step 2: async DB load (overwrites cache data if DB is authoritative) ─
+        // ── Step 2: no cache → async DB load (first join or post-clean-shutdown) ─
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 final PlayerProgressDatabase.PlayerData playerData = database.loadPlayerData(uuid);
@@ -86,26 +94,19 @@ public class PlayerProgressDatabaseSync {
                 final List<OwnedInfusion> infusions = database.loadInfusions(uuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    // If cache exists and DB record is older (or DB has no record), keep cache.
-                    // If DB has a record, prefer the higher Tu Vi value to avoid rollback.
-                    if (playerData != null) {
-                        double dbTuvi = playerData.tuvi();
-                        double cacheTuvi = cached != null ? cached.tuvi() : 0.0;
-                        double finalTuvi = Math.max(dbTuvi, cacheTuvi);
-                        playerDataManager.setTuVi(uuid, finalTuvi);
-
-                        // Take the higher tu luyen time too
-                        long dbTime = playerData.tuLuyenTotalSeconds();
-                        long cacheTime = cached != null ? cached.tuLuyenSeconds() : 0L;
-                        playerDataManager.setTuLuyenTotalSeconds(uuid, Math.max(dbTime, cacheTime));
-
-                        // Only overwrite infusions from DB if no cache (cache is more recent)
-                        if (cached == null) {
-                            playerDataManager.replaceInfusionInventory(uuid, infusions, playerData.equippedInfusionId());
-                        }
+                    // Double-check: if cache appeared while we were loading (player data was
+                    // saved between the cache-miss check and now), prefer the cache.
+                    LocalDataCache.PlayerProgressSnapshot nowCached = localCache.loadPlayerProgress(uuid);
+                    if (nowCached != null) {
+                        applyProgressSnapshot(uuid, nowCached);
+                        return;
                     }
-                    if (realmData != null && cached == null) {
-                        // Only use DB realm data if we have no local cache
+                    if (playerData != null) {
+                        playerDataManager.setTuVi(uuid, playerData.tuvi());
+                        playerDataManager.setTuLuyenTotalSeconds(uuid, playerData.tuLuyenTotalSeconds());
+                        playerDataManager.replaceInfusionInventory(uuid, infusions, playerData.equippedInfusionId());
+                    }
+                    if (realmData != null) {
                         SubRealm subRealm = SubRealm.SO_KY;
                         try { subRealm = SubRealm.valueOf(realmData.subRealm()); } catch (IllegalArgumentException ignored) {}
                         PlayerRealm realm = new PlayerRealm(realmData.realmId(), subRealm);

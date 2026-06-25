@@ -7,6 +7,7 @@ import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.infusion.OwnedInfusion;
 import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
+import com.turtle.tutiencore.core.storage.LocalDataCache;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -726,6 +727,76 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     @Override
     public void setTuVi(UUID uuid, double amount) {
         tuviCache.put(uuid, amount);
+        // Write to JSON cache immediately so data survives fast relog/crash.
+        // Throttled: only write if the value changed by at least 1 point OR it's been 5s since
+        // last write — avoids excessive file I/O during tu luyen (called every interval).
+        writeTuViCacheThrottled(uuid, amount);
+    }
+
+    private final Map<UUID, Long> lastTuViCacheWrite = new HashMap<>();
+    private final Map<UUID, Double> lastTuViCacheValue = new HashMap<>();
+    private static final long TUVI_CACHE_WRITE_INTERVAL_MS = 5000L; // max 1 write per 5s per player
+    private static final double TUVI_CACHE_WRITE_THRESHOLD = 1.0;   // or write if changed by >= 1
+
+    /**
+     * Writes Tu Vi to JSON cache, throttled to avoid excessive disk I/O during tu luyen.
+     * Always writes immediately on manual set (e.g. admin command), throttles during cultivation.
+     */
+    private void writeTuViCacheThrottled(UUID uuid, double tuvi) {
+        if (databaseSync == null) return;
+        LocalDataCache cache = databaseSync.getLocalCache();
+        if (cache == null) return;
+
+        long now = System.currentTimeMillis();
+        long lastWrite = lastTuViCacheWrite.getOrDefault(uuid, 0L);
+        double lastValue = lastTuViCacheValue.getOrDefault(uuid, Double.NaN);
+        double delta = Double.isNaN(lastValue) ? Double.MAX_VALUE : Math.abs(tuvi - lastValue);
+
+        boolean shouldWrite = delta >= TUVI_CACHE_WRITE_THRESHOLD
+                || (now - lastWrite) >= TUVI_CACHE_WRITE_INTERVAL_MS;
+        if (!shouldWrite) return;
+
+        lastTuViCacheWrite.put(uuid, now);
+        lastTuViCacheValue.put(uuid, tuvi);
+        writeTuViCache(uuid, tuvi);
+    }
+
+    /**
+     * Writes only the Tu Vi value to the JSON cache.
+     * Preserves existing realm/infusion/etc data from the cache.
+     */
+    private void writeTuViCache(UUID uuid, double tuvi) {
+        if (databaseSync == null) return;
+        LocalDataCache cache = databaseSync.getLocalCache();
+        if (cache == null) return;
+
+        LocalDataCache.PlayerProgressSnapshot existing = cache.loadPlayerProgress(uuid);
+        int realmId = 1;
+        String subRealm = "SO_KY";
+        int btCount = 0;
+        long btCooldown = 0L;
+        long tuLuyenSeconds = tuLuyenTotalSecondsCache.getOrDefault(uuid, 0L);
+        List<LocalDataCache.InfusionEntry> infusions = new ArrayList<>();
+        String equippedInfId = equippedInfusionIdCache.get(uuid);
+        String playerName = null;
+
+        if (existing != null) {
+            realmId = existing.realmId();
+            subRealm = existing.subRealm();
+            btCount = existing.breakthroughCount();
+            btCooldown = existing.breakthroughCooldown();
+            infusions = existing.infusions();
+            playerName = existing.playerName();
+        } else if (realmManager != null) {
+            PlayerRealm pr = realmManager.getPlayerRealm(uuid);
+            realmId = pr.getRealmId();
+            subRealm = pr.getSubRealm().name();
+            btCount = pr.getBreakthroughCount();
+            btCooldown = pr.getBreakthroughCooldown();
+        }
+
+        cache.savePlayerProgress(uuid, playerName, tuvi, tuLuyenSeconds, equippedInfId,
+                infusions, realmId, subRealm, btCount, btCooldown);
     }
 
     private void syncDatabase(UUID uuid) {
@@ -983,10 +1054,13 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         }
         // Save to DB async then evict caches
         savePlayerAsync(event.getPlayer().getUniqueId());
-        tuviCache.remove(event.getPlayer().getUniqueId());
-        tuLuyenTotalSecondsCache.remove(event.getPlayer().getUniqueId());
-        infusionInventoryCache.remove(event.getPlayer().getUniqueId());
-        equippedInfusionIdCache.remove(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        tuviCache.remove(uuid);
+        tuLuyenTotalSecondsCache.remove(uuid);
+        infusionInventoryCache.remove(uuid);
+        equippedInfusionIdCache.remove(uuid);
+        lastTuViCacheWrite.remove(uuid);
+        lastTuViCacheValue.remove(uuid);
     }
 
     /**
