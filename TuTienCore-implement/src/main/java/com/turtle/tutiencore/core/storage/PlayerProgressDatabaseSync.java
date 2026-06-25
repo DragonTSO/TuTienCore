@@ -94,25 +94,51 @@ public class PlayerProgressDatabaseSync {
                 final List<OwnedInfusion> infusions = database.loadInfusions(uuid);
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    // Double-check: if cache appeared while we were loading (player data was
-                    // saved between the cache-miss check and now), prefer the cache.
+                    // Safety: if player logged out before this async task returned, discard entirely.
+                    if (org.bukkit.Bukkit.getPlayer(uuid) == null) {
+                        return;
+                    }
+
+                    // Double-check: if cache appeared while we were loading, prefer cache.
                     LocalDataCache.PlayerProgressSnapshot nowCached = localCache.loadPlayerProgress(uuid);
                     if (nowCached != null) {
                         applyProgressSnapshot(uuid, nowCached);
                         return;
                     }
+
                     if (playerData != null) {
-                        playerDataManager.setTuVi(uuid, playerData.tuvi());
-                        playerDataManager.setTuLuyenTotalSeconds(uuid, playerData.tuLuyenTotalSeconds());
-                        playerDataManager.replaceInfusionInventory(uuid, infusions, playerData.equippedInfusionId());
+                        double dbTuvi = playerData.tuvi();
+                        double currentTuvi = playerDataManager.getTuVi(uuid);
+                        // NEVER overwrite a higher in-memory value with a lower DB value.
+                        // The DB may be stale (async write not yet committed) or return 0 for
+                        // a new player whose record hasn't been written yet.
+                        if (dbTuvi > currentTuvi) {
+                            playerDataManager.setTuVi(uuid, dbTuvi);
+                        }
+                        long dbTime = playerData.tuLuyenTotalSeconds();
+                        long currentTime = playerDataManager.getTuLuyenTotalSeconds(uuid);
+                        if (dbTime > currentTime) {
+                            playerDataManager.setTuLuyenTotalSeconds(uuid, dbTime);
+                        }
+                        // Only replace infusions if currently empty (first-ever join with no cache)
+                        if (playerDataManager.getInfusionInventory(uuid).isEmpty()) {
+                            playerDataManager.replaceInfusionInventory(uuid, infusions, playerData.equippedInfusionId());
+                        }
                     }
                     if (realmData != null) {
                         SubRealm subRealm = SubRealm.SO_KY;
                         try { subRealm = SubRealm.valueOf(realmData.subRealm()); } catch (IllegalArgumentException ignored) {}
-                        PlayerRealm realm = new PlayerRealm(realmData.realmId(), subRealm);
-                        realm.setBreakthroughCount(realmData.breakthroughCount());
-                        realm.setBreakthroughCooldown(realmData.breakthroughCooldown());
-                        realmManager.setPlayerRealmObject(uuid, realm);
+                        // Only apply realm from DB if current realm is the default (1/SO_KY = fresh player)
+                        com.turtle.tutiencore.api.realm.PlayerRealm currentRealm = realmManager.getPlayerRealm(uuid);
+                        boolean isDefaultRealm = currentRealm.getRealmId() == 1
+                                && currentRealm.getSubRealm() == SubRealm.SO_KY
+                                && currentRealm.getBreakthroughCount() == 0;
+                        if (isDefaultRealm || realmData.realmId() > currentRealm.getRealmId()) {
+                            PlayerRealm realm = new PlayerRealm(realmData.realmId(), subRealm);
+                            realm.setBreakthroughCount(realmData.breakthroughCount());
+                            realm.setBreakthroughCooldown(realmData.breakthroughCooldown());
+                            realmManager.setPlayerRealmObject(uuid, realm);
+                        }
                     }
                 });
             } catch (SQLException e) {
@@ -122,22 +148,42 @@ public class PlayerProgressDatabaseSync {
     }
 
     private void applyProgressSnapshot(UUID uuid, LocalDataCache.PlayerProgressSnapshot snap) {
-        playerDataManager.setTuVi(uuid, snap.tuvi());
-        playerDataManager.setTuLuyenTotalSeconds(uuid, snap.tuLuyenSeconds());
-
-        // Convert cache infusion entries to OwnedInfusion
-        List<OwnedInfusion> infusions = new ArrayList<>();
-        for (LocalDataCache.InfusionEntry e : snap.infusions()) {
-            infusions.add(new OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
+        // Safety: never overwrite a higher in-memory value with a lower snapshot value.
+        // This protects against stale cache from a previous session or an out-of-order callback.
+        double current = playerDataManager.getTuVi(uuid);
+        if (snap.tuvi() > current) {
+            playerDataManager.setTuVi(uuid, snap.tuvi());
         }
-        playerDataManager.replaceInfusionInventory(uuid, infusions, snap.equippedInfusionId());
+        long currentTime = playerDataManager.getTuLuyenTotalSeconds(uuid);
+        if (snap.tuLuyenSeconds() > currentTime) {
+            playerDataManager.setTuLuyenTotalSeconds(uuid, snap.tuLuyenSeconds());
+        }
+        if (playerDataManager.getInfusionInventory(uuid).isEmpty() && !snap.infusions().isEmpty()) {
+            List<OwnedInfusion> infusions = new ArrayList<>();
+            for (LocalDataCache.InfusionEntry e : snap.infusions()) {
+                infusions.add(new OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
+            }
+            playerDataManager.replaceInfusionInventory(uuid, infusions, snap.equippedInfusionId());
+        } else if (!snap.infusions().isEmpty()) {
+            List<OwnedInfusion> infusions = new ArrayList<>();
+            for (LocalDataCache.InfusionEntry e : snap.infusions()) {
+                infusions.add(new OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
+            }
+            playerDataManager.replaceInfusionInventory(uuid, infusions, snap.equippedInfusionId());
+        }
 
         SubRealm subRealm = SubRealm.SO_KY;
         try { subRealm = SubRealm.valueOf(snap.subRealm()); } catch (IllegalArgumentException ignored) {}
-        PlayerRealm realm = new PlayerRealm(snap.realmId(), subRealm);
-        realm.setBreakthroughCount(snap.breakthroughCount());
-        realm.setBreakthroughCooldown(snap.breakthroughCooldown());
-        realmManager.setPlayerRealmObject(uuid, realm);
+        com.turtle.tutiencore.api.realm.PlayerRealm currentRealm = realmManager.getPlayerRealm(uuid);
+        // Apply realm from snapshot if it represents higher progression
+        if (snap.realmId() > currentRealm.getRealmId()
+                || (snap.realmId() == currentRealm.getRealmId()
+                    && subRealm.getOrder() >= currentRealm.getSubRealm().getOrder())) {
+            PlayerRealm realm = new PlayerRealm(snap.realmId(), subRealm);
+            realm.setBreakthroughCount(Math.max(snap.breakthroughCount(), currentRealm.getBreakthroughCount()));
+            realm.setBreakthroughCooldown(snap.breakthroughCooldown());
+            realmManager.setPlayerRealmObject(uuid, realm);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
