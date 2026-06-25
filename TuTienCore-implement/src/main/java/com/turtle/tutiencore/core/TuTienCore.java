@@ -84,6 +84,7 @@ public class TuTienCore {
     private CommandAliasManager commandAliasManager;
     private ThauThiManager thauThiManager;
     private PlayerProgressDatabaseSync databaseSync;
+    private com.turtle.tutiencore.core.storage.LocalDataCache localCache;
     
     private SphereParticleTask sphereParticleTask;
     private TuLuyenParticleTask lineParticleTask;
@@ -160,6 +161,9 @@ public class TuTienCore {
         // Inject managers into API impl so it can delegate calls
         this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
 
+        // ── Local JSON cache (always created, no DB required) ─────────────────
+        this.localCache = new com.turtle.tutiencore.core.storage.LocalDataCache(plugin);
+
         DatabaseSettings databaseSettings = DatabaseSettings.from(plugin.getConfig());
         DatabaseSettings equipmentDbSettings = DatabaseSettings.fromEquipment(plugin.getConfig());
         PlayerProgressDatabase playerProgressDb = null;
@@ -172,16 +176,46 @@ public class TuTienCore {
                 try {
                     DriverManagerDataSource dataSource = new DriverManagerDataSource(databaseSettings);
                     playerProgressDb = new PlayerProgressDatabase(dataSource);
-                    // Initialize tables synchronously so they exist before any player joins
                     playerProgressDb.initialize();
                     plugin.getLogger().info("TuTienCore player database initialized.");
 
-                    this.databaseSync = new PlayerProgressDatabaseSync(plugin, playerDataManager, realmManager, playerProgressDb);
+                    this.databaseSync = new PlayerProgressDatabaseSync(plugin, playerDataManager, realmManager, playerProgressDb, localCache);
                     this.playerDataManager.setDatabaseSync(databaseSync);
                     this.realmManager.setDatabaseSync(databaseSync);
                     this.flySwordManager.setDatabaseSync(databaseSync);
                     this.offlineTuLuyenManager.setDatabaseSync(databaseSync);
                     plugin.getLogger().info("TuTienCore database sync enabled (PRIMARY storage).");
+
+                    // ── Crash recovery: flush leftover JSON cache files into DB ──
+                    final PlayerProgressDatabase finalDb = playerProgressDb;
+                    final PlayerProgressDatabaseSync finalSync = databaseSync;
+                    plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+                        java.util.List<java.util.UUID> pending = localCache.getPendingFlushUUIDs();
+                        if (pending.isEmpty()) return;
+                        plugin.getLogger().info("[LocalDataCache] Flushing " + pending.size() + " leftover cache file(s) to database...");
+                        for (java.util.UUID uuid : pending) {
+                            com.turtle.tutiencore.core.storage.LocalDataCache.PlayerProgressSnapshot snap =
+                                    localCache.loadPlayerProgress(uuid);
+                            if (snap != null) {
+                                try {
+                                    java.util.List<com.turtle.tutiencore.core.infusion.OwnedInfusion> infusions = new java.util.ArrayList<>();
+                                    for (com.turtle.tutiencore.core.storage.LocalDataCache.InfusionEntry e : snap.infusions()) {
+                                        infusions.add(new com.turtle.tutiencore.core.infusion.OwnedInfusion(e.id(), e.typeId(), e.rarityId(), e.createdAt()));
+                                    }
+                                    finalDb.savePlayerData(uuid, snap.playerName(), snap.tuvi(),
+                                            snap.tuLuyenSeconds(), snap.equippedInfusionId());
+                                    finalDb.saveRealmData(uuid, snap.realmId(), snap.subRealm(),
+                                            snap.breakthroughCount(), snap.breakthroughCooldown());
+                                    finalDb.saveInfusions(uuid, infusions);
+                                    finalDb.saveProgress(uuid, snap.playerName(), snap.tuvi(), snap.realmId(), snap.subRealm());
+                                    localCache.evict(uuid);
+                                    plugin.getLogger().info("[LocalDataCache] Flushed progress for " + snap.playerName() + " (" + uuid + ")");
+                                } catch (java.sql.SQLException e) {
+                                    plugin.getLogger().warning("[LocalDataCache] Failed to flush progress for " + uuid + ": " + e.getMessage());
+                                }
+                            }
+                        }
+                    });
                 } catch (java.sql.SQLException e) {
                     plugin.getLogger().severe("Failed to initialize TuTienCore player database: " + e.getMessage());
                 }
@@ -196,12 +230,16 @@ public class TuTienCore {
                     DriverManagerDataSource equipDataSource = new DriverManagerDataSource(equipmentDbSettings);
                     equipmentDb = new EquipmentDatabase(equipDataSource);
                     equipmentDb.initialize();
+                    this.equipmentMenuManager.setLocalCache(localCache);
                     this.equipmentMenuManager.setEquipmentDatabase(equipmentDb);
                     plugin.getLogger().info("Equipment database initialized (PRIMARY storage).");
                 } catch (java.sql.SQLException e) {
                     plugin.getLogger().severe("Failed to initialize equipment database: " + e.getMessage());
                 }
             }
+        } else {
+            // Wire cache even without DB so equipment is protected on no-DB setups
+            this.equipmentMenuManager.setLocalCache(localCache);
         }
 
         // Create migration tool (null-safe if database is not enabled)

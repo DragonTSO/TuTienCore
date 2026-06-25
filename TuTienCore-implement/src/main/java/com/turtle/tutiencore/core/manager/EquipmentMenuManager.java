@@ -120,6 +120,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private int durationSaveCounter;
     private long consumableCounter;
     private EquipmentDatabase equipmentDatabase;
+    private com.turtle.tutiencore.core.storage.LocalDataCache localCache;
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -143,6 +144,10 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayerFromDatabase(player.getUniqueId());
         }
+    }
+
+    public void setLocalCache(com.turtle.tutiencore.core.storage.LocalDataCache localCache) {
+        this.localCache = localCache;
     }
 
     public void reload() {
@@ -243,6 +248,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
         // Capture slot snapshots on the calling (main) thread
         final Map<String, EquipmentDatabase.EquipmentSlotData> slotSnapshots = new HashMap<>();
+        final List<com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSlotEntry> cacheEntries = new ArrayList<>();
         for (String slotId : slots.keySet()) {
             String path = uuid + ".mmo-meta." + slotId;
             String type = data.getString(path + ".type");
@@ -253,6 +259,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                     ? data.getLong(path + ".remaining-seconds", -1L) : -1L;
             long total = data.getLong(path + ".total-seconds", 0L);
             slotSnapshots.put(slotId, new EquipmentDatabase.EquipmentSlotData(item, type, id, remaining, total));
+            cacheEntries.add(new com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSlotEntry(slotId, type, id, remaining, total));
         }
 
         // Capture bound offhand snapshot
@@ -260,8 +267,22 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         final String boType = data.getString(boPath + ".type");
         final String boId = data.getString(boPath + ".id");
 
+        // ── Write to JSON cache SYNCHRONOUSLY (anti-dupe, anti-rollback) ─────
+        if (localCache != null) {
+            localCache.saveEquipment(uuid, cacheEntries,
+                    (boType != null && !boType.isBlank()) ? boType : null,
+                    (boId != null && !boId.isBlank()) ? boId : null);
+        }
+
+        // ── Async DB write ────────────────────────────────────────────────────
         Runnable dbWrite = () -> {
             try {
+                // Delete removed slots first (player may have unequipped some)
+                for (String slotId : slots.keySet()) {
+                    if (!slotSnapshots.containsKey(slotId)) {
+                        equipmentDatabase.deleteEquipmentSlot(uuid, slotId);
+                    }
+                }
                 for (Map.Entry<String, EquipmentDatabase.EquipmentSlotData> entry : slotSnapshots.entrySet()) {
                     EquipmentDatabase.EquipmentSlotData d = entry.getValue();
                     equipmentDatabase.saveEquipmentSlot(uuid, entry.getKey(), d.item(), d.mmoType(), d.mmoId(),
@@ -287,36 +308,62 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
      * Call async then schedule main-thread callback.
      */
     private void loadPlayerFromDatabase(UUID uuid) {
+        // ── Step 1: read JSON cache instantly (main thread) ───────────────────
+        if (localCache != null) {
+            com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSnapshot cached = localCache.loadEquipment(uuid);
+            if (cached != null) {
+                applyEquipmentSnapshot(uuid, cached);
+            }
+        }
+
         if (equipmentDatabase == null) return;
+
+        // ── Step 2: async DB load (overwrites cache if DB says slot is empty) ─
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 Map<String, EquipmentDatabase.EquipmentSlotData> dbSlots = equipmentDatabase.loadEquipment(uuid);
                 EquipmentDatabase.BoundOffhandData dbOffhand = equipmentDatabase.loadBoundOffhand(uuid);
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    // Merge DB values into the in-memory data config so existing path-based code works
+                    // Prefer JSON cache over DB for individual slots
+                    // (cache was written on unequip/equip — it is always newer than DB)
+                    com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSnapshot cached =
+                            localCache != null ? localCache.loadEquipment(uuid) : null;
+                    Set<String> cacheSlotIds = new java.util.HashSet<>();
+                    if (cached != null) {
+                        for (com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSlotEntry e : cached.slots()) {
+                            cacheSlotIds.add(e.slotId());
+                        }
+                    }
+
                     for (Map.Entry<String, EquipmentDatabase.EquipmentSlotData> entry : dbSlots.entrySet()) {
                         String slotId = entry.getKey();
+                        // Skip if cache already has this slot (cache is more recent)
+                        if (cacheSlotIds.contains(slotId)) continue;
                         EquipmentDatabase.EquipmentSlotData d = entry.getValue();
                         String path = uuid + ".mmo-meta." + slotId;
                         data.set(path + ".type", d.mmoType());
                         data.set(path + ".id", d.mmoId());
-                        if (d.remainingSeconds() >= 0) {
-                            data.set(path + ".remaining-seconds", d.remainingSeconds());
-                        }
-                        if (d.totalSeconds() > 0) {
-                            data.set(path + ".total-seconds", d.totalSeconds());
-                        }
-                        // Update identity cache
+                        if (d.remainingSeconds() >= 0) data.set(path + ".remaining-seconds", d.remainingSeconds());
+                        if (d.totalSeconds() > 0) data.set(path + ".total-seconds", d.totalSeconds());
                         slotIdentityCache.computeIfAbsent(uuid, k -> new HashMap<>())
-                                .put(slotId, new SlotIdentity(d.mmoType(), d.mmoId(),
-                                        d.remainingSeconds(), d.totalSeconds()));
+                                .put(slotId, new SlotIdentity(d.mmoType(), d.mmoId(), d.remainingSeconds(), d.totalSeconds()));
                     }
-                    if (dbOffhand != null && dbOffhand.mmoType() != null && dbOffhand.mmoId() != null) {
+                    // Also clear any DB slot that the cache says is empty
+                    for (String slotId : slots.keySet()) {
+                        if (cacheSlotIds.isEmpty()) break; // no cache — trust DB
+                        if (!cacheSlotIds.contains(slotId) && dbSlots.containsKey(slotId)) {
+                            // Cache doesn't have this slot but DB does → player unequipped it
+                            data.set(uuid + ".mmo-meta." + slotId, null);
+                            Map<String, SlotIdentity> playerCache = slotIdentityCache.get(uuid);
+                            if (playerCache != null) playerCache.remove(slotId);
+                        }
+                    }
+                    if (dbOffhand != null && dbOffhand.mmoType() != null && dbOffhand.mmoId() != null
+                            && (cached == null || cached.offhandType() == null)) {
                         String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
                         data.set(path + ".type", dbOffhand.mmoType());
                         data.set(path + ".id", dbOffhand.mmoId());
                     }
-                    // Trigger equipment load now that data is populated
                     pendingSlotRegen.remove(uuid);
                     equipped.remove(uuid);
                     loadPlayer(uuid);
@@ -330,6 +377,36 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
                 plugin.getLogger().warning("Could not load equipment from DB for " + uuid + ": " + e.getMessage());
             }
         });
+    }
+
+    /** Applies an equipment cache snapshot to the in-memory data config immediately. */
+    private void applyEquipmentSnapshot(UUID uuid, com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSnapshot snap) {
+        // Clear all existing mmo-meta for this player first — cache is the ground truth
+        for (String slotId : slots.keySet()) {
+            data.set(uuid + ".mmo-meta." + slotId, null);
+        }
+        for (com.turtle.tutiencore.core.storage.LocalDataCache.EquipmentSlotEntry e : snap.slots()) {
+            String path = uuid + ".mmo-meta." + e.slotId();
+            data.set(path + ".type", e.mmoType());
+            data.set(path + ".id", e.mmoId());
+            if (e.remainingSeconds() >= 0) data.set(path + ".remaining-seconds", e.remainingSeconds());
+            if (e.totalSeconds() > 0) data.set(path + ".total-seconds", e.totalSeconds());
+            slotIdentityCache.computeIfAbsent(uuid, k -> new HashMap<>())
+                    .put(e.slotId(), new SlotIdentity(e.mmoType(), e.mmoId(), e.remainingSeconds(), e.totalSeconds()));
+        }
+        if (snap.offhandType() != null && !snap.offhandType().isBlank()) {
+            String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
+            data.set(path + ".type", snap.offhandType());
+            data.set(path + ".id", snap.offhandId() != null ? snap.offhandId() : "");
+        }
+        // Trigger equipment load immediately from populated data
+        pendingSlotRegen.remove(uuid);
+        equipped.remove(uuid);
+        loadPlayer(uuid);
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null) {
+            applyStats(online);
+        }
     }
 
     /**
