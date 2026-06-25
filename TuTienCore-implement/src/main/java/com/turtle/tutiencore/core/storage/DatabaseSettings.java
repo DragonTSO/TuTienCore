@@ -18,6 +18,20 @@ public record DatabaseSettings(boolean enabled, String type, String host, int po
         );
     }
 
+    /** Reads the equipment-database section of config.yml. */
+    public static DatabaseSettings fromEquipment(FileConfiguration config) {
+        return new DatabaseSettings(
+                config.getBoolean("equipment-database.enabled", false),
+                config.getString("equipment-database.type", "mysql"),
+                config.getString("equipment-database.mysql.host", "localhost"),
+                config.getInt("equipment-database.mysql.port", 3306),
+                config.getString("equipment-database.mysql.database", "tutiencore_trangbi"),
+                config.getString("equipment-database.mysql.username", "root"),
+                config.getString("equipment-database.mysql.password", ""),
+                config.getBoolean("equipment-database.mysql.use-ssl", false)
+        );
+    }
+
     public String jdbcUrl() {
         return "jdbc:mysql://" + host + ":" + port + "/" + database
                 + "?useSSL=" + useSsl + "&characterEncoding=utf8&useUnicode=true";

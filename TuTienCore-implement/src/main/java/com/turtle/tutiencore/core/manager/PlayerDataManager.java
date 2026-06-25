@@ -54,7 +54,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         setup();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
-        // Auto-save online player data periodically to prevent data loss on crash
+        // Auto-save online player data periodically to prevent data loss on crash.
+        // With database-primary mode this is a DB upsert, so keep interval reasonable.
         long intervalSeconds = Math.max(10L, Math.min(600L, plugin.getConfig().getLong("auto-save-interval-seconds", 30L)));
         if (intervalSeconds > 0) {
             long intervalTicks = intervalSeconds * 20L;
@@ -64,7 +65,9 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             plugin.getLogger().warning("PlayerDataManager auto-save is DISABLED! Data will be lost on crash.");
         }
 
-        // Load online players (in case of plugin reload)
+        // Load online players (in case of plugin reload).
+        // Database loads happen after databaseSync is injected via setDatabaseSync(); for a reload
+        // while players are online we trigger an immediate DB load for each online player.
         for (Player player : Bukkit.getOnlinePlayers()) {
             loadPlayer(player.getUniqueId());
         }
@@ -81,6 +84,24 @@ public class PlayerDataManager implements Listener, TuTienAPI {
 
     public void setDatabaseSync(PlayerProgressDatabaseSync databaseSync) {
         this.databaseSync = databaseSync;
+        // If players are already online (reload scenario), trigger DB load for each now that
+        // the database sync is available.
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            databaseSync.loadFromDatabase(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Replaces the in-memory infusion inventory and equipped-infusion-id for a player.
+     * Called from the database load callback (main thread).
+     */
+    public void replaceInfusionInventory(UUID uuid, java.util.List<OwnedInfusion> inventory, String equippedInfusionId) {
+        infusionInventoryCache.put(uuid, new ArrayList<>(inventory));
+        if (equippedInfusionId == null || equippedInfusionId.isBlank()) {
+            equippedInfusionIdCache.remove(uuid);
+        } else {
+            equippedInfusionIdCache.put(uuid, equippedInfusionId);
+        }
     }
 
     private void setup() {
@@ -145,6 +166,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     public void saveAll() {
+        // Flush caches into config for leaderboard reads
         synchronized (configLock) {
             for (Map.Entry<UUID, Double> entry : tuviCache.entrySet()) {
                 config.set(entry.getKey().toString() + ".tuvi", entry.getValue());
@@ -158,25 +180,21 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             for (UUID uuid : uuids) {
                 writeInfusionState(uuid);
             }
-            // Write every loaded player's file synchronously (used on shutdown). Each is a small
-            // single-player serialization rather than one monolithic full-file write.
-            Set<UUID> all = new HashSet<>();
-            for (String key : config.getKeys(false)) {
-                try {
-                    all.add(UUID.fromString(key));
-                } catch (IllegalArgumentException ignored) {
-                    // Non-UUID top-level key; skip.
-                }
-            }
-            for (UUID uuid : all) {
-                writePlayerSync(uuid);
+        }
+        // Save every loaded player to database (blocking, used on shutdown)
+        Set<UUID> all = new HashSet<>();
+        all.addAll(tuviCache.keySet());
+        all.addAll(tuLuyenTotalSecondsCache.keySet());
+        for (UUID uuid : all) {
+            if (databaseSync != null) {
+                databaseSync.syncBlocking(uuid);
             }
         }
     }
 
     /**
      * Auto-save for online players only, called periodically to prevent data loss on crash.
-     * Flushes in-memory caches to config, then writes each online player's file to disk.
+     * Flushes in-memory caches to config (for leaderboard), then saves to database async.
      */
     private void saveOnlinePlayers() {
         synchronized (configLock) {
@@ -191,8 +209,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 if (infusionInventoryCache.containsKey(uuid) || equippedInfusionIdCache.containsKey(uuid)) {
                     writeInfusionState(uuid);
                 }
-                writePlayerSync(uuid);
             }
+        }
+        // DB saves (async per player)
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            syncDatabase(player.getUniqueId());
         }
     }
 
@@ -208,16 +229,13 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
-        if (writePlayerSync(uuid)) {
-            syncDatabase(uuid);
-        }
+        syncDatabase(uuid);
     }
 
     /**
-     * Like {@link #savePlayer(UUID)} but pushes the disk write off the main thread. The cache values
-     * are copied into the config under {@code configLock} on the calling (main) thread, so the
-     * snapshot is consistent; only the file write runs async. Use this on player quit to avoid
-     * blocking the main thread with a YAML write. Do NOT use on shutdown.
+     * Like {@link #savePlayer(UUID)} but uses async DB write.
+     * Use this on player quit to avoid blocking the main thread.
+     * Do NOT use on shutdown.
      */
     public void savePlayerAsync(UUID uuid) {
         synchronized (configLock) {
@@ -232,7 +250,6 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             }
         }
         syncDatabase(uuid);
-        writePlayerAsync(uuid);
     }
 
     public boolean savePlayerSafely(UUID uuid) {
@@ -247,11 +264,8 @@ public class PlayerDataManager implements Listener, TuTienAPI {
                 writeInfusionState(uuid);
             }
         }
-        boolean saved = writePlayerSync(uuid);
-        if (saved) {
-            syncDatabase(uuid);
-        }
-        return saved;
+        syncDatabase(uuid);
+        return true;
     }
 
     /**
@@ -277,6 +291,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
     }
 
     public void loadPlayer(UUID uuid) {
+        // Seed in-memory caches with defaults first (player might be brand new)
         synchronized (configLock) {
             double tuvi = config.getDouble(uuid.toString() + ".tuvi", 0.0);
             tuviCache.put(uuid, tuvi);
@@ -289,6 +304,11 @@ public class PlayerDataManager implements Listener, TuTienAPI {
             } else {
                 equippedInfusionIdCache.put(uuid, state.equippedId());
             }
+        }
+        // Overwrite defaults from database (async — the main thread continues with YAML values
+        // until the DB response arrives, which is typically within one tick on LAN servers)
+        if (databaseSync != null) {
+            databaseSync.loadFromDatabase(uuid);
         }
     }
 
@@ -961,8 +981,7 @@ public class PlayerDataManager implements Listener, TuTienAPI {
         if (isClone(event.getPlayer())) {
             return;
         }
-        // Snapshot + serialize happens synchronously under configLock inside savePlayerAsync; only
-        // the disk write is off-thread, so evicting the caches immediately after is safe.
+        // Save to DB async then evict caches
         savePlayerAsync(event.getPlayer().getUniqueId());
         tuviCache.remove(event.getPlayer().getUniqueId());
         tuLuyenTotalSecondsCache.remove(event.getPlayer().getUniqueId());

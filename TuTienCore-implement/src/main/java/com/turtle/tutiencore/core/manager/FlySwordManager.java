@@ -2,6 +2,7 @@ package com.turtle.tutiencore.core.manager;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
 import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -35,7 +36,6 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -71,6 +71,7 @@ public class FlySwordManager implements Listener {
     // from every per-player file at startup, keyed under players.<uuid> like the legacy layout);
     // setLevel writes only the changed player's file.
     private PerPlayerYamlStore store;
+    private PlayerProgressDatabaseSync databaseSync;
     private BukkitRunnable followTask;
     private EquipmentMenuManager equipmentMenuManager;
 
@@ -120,6 +121,10 @@ public class FlySwordManager implements Listener {
 
     public void setEquipmentMenuManager(EquipmentMenuManager equipmentMenuManager) {
         this.equipmentMenuManager = equipmentMenuManager;
+    }
+
+    public void setDatabaseSync(PlayerProgressDatabaseSync databaseSync) {
+        this.databaseSync = databaseSync;
     }
 
     /**
@@ -377,6 +382,9 @@ public class FlySwordManager implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        // Load fly-sword level from database on join
+        loadLevelFromDatabase(uuid);
         Bukkit.getScheduler().runTaskLater(plugin, () -> applyAutoFlight(event.getPlayer()), 2L);
     }
 
@@ -800,8 +808,8 @@ public class FlySwordManager implements Listener {
             plugin.getDataFolder().mkdirs();
         }
         store = new PerPlayerYamlStore(plugin, "fly-swords");
-        // In-memory aggregate built from every per-player file. Each file keeps the legacy
-        // players.<uuid>.* layout (preserved by the migrator), so getLevel/setLevel paths are unchanged.
+        // In-memory aggregate built from every per-player YAML file (legacy data / migration seed).
+        // Once the databaseSync is injected, individual player loads will be overridden from the DB.
         data = new YamlConfiguration();
         File[] files = store.getFolder().listFiles((dir, name) -> name.endsWith(".yml"));
         if (files != null) {
@@ -816,6 +824,22 @@ public class FlySwordManager implements Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Called after databaseSync is injected to load a player's fly-sword level from the DB.
+     * The async result overwrites the YAML seed value in `data`.
+     */
+    private void loadLevelFromDatabase(UUID uuid) {
+        if (databaseSync == null) return;
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            int level = databaseSync.loadFlySwordLevelBlocking(uuid);
+            if (level >= 1) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    data.set("players." + uuid + ".level", level);
+                });
+            }
+        });
     }
 
     /**
@@ -849,7 +873,13 @@ public class FlySwordManager implements Listener {
 
     private void setLevel(UUID uuid, int level) {
         data.set("players." + uuid + ".level", level);
-        writePlayer(uuid);
+        // Save to database (async)
+        if (databaseSync != null) {
+            databaseSync.saveFlySwordLevel(uuid, level);
+        } else {
+            // Fallback to YAML when DB is not yet injected (should not happen post-init)
+            writePlayer(uuid);
+        }
     }
 
     private String getModelId(Player player) {

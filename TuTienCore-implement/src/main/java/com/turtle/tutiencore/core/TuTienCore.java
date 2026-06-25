@@ -1,7 +1,6 @@
 package com.turtle.tutiencore.core;
 
 import com.turtle.tutiencore.api.TuTien;
-import com.turtle.tutiencore.core.storage.DataMigrator;
 import com.turtle.tutiencore.core.command.CanhGioiCommand;
 import com.turtle.tutiencore.core.command.CommandAliasManager;
 import com.turtle.tutiencore.core.command.DotPhaCommand;
@@ -10,14 +9,14 @@ import com.turtle.tutiencore.core.command.RankupCommand;
 import com.turtle.tutiencore.core.command.TuTienCommand;
 import com.turtle.tutiencore.core.command.TuViCommand;
 import com.turtle.tutiencore.core.config.ConfigManager;
-import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.gui.RealmListGUI;
-import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
-import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
-import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
-import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.hook.LinhDuocDropRateHook;
+import com.turtle.tutiencore.core.hook.MMOCoreActionBarSuppressor;
+import com.turtle.tutiencore.core.hook.MMOItemsMaxHealthPercentHook;
+import com.turtle.tutiencore.core.hook.MMOItemsMMOCoreStatsHook;
+import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
 import com.turtle.tutiencore.core.hook.MythicMobsMoneyBonusHook;
+import com.turtle.tutiencore.core.infusion.InfusionManager;
 import com.turtle.tutiencore.core.manager.ActionBarManager;
 import com.turtle.tutiencore.core.manager.AfkKickManager;
 import com.turtle.tutiencore.core.manager.BreakthroughManager;
@@ -27,15 +26,18 @@ import com.turtle.tutiencore.core.manager.FlySwordManager;
 import com.turtle.tutiencore.core.manager.HotbarCommandItemManager;
 import com.turtle.tutiencore.core.manager.KillRewardHologramManager;
 import com.turtle.tutiencore.core.manager.OfflineTuLuyenManager;
+import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.PlayerHologramManager;
 import com.turtle.tutiencore.core.manager.RealmManager;
 import com.turtle.tutiencore.core.manager.RegionRespawnManager;
 import com.turtle.tutiencore.core.manager.ThauThiManager;
-import com.turtle.tutiencore.core.manager.ZoneManager;
-import com.turtle.tutiencore.core.manager.PlayerDataManager;
 import com.turtle.tutiencore.core.manager.TuLuyenManager;
+import com.turtle.tutiencore.core.manager.ZoneManager;
+import com.turtle.tutiencore.core.storage.DataMigrator;
+import com.turtle.tutiencore.core.storage.DatabaseMigrationTool;
 import com.turtle.tutiencore.core.storage.DatabaseSettings;
 import com.turtle.tutiencore.core.storage.DriverManagerDataSource;
+import com.turtle.tutiencore.core.storage.EquipmentDatabase;
 import com.turtle.tutiencore.core.storage.PlayerProgressDatabase;
 import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 import com.turtle.tutiencore.core.task.SphereParticleTask;
@@ -159,17 +161,53 @@ public class TuTienCore {
         this.playerDataManager.injectManagers(realmManager, breakthroughManager, tuLuyenManager);
 
         DatabaseSettings databaseSettings = DatabaseSettings.from(plugin.getConfig());
+        DatabaseSettings equipmentDbSettings = DatabaseSettings.fromEquipment(plugin.getConfig());
+        PlayerProgressDatabase playerProgressDb = null;
+        EquipmentDatabase equipmentDb = null;
+
         if (databaseSettings.enabled()) {
             if (!"mysql".equalsIgnoreCase(databaseSettings.type())) {
                 plugin.getLogger().warning("Unsupported TuTienCore database.type: " + databaseSettings.type());
             } else {
-                PlayerProgressDatabase database = new PlayerProgressDatabase(new DriverManagerDataSource(databaseSettings));
-                this.databaseSync = new PlayerProgressDatabaseSync(plugin, playerDataManager, realmManager, database);
-                this.playerDataManager.setDatabaseSync(databaseSync);
-                this.realmManager.setDatabaseSync(databaseSync);
-                this.databaseSync.initialize();
+                try {
+                    DriverManagerDataSource dataSource = new DriverManagerDataSource(databaseSettings);
+                    playerProgressDb = new PlayerProgressDatabase(dataSource);
+                    // Initialize tables synchronously so they exist before any player joins
+                    playerProgressDb.initialize();
+                    plugin.getLogger().info("TuTienCore player database initialized.");
+
+                    this.databaseSync = new PlayerProgressDatabaseSync(plugin, playerDataManager, realmManager, playerProgressDb);
+                    this.playerDataManager.setDatabaseSync(databaseSync);
+                    this.realmManager.setDatabaseSync(databaseSync);
+                    this.flySwordManager.setDatabaseSync(databaseSync);
+                    this.offlineTuLuyenManager.setDatabaseSync(databaseSync);
+                    plugin.getLogger().info("TuTienCore database sync enabled (PRIMARY storage).");
+                } catch (java.sql.SQLException e) {
+                    plugin.getLogger().severe("Failed to initialize TuTienCore player database: " + e.getMessage());
+                }
             }
         }
+
+        if (equipmentDbSettings.enabled()) {
+            if (!"mysql".equalsIgnoreCase(equipmentDbSettings.type())) {
+                plugin.getLogger().warning("Unsupported equipment-database.type: " + equipmentDbSettings.type());
+            } else {
+                try {
+                    DriverManagerDataSource equipDataSource = new DriverManagerDataSource(equipmentDbSettings);
+                    equipmentDb = new EquipmentDatabase(equipDataSource);
+                    equipmentDb.initialize();
+                    this.equipmentMenuManager.setEquipmentDatabase(equipmentDb);
+                    plugin.getLogger().info("Equipment database initialized (PRIMARY storage).");
+                } catch (java.sql.SQLException e) {
+                    plugin.getLogger().severe("Failed to initialize equipment database: " + e.getMessage());
+                }
+            }
+        }
+
+        // Create migration tool (null-safe if database is not enabled)
+        DatabaseMigrationTool migrationTool = playerProgressDb != null && equipmentDb != null
+            ? new DatabaseMigrationTool(plugin, playerDataManager, realmManager, equipmentMenuManager, playerProgressDb, equipmentDb)
+            : null;
 
         // Register commands
         // Register /dotpha command
@@ -178,10 +216,10 @@ public class TuTienCore {
             plugin.getCommand("dotpha").setExecutor(dotPhaCommand);
         }
 
-        TuTienCommand commandHandler = new TuTienCommand(tuLuyenManager, zoneManager, configManager, dotPhaCommand,
+        TuTienCommand commandHandler = new TuTienCommand(plugin, tuLuyenManager, zoneManager, configManager, dotPhaCommand,
                 flySwordManager, realmManager, playerHologramManager, actionBarManager,
                 infusionManager, afkKickManager, deathTipManager, regionRespawnManager, equipmentMenuManager,
-                hotbarCommandItemManager, thauThiManager, this::reloadCommandAliases);
+                hotbarCommandItemManager, thauThiManager, migrationTool, this::reloadCommandAliases);
         if (plugin.getCommand("ttc") != null) {
             plugin.getCommand("ttc").setExecutor(commandHandler);
             plugin.getCommand("ttc").setTabCompleter(commandHandler);

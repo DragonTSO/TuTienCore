@@ -3,6 +3,8 @@ package com.turtle.tutiencore.core.manager;
 import com.turtle.tutiencore.api.TuTien;
 import com.turtle.tutiencore.core.config.ConfigManager;
 import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabase;
+import com.turtle.tutiencore.core.storage.PlayerProgressDatabaseSync;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -27,7 +29,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -50,8 +51,9 @@ public class OfflineTuLuyenManager implements Listener {
     private FileConfiguration data;
     private FileConfiguration guiConfig;
     // Per-player file store (data/offline-tuluyen/<uuid>.yml). `data` is an in-memory aggregate
-    // (loaded from every per-player file at startup); save(uuid) writes only that player's file.
+    // (loaded from every per-player file at startup); DB is primary for save/load.
     private PerPlayerYamlStore store;
+    private PlayerProgressDatabaseSync databaseSync;
 
     public OfflineTuLuyenManager(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -60,25 +62,37 @@ public class OfflineTuLuyenManager implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Persists ONE player's offline-cultivation data to {@code data/offline-tuluyen/<uuid>.yml}.
-     * Off-thread while enabled; inline on shutdown.
-     */
-    public void save(UUID uuid) {
-        if (uuid == null) {
-            return;
-        }
-        writePlayer(uuid);
+    public void setDatabaseSync(PlayerProgressDatabaseSync databaseSync) {
+        this.databaseSync = databaseSync;
     }
 
     /**
-     * Writes every loaded player's offline-cultivation file. Used on shutdown; each is a small
-     * single-player write (inline, since the scheduler is being torn down).
+     * Persists ONE player's offline-cultivation data to the database (async).
+     */
+    public void save(UUID uuid) {
+        if (uuid == null) return;
+        if (databaseSync != null) {
+            databaseSync.saveOfflineTuLuyen(
+                    uuid,
+                    data.getDouble(path(uuid, "pending-tuvi"), 0.0),
+                    data.getLong(path(uuid, "last-offline-start"), 0L),
+                    data.getLong(path(uuid, "last-earned-seconds"), 0L),
+                    data.getLong(path(uuid, "last-real-offline-seconds"), 0L),
+                    data.getDouble(path(uuid, "last-earned-multiplier"), 1.0)
+            );
+        } else {
+            // Fallback to YAML while DB is not yet injected
+            writePlayer(uuid);
+        }
+    }
+
+    /**
+     * Saves all loaded players' offline-cultivation data. Used on shutdown.
      */
     public void saveAll() {
         for (String key : data.getKeys(false)) {
             try {
-                writePlayer(UUID.fromString(key));
+                save(UUID.fromString(key));
             } catch (IllegalArgumentException ignored) {
                 // Non-UUID top-level key; skip.
             }
@@ -92,6 +106,7 @@ public class OfflineTuLuyenManager implements Listener {
         }
         UUID uuid = event.getPlayer().getUniqueId();
         pendingResourcePackOpen.remove(uuid);
+        // Record the offline start timestamp in memory and persist to DB
         data.set(path(uuid, "last-offline-start"), System.currentTimeMillis());
         save(uuid);
     }
@@ -101,6 +116,28 @@ public class OfflineTuLuyenManager implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
+        if (databaseSync != null) {
+            // Load from database async, then compute offline earnings on main thread
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+                PlayerProgressDatabase.OfflineTuLuyenData dbData = databaseSync.loadOfflineTuLuyenBlocking(uuid);
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    if (dbData != null) {
+                        // Restore persisted values into the in-memory data map
+                        data.set(path(uuid, "pending-tuvi"), dbData.pendingTuVi());
+                        data.set(path(uuid, "last-offline-start"), dbData.lastOfflineStart());
+                        data.set(path(uuid, "last-earned-seconds"), dbData.lastEarnedSeconds());
+                        data.set(path(uuid, "last-real-offline-seconds"), dbData.lastRealOfflineSeconds());
+                        data.set(path(uuid, "last-earned-multiplier"), dbData.lastEarnedMultiplier());
+                    }
+                    processJoin(player, uuid);
+                });
+            });
+        } else {
+            processJoin(player, uuid);
+        }
+    }
+
+    private void processJoin(Player player, UUID uuid) {
         long startedAt = data.getLong(path(uuid, "last-offline-start"), 0L);
         data.set(path(uuid, "last-offline-start"), null);
 

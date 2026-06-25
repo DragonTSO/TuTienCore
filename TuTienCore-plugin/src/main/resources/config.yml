@@ -1,26 +1,33 @@
 # TuTienCore Configuration
 # Plugin version: 1.0.0
 
-debug: false
+debug: true
 
-# Auto-save interval for player data (Tu Vi, Realm, etc.)
-# Saves online player data periodically to prevent data loss on server crash.
-# Value in seconds. Minimum: 10, Maximum: 600 (10 minutes).
-# Default: 30 seconds. Set to 0 to disable (not recommended).
-auto-save-interval-seconds: 30
-
-# Optional MySQL sync for Pterodactyl databases.
-# This only stores: player name, Tu Vi, major realm, and sub-realm.
-# YAML files still store the full plugin data.
+# MySQL database — LƯU TRỮ CHÍNH cho mọi dữ liệu player:
+# Tu Vi, Tu Luyện time, Infusion, Realm/Cảnh Giới, Fly Sword level, Offline Tu Luyện.
+# YAML chỉ còn là backup / migration seed khi server đổi máy.
 database:
-  enabled: false
+  enabled: true
   type: mysql
   mysql:
-    host: "localhost"
-    port: 3306
-    database: "tutiencore"
-    username: "root"
-    password: ""
+    host: "185.207.166.124"
+    port: 1032
+    database: "s11652_tutiencore"
+    username: "u11652_dhbZBwkVVn"
+    password: "^jDL0.zYjA0IZTL@@Uvb8Wz!"
+    use-ssl: false
+
+# MySQL database riêng cho /trangbi — LƯU TRỮ CHÍNH cho equipment và bound offhand.
+# Lưu mmo-type/mmo-id/duration của từng slot và bound offhand.
+equipment-database:
+  enabled: true
+  type: mysql
+  mysql:
+    host: "185.207.166.124"
+    port: 1032
+    database: "s11652_tutiencore_trangbi"
+    username: "u11652_wVKIMDhVDi"
+    password: "^mVpCoOL=Tl75xaL.SdAa54."
     use-ssl: false
 
 # Settings for the default action bar
@@ -35,80 +42,51 @@ action-bar:
   time-out: 60
 
   # The amount of ticks before updating the info
-  ticks-to-update: 5
+  ticks-to-update: 10
 
   # How to display the data.
-  # Dùng {rotating} để chèn thông điệp xoay vòng (xem action-bar.rotating bên dưới).
-  format: '&f༺ <#f03e5c>❤ {health}/{max_health} &f| <#82cfe8>〄 Linh Lực %TuTienClass_mana_left%/%TuTienClass_max_mana% &f༻'
-
+  format: '{rotating} <#F8F894>❤ {health}/{max_health} &8| <#82cfe8>Linh Lực %TuTienClass_mana_left%/%TuTienClass_max_mana% &8| &aEXP %tutienlevel_exp_short%/%tutienlevel_next_exp_required_short%'
+  # Hien EXP vua nhan tu TuTienLevel ben canh action bar cua TuTienCore.
   # Thông điệp xoay vòng ngẫu nhiên, chèn vào format qua placeholder {rotating}.
   # Mỗi interval-seconds sẽ random sang 1 dòng khác (không lặp lại dòng vừa hiện).
   rotating:
-    enabled: false
-    interval-seconds: 10
+    enabled: true
+    interval-seconds: 20
     messages:
-      - "&f| &e/buy &7| &c❤ &f| &b✦ Mana"
-      - "&f| &e/shop &7| &c❤ &f| &b✦ Mana"
-      - "&f| &e/daily &7| &7Nhận quà mỗi ngày"
-      - "&f| &e/rank &7| &7Xem bảng xếp hạng"
-
-  # Hiện EXP vừa nhận từ TuTienLevel bên cạnh action bar của TuTienCore.
+      - "&e/menu &8|"
+      - "&e/tuluyen &8|"
+      - "&e/dotpha &8|"
+      - "&e/bicanh &8|"
+      - "&e/warp &8|"
+      - "&e/rank &8|"
+      - "&e/xu &8|"
+      - "&e/tuyendung &8|"
   exp-gain:
     enabled: true
-    # Thời gian hiện sau mỗi lần nhận EXP (ticks).
+    # Thoi gian hien sau moi lan nhan EXP (ticks).
     duration-ticks: 40
     # Placeholder: {exp}, {exp_formatted}, {source}, {mob}
-    format: " &8| &a+{exp_formatted} EXP"
-    # Mặc định chỉ hiện EXP kill MythicMob/quái từ TuTienLevel.
-    # Để [] nếu muốn hiện mọi nguồn EXP TuTienLevel (api, command, ...).
+    format: ' &8| &a+{exp_formatted} EXP'
+    # Mac dinh chi hien EXP kill MythicMob/quai tu TuTienLevel.
+    # De [] neu muon hien moi nguon EXP TuTienLevel (api, command, ...).
     source-prefixes:
-      - "MythicMob:"
-  # Hiện Linh Thạch vừa nhận từ MythicMobs money drop bên cạnh action bar.
+    - 'MythicMob:'
   money-gain:
     enabled: false
-    # Thời gian hiện sau mỗi lần nhận money (ticks).
+    # Thoi gian hien sau moi lan nhan money (ticks).
     duration-ticks: 40
-    # {money} là tổng money cuối cùng sau bonus rank.
+    # {money} la tong money cuoi cung sau bonus rank.
     # Placeholder: {money}, {money_formatted}, {base_money}, {base_money_formatted},
     # {bonus_money}, {bonus_money_formatted}, {bonus_percent}, {source}, {mob}
-    format: " &8| &6+{money_formatted} Linh Thạch"
-
-# Configurable command aliases.
-# Set aliases: [] to disable aliases for a command.
-commands:
-  ttc:
-    aliases: []
-  tuluyen:
-    aliases: [tl]
-  dotpha:
-    aliases: [dp]
-  canhgioi:
-    aliases: [realm]
-  tuvi:
-    aliases: []
-  thauthi:
-    aliases: []
-
-mythicmobs-money-bonus:
-  enabled: true
-  # Áp dụng cho money drop native của MythicMobs, ví dụ: "- money 100-300 1".
-  # Permission dạng: tutiencore.mythicmoney.bonus.<phan_tram>
-  permission-prefix: "tutiencore.mythicmoney.bonus."
-  # true = cộng tất cả permission bonus tiền của player.
-  # false = chỉ lấy permission bonus cao nhất.
-  stack: true
-  debug: false
-
-# Hologram fade khi kill quái, giống popup EXP của TuTienLevel.
-# Text hiện tại dùng money sau khi đã cộng bonus rank/VIP.
+    format: ' &8| &6+{money_formatted} Linh Thạch'
 kill-reward-hologram:
   enabled: true
-  y-offset: 1.35
+  y-offset: 1
   x-offset: 0.0
   z-offset: 0.0
   random-xz-radius: 0.25
   rise: 0.8
-  duration-ticks: 35
+  duration-ticks: 50
   start-opacity: 255
   end-opacity: 0
   shadow: true
@@ -117,32 +95,73 @@ kill-reward-hologram:
   money:
     enabled: true
     # Placeholder: %money%, %money_formatted%, %base_money%, %bonus_money%, %bonus_percent%, %mob%, %player%
-    text: "&6+%money_formatted% Linh Thạch"
-
+    text: '&6+%base_money% &8(&f%bonus_money%&8) &fLT ꐓ'
+# Item khóa trên hotbar: bấm phím slot để chạy command, không thể drop/kéo/đổi tay.
+hotbar-command-items:
+  enabled: true
+  # true = nếu slot đã có item khác thì trả item đó vào túi rồi đặt item khóa.
+  replace-existing: true
+  restore-delay-ticks: 2
+  trigger:
+    on-select: true
+    # true = bấm phím chỉ chạy lệnh, không chuyển tay sang item khóa.
+    cancel-select: true
+    cooldown-ticks: 10
+  messages:
+    no-permission: '&cBạn không có quyền dùng nút này.'
+  items:
+    skill-upgrade:
+      enabled: false
+      # Slot hotbar 1-9. Slot 8 = phím 8.
+      slot: 8
+      material: NETHER_STAR
+      custom-model-data: 0
+      hide-attributes: true
+      name: '&bNâng Cấp Thần thông'
+      lore:
+      - '&7Bấm phím &e8 &7để mở nâng cấp thần thông.'
+      - '&7Lệnh: &f%command%'
+      - ''
+      - '&cKhông thể vứt hoặc di chuyển.'
+      command: nangcapskill
+      as-console: false
+      permission: ''
+    menu:
+      enabled: false
+      # Slot 9 = phím 9.
+      slot: 9
+      material: COMPASS
+      custom-model-data: 0
+      hide-attributes: true
+      name: '&6Menu'
+      lore:
+      - '&7Bấm phím &e9 &7để mở menu trang bị.'
+      - '&7Lệnh: &f%command%'
+      - ''
+      - '&cKhông thể vứt hoặc di chuyển.'
+      command: menu
+      as-console: false
+      permission: tutiencore.use
 player-hologram:
   enabled: true
-  # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay passenger above the player.
-  hide-vanilla-name: true
-  # true = if Nexo is installed, skip ttc_hide_names team packets to avoid packet transformer errors.
-  disable-name-team-packets-when-nexo: true
-  # Hide this player nametag while the /tuluyen FancyHolograms hologram is active.
   hide-while-tuluyen-hologram: true
-  # Hide this player's info hologram while they are in spectator mode.
+  disable-name-team-packets-when-nexo: false
+  # Hides the vanilla player nameplate by packet team data and uses a fake packet TextDisplay below instead.
+  hide-vanilla-name: true
   hide-while-spectator: true
   # Show the hologram to its owner too. false = only other players see it.
-  show-self: false
-  # Final height above player feet. Tune this if hats/models overlap.
-  y-offset: 2.55
-  # Client passenger anchor for a standing player. y-offset - passenger-base-offset becomes the TextDisplay translation.
+  show-self: true
+  # Position above player feet. Tune this if hats/models overlap.
+  y-offset: 1.5
   passenger-base-offset: 1.35
-  update-interval: 5
-  teleport-duration: 2
-  view-range: 32.0
+  update-interval: 0
+  teleport-duration: 1
+  view-range: 20.0
   scale: 1.0
   spawn-animation:
     enabled: true
-    start-scale: 0.82
-    start-opacity: 40
+    start-scale: 0.2
+    start-opacity: 10
     interpolation-duration: 1
     start-delay-ticks: 1
   line-width: 200
@@ -159,60 +178,52 @@ player-hologram:
   # {tuvi}, {tuvi_int}, {tuvi_formatted}, {tuvi_compact}, {next_tuvi}, {next_tuvi_int},
   # {next_tuvi_formatted}, {next_tuvi_compact}, {realm}, {realm_full}, {sub_realm}, {realm_tier}, {world}
   lines:
-    - "&8[&6*&8] &f{player}"
-    - "&7{realm_full}"
-    - "&fTu Vi: &a{tuvi_compact}"
-
+  - '&f{player}'
+  - '&c{health_int}/{max_health_int}❤'
 tu-luyen:
-  # Thời gian (tick) để nhận Tu Vi (20 ticks = 1 giây)
+  # Thoi gian (tick) de nhan Tu Vi (20 ticks = 1 giay)
   interval: 100
+  # Khoang cach toi da tu cuc linh khi (blocks) de co the /tuluyen
   # Tần suất (tick) tính lại số Tu Vi xem trước hiển thị trên bossbar/hologram khi đang tu luyện.
   # Chỉ ảnh hưởng phần HIỂN THỊ, không ảnh hưởng Tu Vi thực nhận. Tăng số này để giảm tải MSPT/TPS
   # khi nhiều người tu luyện cùng lúc (mặc định 20 = mỗi giây cập nhật 1 lần).
-  preview-refresh-ticks: 20
-  # Khoảng cách tối đa từ cực linh khí (blocks) để có thể /tuluyen
+  preview-refresh-ticks: 40
   max-distance: 10.0
-  # Điểm Tu Vi nhận được mỗi lần.
-  points-per-interval: 10
-  # true = cộng tất cả permission tutiencore.tuvi.bonus.* của player.
-  # false = chỉ lấy permission bonus cao nhất.
+  # Diem Tu Vi nhan duoc moi lan. Co the dung so co dinh (10) hoac random range (5-10).
+  points-per-interval: 5-10
+  # true = cong tat ca permission tutiencore.tuvi.bonus.* cua player.
+  # false = chi lay permission bonus cao nhat.
   permission-bonus:
     stack: true
-  # Mỗi lần đột phá thành công (đại cảnh giới + tiểu cảnh giới) cộng dồn thêm % bonus Tu Vi khi tu luyện.
-  # Ví dụ: percent-per-breakthrough = 2 => sau 10 lần đột phá player nhận +20% Tu Vi.
+  # Command de cho diem Tu Vi, su dung %player% cho ten, va %points% cho so luong
+  give-command: eco give %player% %points%
   breakthrough-bonus:
     enabled: true
     # % bonus cộng thêm cho mỗi lần đột phá thành công.
-    percent-per-breakthrough: 2.0
+    percent-per-breakthrough: 25.0
     # Giới hạn tối đa % bonus cộng dồn. 0 = không giới hạn.
     max-percent: 0.0
-  # Thời tiết ảo của TuTienForge có thể cộng % bonus Tu Vi khi tu luyện (toàn server).
-  # Giá trị % được cấu hình trong TuTienForge config.yml (virtual-weather.weathers.<id>.tuvi-bonus).
-  # Đặt enabled: false để bỏ qua bonus thời tiết kể cả khi TuTienForge đang chạy.
-  weather-bonus:
-    enabled: true
-  # Command để cho điểm Tu Vi, sử dụng %player% cho tên, và %points% cho số lượng
-  give-command: "eco give %player% %points%"
-  # Tỉ lệ Thiên Lôi ảo đánh xuống khi nhận Tu Vi. Nếu trúng, điểm Tu Vi lần đó được nhân multiplier.
-  # strikeLightningEffect chỉ hiện hiệu ứng/sound, không gây sát thương và không tạo lửa.
+  # Ti le Thien Loi ao danh xuong khi nhan Tu Vi. Neu trung, diem Tu Vi lan do duoc nhan multiplier.
+  # strikeLightningEffect chi hien hieu ung/sound, khong gay sat thuong va khong tao lua.
+  sounds:
+    interval-reset:
+      enabled: true
+      # Ho tro ca Bukkit Sound enum va custom sound tu resource pack.
+      # Vi du: ENTITY_EXPERIENCE_ORB_PICKUP hoac yourpack:tu_luyen_cycle
+      sound: block.beacon.activate
+      category: MASTER
+      volume: 1.0
+      pitch: 0.8
   lightning-bonus:
     enabled: true
     chance-percent: 20.0
     multiplier: 2.0
-  sounds:
-    interval-reset:
-      enabled: true
-      # Hỗ trợ cả Bukkit Sound enum và custom sound từ resource pack.
-      # Ví dụ: ENTITY_EXPERIENCE_ORB_PICKUP hoặc yourpack:tu_luyen_cycle
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      category: MASTER
-      volume: 1.0
-      pitch: 1.15
   bossbar:
     enabled: false
     color: BLUE
     style: SEGMENTED_10
-    title: "&bTu Vi sắp nhận: &e{base} &7+ &aBonus {bonus}% &7+ &dMôi Trường {environment}% &7= &6{total}"
+    title: '&fTu Vi sắp nhận &6{total} &8| &fCó thể đột phá: %tutien_dotpha_ready%
+      &8(/dotpha) &8|&f %tutien_tuvi_compact%&8/&6%tutien_dotpha_next_tuvi_required%'
   hologram:
     enabled: true
     # Requires FancyHolograms. Hologram is created when /tuluyen starts and removed when it stops.
@@ -220,31 +231,27 @@ tu-luyen:
     scale: 1.0
     spawn-animation:
       enabled: true
-      start-scale: 0.82
-      start-opacity: 40
+      start-scale: 0.2
+      start-opacity: 10
       interpolation-duration: 1
       start-delay-ticks: 1
     visibility-distance: 32
     update-interval: 20
     text-shadow: true
     see-through: false
-    # Placeholders: {bonus}=quyền+Tiên Phù, {infusion}=Lửa Thần, {total_bonus}=bonus+Lửa Thần, {all_bonus}=total_bonus+môi trường+thời tiết, {weather_bonus}=thời tiết.
     lines:
-      - "&eTrạng thái: &aBế quan tu luyện"
-      - ""
-      - "&fCơ bản: &b+{base}"
-      - ""
-      - "&aBonus: &a+{total_bonus}%"
-      - "&5Lửa Thần: &d+{infusion}%"
-      - "&dMôi Trường Tu Luyện: &d+{environment}%"
-      - "&bThời Tiết: &b+{weather_bonus}%"
-      - "&6Tu Vi Thực Nhận: &6+{total}"
+    - '&bThời Tiết: &b+{weather_bonus}%'
+    - '&fBonus: &a+{total_bonus}%'
+    - '&5Lửa Thần: &d+{infusion}%'
+    - '&fTu vi: &6+{total} &8| &f%tutien_dotpha_ready%'
+    - '&f%tutien_tuvi_int%&8/&6%tutien_dotpha_next_tuvi_required%'
+    - '%tutien_canhgioi_full%'
     team-bonus:
       enabled: true
-      # Hiện khi BetterteamsAddon báo player có đồng đội cùng /tuluyen trong phạm vi.
+      # Hien khi BetterteamsAddon bao player co dong doi cung /tuluyen trong pham vi.
       # Placeholder: {team_bonus}, {team_multiplier}
       lines:
-        - "&aTông môn: &f+{team_bonus}%"
+      - '&aTông môn: &f+{team_bonus}%'
   environment-bonus:
     worlds: {}
     regions: {}
@@ -252,8 +259,8 @@ tu-luyen:
 offline-tuluyen:
   # Player có permission này nhận 100% Tu Vi offline.
   # Player thường vẫn được tích Tu Vi offline, nhưng chỉ nhận theo default-multiplier.
-  permission: "tutiencore.tuluyen.vip"
-  # Offline reward dùng points-per-interval bên trên, nhưng mỗi 60 giây offline mới tính 1 lần.
+  permission: tutiencore.tuluyen.vip
+  # Offline reward dung points-per-interval ben tren, nhung moi 60 giay offline moi tinh 1 lan.
   interval-seconds: 60
   # 0.5 = player thường nhận 50% Tu Vi offline.
   default-multiplier: 0.5
@@ -270,130 +277,106 @@ offline-tuluyen:
     delay-ticks: 20
     # Nếu server/client không gửi trạng thái resource pack, tự mở sau delay này để khỏi kẹt.
     fallback-delay-ticks: 300
-  # Chi phí PlayerPoints khi claim x2.
-  claim-x2-cost: 100
+  # Chi phi PlayerPoints khi claim x2.
+  claim-x2-cost: 0
   claim-x2:
-    # true = player phải có permission thuê tháng mới được bấm nhận x2.
-    # Ví dụ LuckPerms thuê 30 ngày:
+    # true = player phai co permission thue thang moi duoc bam nhan x2.
+    # Vi du LuckPerms thue 30 ngay:
     # /lp user <player> permission settemp tutiencore.tuluyen.offline.x2 true 30d
     require-permission: true
     permission: "tutiencore.tuluyen.offline.x2"
-
-# Kick người chơi AFK theo rank VIP.
-# Plugin lấy rank cao nhất mà player có permission theo dạng:
-#   tutiencore.vip.0, tutiencore.vip.1, tutiencore.vip.2...
-# VIP 0 là rank mặc định cho mọi người chơi nếu không có permission VIP cao hơn.
 afk-kick:
   enabled: true
-  permission-prefix: "tutiencore.vip."
-  bypass-permission: "tutiencore.afk.bypass"
+  permission-prefix: tutiencore.vip.
+  bypass-permission: tutiencore.afk.bypass
   default-rank: 0
   check-interval: 1s
   # Đứng yên/không đánh/không click trong thời gian này mới bắt đầu bị tính AFK.
   afk-start-after: 10s
-  kick-message: "&cBạn đã AFK quá lâu. Hãy quay lại khi sẵn sàng tiếp tục tu luyện."
+  kick-message: '&cBạn đã AFK quá lâu. Hãy quay lại khi sẵn sàng tiếp tục tu luyện.'
   title:
     enabled: true
-    title: "&6&lĐang AFK"
-    subtitle: "&eCòn &c%time% &enữa sẽ bị rời khỏi máy chủ."
+    title: '&6&lĐang AFK'
+    subtitle: '&eCòn &c%time% &enữa sẽ bị rời khỏi máy chủ.'
     fade-in: 5
     stay: 45
     fade-out: 10
-    repeat-interval: 10s
+    repeat-interval: 1s
   warning:
     enabled: true
     before-kick: 30s
-    message: "&eBạn đang AFK quá lâu. Còn &c%time% &enữa sẽ bị rời khỏi máy chủ."
+    message: '&eBạn đang AFK quá lâu. Còn &c%time% &enữa sẽ bị rời khỏi máy chủ.'
   activity:
     # true = chỉ xoay camera không tính là hoạt động, phải di chuyển/chat/click/chạy lệnh.
     ignore-look-only: true
     movement-threshold: 0.08
   ranks:
-    0:
-      permission: ""
+    '0':
+      permission: ''
       kick-after: 10m
-    1:
-      permission: "tutiencore.vip.1"
+    '1':
+      permission: tutiencore.vip.1
       kick-after: 30m
-    2:
-      permission: "tutiencore.vip.2"
+    '2':
+      permission: tutiencore.vip.2
       kick-after: 1h
-    3:
-      permission: "tutiencore.vip.3"
+    '3':
+      permission: tutiencore.vip.3
       kick-after: 2h
-    4:
-      permission: "tutiencore.vip.4"
+    '4':
+      permission: tutiencore.vip.4
       kick-after: never
-    5:
-      permission: "tutiencore.vip.5"
+    '5':
+      permission: tutiencore.vip.5
       kick-after: never
-
 # ==========================================
 # PERMISSIONS
 # ==========================================
-# tutiencore.use               - Cho phép /tuluyen và /dotpha (default: true)
-# tutiencore.admin             - Quyền admin: /canhgioi, /tuvi (default: op)
-# tutiencore.tuluyen.vip       - Tích Tu Vi offline và mở GUI claim khi vào lại server
+# tutiencore.use               - Cho phep /tuluyen va /dotpha (default: true)
+# tutiencore.admin             - Quyen admin: /canhgioi, /tuvi (default: op)
 #
-# Tu Vi Bonus (buff điểm thu thập Tu Vi khi tu luyện):
+# Tu Vi Bonus (buff diem thu thap Tu Vi khi tu luyen):
 #   tutiencore.tuvi.bonus.<phan_tram>
 #   VD:
-#     tutiencore.tuvi.bonus.20   → +20% Tu Vi (10 điểm → 12 điểm)
-#     tutiencore.tuvi.bonus.50   → +50% Tu Vi (10 điểm → 15 điểm)
-#     tutiencore.tuvi.bonus.100  → +100% Tu Vi (10 điểm → 20 điểm)
+#     tutiencore.tuvi.bonus.20   → +20% Tu Vi (10 diem → 12 diem)
+#     tutiencore.tuvi.bonus.50   → +50% Tu Vi (10 diem → 15 diem)
+#     tutiencore.tuvi.bonus.100  → +100% Tu Vi (10 diem → 20 diem)
 #
-#   Mặc định tu-luyen.permission-bonus.stack: true sẽ CỘNG DỒN tất cả giá trị hợp lệ.
-#   VD: có tutiencore.tuvi.bonus.30 và tutiencore.tuvi.bonus.50 → +80% Tu Vi.
-#   Nếu stack: false thì chỉ lấy permission cao nhất → +50% Tu Vi.
+#   Neu player co nhieu bonus perm → lay gia tri CAO NHAT.
 #
 #   LuckPerms setup:
 #     /lp group vip permission set tutiencore.tuvi.bonus.20
 #     /lp group svip permission set tutiencore.tuvi.bonus.50
 #     /lp group mvp permission set tutiencore.tuvi.bonus.100
-#
-# MythicMobs Money Bonus:
-#   tutiencore.mythicmoney.bonus.<phan_tram>
-#   Áp dụng cho drop MythicMobs dạng "- money 100-300 1".
-#   VD: mob drop 300, player có tutiencore.mythicmoney.bonus.20 -> nhận thêm 60.
-#   mythicmobs-money-bonus.stack: true sẽ cộng dồn nhiều permission, false chỉ lấy cao nhất.
 
 # ==========================================
 # PLACEHOLDERS
 # ==========================================
-# Bạn có thể sử dụng các Placeholder thông qua PlaceholderAPI:
-# 
-# Thông tin cá nhân (Single Player):
-# %tutien_tuvi%            - Tu Vi nguyên gốc (VD: 15.5)
-# %tutien_tuvi_int%        - Tu Vi số nguyên (VD: 15)
-# %tutien_tuvi_formatted%  - Tu Vi có dấu phẩy (VD: 1,500)
-# %tutien_tuvi_compact%    - Tu Vi dạng gọn (VD: 1.5k, 2M)
+# Ban co the su dung cac Placeholder thong qua PlaceholderAPI:
 #
-# Thời gian tu luyện:
-# %tutien_tuluyen_active%          - true/false đang /tuluyen
-# %tutien_tuluyen_time_seconds%    - Tổng thời gian tu luyện, tính bằng giây
-# %tutien_tuluyen_time%            - Tổng thời gian dạng HH:mm:ss
-# %tutien_tuluyen_time_compact%    - Tổng thời gian rút gọn, ví dụ 1h 20m
-# %tutien_tuluyen_session_seconds% - Thời gian phiên /tuluyen hiện tại, tính bằng giây
-# %tutien_tuluyen_session_time%    - Thời gian phiên hiện tại dạng HH:mm:ss
-# %tutien_tuluyen_session_compact% - Thời gian phiên hiện tại rút gọn
-# 
-# Cảnh Giới (Realm):
-# %tutien_canhgioi_full%   - ★ CHÍNH: display-name từ realms.yml (VD: §a「Luyện Khí」)
-# %tutien_canhgioi%        - Tên không màu (VD: Luyện Khí)
-# %tutien_canhgioi_id%     - Số thứ tự (VD: 2)
-# %tutien_canhgioi_tang%   - Tầng nhỏ hiện tại (VD: Đỉnh Phong)
-# %tutien_canhgioi_daigioi% - Đại giới (VD: Phàm Giới)
-# %tutien_canhgioi_english% - Tên tiếng Anh (VD: Qi Refinement)
-# %tutien_dotpha_cooldown% - Cooldown đột phá còn lại (giây)
-# %tutien_dotpha_ready%    - Sẵn sàng đột phá? (true/false)
-# %tutien_dotpha_next_tuvi_required% - Tu Vi cần cho đột phá tiếp theo
-# 
-# Thông tin bảng xếp hạng (Leaderboard) (Nơi X là vị trí hạng):
-# %tutien_top_name_X%            - Tên người chơi hạng X (VD: %tutien_top_name_1%)
-# %tutien_top_tuvi_X%            - Tu Vi của hạng X (Số gốc)
-# %tutien_top_tuvi_int_X%        - Tu Vi của hạng X (Số nguyên)
-# %tutien_top_tuvi_formatted_X%  - Tu Vi của hạng X (Có dấu phẩy)
-# %tutien_top_tuvi_compact_X%    - Tu Vi của hạng X (Dạng gọn)
+# Thong tin ca nhan (Single Player):
+# %tutien_tuvi%            - Tu Vi nguyen goc (VD: 15.5)
+# %tutien_tuvi_int%        - Tu Vi so nguyen (VD: 15)
+# %tutien_tuvi_formatted%  - Tu Vi co dau phay (VD: 1,500)
+# %tutien_tuvi_compact%    - Tu Vi dang gon (VD: 1.5k, 2M)
+#
+# Canh Gioi (Realm):
+# %tutien_canhgioi_full%   - ★ CHINH: display-name tu realms.yml (VD: §a「Luyen Khi」)
+# %tutien_canhgioi%        - Ten khong mau (VD: Luyen Khi)
+# %tutien_canhgioi_id%     - So thu tu (VD: 2)
+# %tutien_canhgioi_tang%   - Tang nho hien tai (VD: Dinh Phong)
+# %tutien_canhgioi_daigioi% - Dai gioi (VD: Pham Gioi)
+# %tutien_canhgioi_english% - Ten tieng Anh (VD: Qi Refinement)
+# %tutien_dotpha_cooldown% - Cooldown dot pha con lai (giay)
+# %tutien_dotpha_ready%    - San sang dot pha? (true/false)
+# %tutien_dotpha_next_tuvi_required% - Tu Vi can cho dot pha tiep theo
+#
+# Thong tin bang xep hang (Leaderboard) (Noi X la vi tri hang):
+# %tutien_top_name_X%            - Ten nguoi choi hang X (VD: %tutien_top_name_1%)
+# %tutien_top_tuvi_X%            - Tu Vi cua hang X (So goc)
+# %tutien_top_tuvi_int_X%        - Tu Vi cua hang X (So nguyen)
+# %tutien_top_tuvi_formatted_X%  - Tu Vi cua hang X (Co dau phay)
+# %tutien_top_tuvi_compact_X%    - Tu Vi cua hang X (Dang gon)
 # ==========================================
 
 placeholders:
@@ -405,36 +388,30 @@ placeholders:
     # Placeholder them cho top-format: {rank}, {name}.
     top-format: "&e#{rank} &f{name} &7- &a{compact}"
     empty-name: "---"
-  dotpha-ready:
-    # Output của %tutien_dotpha_ready% khi người chơi đủ điều kiện đột phá.
-    ready-display-name: "V"
-    # Output của %tutien_dotpha_ready% khi người chơi chưa đủ điều kiện đột phá.
-    not-ready-display-name: "X"
-  dotpha-next-tuvi-required:
-    # Output của %tutien_dotpha_next_tuvi_required%.
-    # Placeholder hỗ trợ: {value} = số Tu Vi cần, đã format dấu phẩy.
-    display-name: "{value}"
-
   # Định dạng dòng lore của Đột Phá Đan trong Menu Đột Phá
   # Hỗ trợ placeholder: {status}, {have}, {required}
   dot-pha-dan-lore-format: " {status} &7Đột Phá Đan: &b{have} &7/ &e{required}"
-  dot-pha-dan-empty-lore: "{_REMOVE_LINE_}"
-
-  # Dòng lore hiển thị bonus Tu Vi tu luyện cộng dồn sau khi đột phá thành công.
-  # Hỗ trợ placeholder: {breakthrough_bonus_current}, {breakthrough_bonus_next},
-  #                     {breakthrough_bonus_gain}, {breakthrough_bonus_per}
-  breakthrough-bonus-lore-format: " &d✦ &7Tu Vi tu luyện: &a+{breakthrough_bonus_current}% &7→ &a+{breakthrough_bonus_next}% &7(&b+{breakthrough_bonus_gain}%&7)"
+  dot-pha-dan-empty-lore: ""
+  breakthrough-bonus-lore-format: " &7Tu Vi tu luyện: &a+{breakthrough_bonus_current}% &7→ &a+{breakthrough_bonus_next}% &7(&b+{breakthrough_bonus_gain}%&7)"
   breakthrough-bonus-empty-lore: "{_REMOVE_LINE_}"
-
   # Định dạng tiêu đề và từng dòng lore nguyên liệu trong Menu Đột Phá
   materials-header-lore: "&8ʏêᴜ ᴄầᴜ ᴠậᴛ ᴘʜẩᴍ ᴋʜáᴄ:"
   # Hỗ trợ placeholder: {status}, {display}, {have}, {required}
   materials-lore-format: " {status} &7{display}: &b{have} &7/ &e{required}"
-  materials-empty-lore: "{_REMOVE_LINE_}"
+  materials-empty-lore: ""
+  dotpha-ready:
+    # Output cua %tutien_dotpha_ready% khi nguoi choi du dieu kien dot pha.
+    ready-display-name: '&a✔'
+    # Output cua %tutien_dotpha_ready% khi nguoi choi chua du dieu kien dot pha.
+    not-ready-display-name: <#B33434>❌
+  dotpha-next-tuvi-required:
+    # Output cua %tutien_dotpha_next_tuvi_required%.
+    # Placeholder ho tro: {value} = so Tu Vi can, da format dau phay.
+    display-name: '{value}'
 
 particles:
   sphere:
-    # Có bật sphere particle không
+    # Co bat sphere particle khong
     enabled: true
     interval: 5
     radius: 1.0
@@ -452,22 +429,20 @@ particles:
       b: 255
 
 # ==========================================
-# HIỆU ỨNG TU LUYỆN (Cultivation Effects)
+# HIEU UNG TU LUYEN (Cultivation Effects)
 # ==========================================
-# Cấu hình hiệu ứng khi người chơi tu luyện
-# Mỗi layer có thể bật/tắt riêng lẻ
+# Cau hinh hieu ung khi nguoi choi tu luyen
+# Moi layer co the bat/tat rieng le
 cultivation-effects:
-  # Chỉ tạo particle khi có người chơi trong bán kính này (block). Tối ưu hiệu năng:
-  # không người xem thì task bỏ qua hoàn toàn, không tốn CPU dựng hình.
-  view-distance: 48
   # Màu chủ đạo (Cyan/Xanh dương)
+  view-distance: 12
   primary-color:
     r: 0
     g: 220
     b: 255
   # Double Helix - Vòng xoay năng lượng quanh người
   helix:
-    enabled: true
+    enabled: false
   # Spirit Gate Rays - vong tron nho o xa player roi phong ray vao player
   rays:
     enabled: true
@@ -507,102 +482,91 @@ cultivation-effects:
     enabled: false
 
 # ==========================================
-# MAU PARTICLE /TULUYEN
+# MAU PARTICLE THEO CLASS (MMOCore)
 # ==========================================
-# Khi player /tuluyen, particle sẽ tự động đổi màu theo color của cảnh giới hiện tại trong realms.yml.
-# class-colors giữ lại để tránh phá config cũ, hiện không dùng cho /tuluyen.
+# Khi player /tuluyen, particle se tu dong doi mau theo class MMOCore
+# Format: "CLASS_ID": [R1, G1, B1, R2, G2, B2] (primary + secondary)
+# CLASS_ID = ten class trong MMOCore (vd: kiemton, vanphap...)
+# Neu MMOCore khong co hoac player chua chon class → dung mau cyan mac dinh
 class-colors:
-  KIEMTON: [255, 215, 0, 255, 140, 0]       # Kiếm Tiên — Gold → Orange
-  VANPHAP: [212, 160, 23, 139, 105, 20]     # Thiên Cơ — Dark Gold → Brown
-  BATHE: [68, 136, 255, 34, 68, 170]        # Kim Thần — Blue → Dark Blue
-  DUOCTIEN: [85, 255, 85, 0, 170, 68]       # Linh Dược — Green → Forest Green
-  ANHSAT: [255, 68, 68, 255, 102, 0]        # Vô Ảnh — Red → Orange
-  # Thêm class mới: "TEN_CLASS": [R1, G1, B1, R2, G2, B2]
+  KIEMTON:
+  - 255
+  - 215
+  - 0
+  - 255
+  - 140
+  - 0
+  VANPHAP:
+  - 212
+  - 160
+  - 23
+  - 139
+  - 105
+  - 20
+  BATHE:
+  - 68
+  - 136
+  - 255
+  - 34
+  - 68
+  - 170
+  DUOCTIEN:
+  - 85
+  - 255
+  - 85
+  - 0
+  - 170
+  - 68
+  ANHSAT:
+  - 255
+  - 68
+  - 68
+  - 255
+  - 102
+  - 0
+# Them class moi: "TEN_CLASS": [R1, G1, B1, R2, G2, B2]
 
 # Cấu hình ModelEngine (Để trống "" nếu không có ModelEngine)
-tuluyen-model: "be_tutien_tier1"
+tuluyen-model: be_tutien_tier1
 
-# Item khóa trên hotbar: bấm phím slot để chạy command, không thể drop/kéo/đổi tay.
-hotbar-command-items:
-  enabled: true
-  # true = nếu slot đã có item khác thì trả item đó vào túi rồi đặt item khóa.
-  replace-existing: true
-  restore-delay-ticks: 2
-  trigger:
-    on-select: true
-    # true = bấm phím chỉ chạy lệnh, không chuyển tay sang item khóa.
-    cancel-select: true
-    cooldown-ticks: 10
-  messages:
-    no-permission: "&cBạn không có quyền dùng nút này."
-  items:
-    skill-upgrade:
-      enabled: true
-      # Slot hotbar 1-9. Slot 8 = phím 8.
-      slot: 8
-      material: NETHER_STAR
-      custom-model-data: 0
-      hide-attributes: true
-      name: "&b&lNâng Cấp Skill"
-      lore:
-        - "&7Bấm phím &e8 &7để mở nâng cấp skill."
-        - "&7Lệnh: &f%command%"
-        - ""
-        - "&cKhông thể vứt hoặc di chuyển."
-      command: "nangcapskill"
-      as-console: false
-      permission: ""
-    equipment:
-      enabled: true
-      # Slot 9 = phím 9.
-      slot: 9
-      material: COMPASS
-      custom-model-data: 0
-      hide-attributes: true
-      name: "&6&lTrang Bị"
-      lore:
-        - "&7Bấm phím &e9 &7để mở menu trang bị."
-        - "&7Lệnh: &f%command%"
-        - ""
-        - "&cKhông thể vứt hoặc di chuyển."
-      command: "trangbi"
-      as-console: false
-      permission: "tutiencore.use"
-
+# ModelEngine kiếm bay hiển thị dưới chân khi người chơi đang fly
 # ModelEngine kiếm bay hiển thị dưới chân khi người chơi đang fly
 fly-sword:
   enabled: true
-  model: "kiembay"
-  # HEAD = use player head/eye as anchor, then lower the model with y-offset.
-  # FEET = use player feet as anchor.
-  anchor: HEAD
-  # HEAD + -1.62 teleports the model from head down near player feet.
-  y-offset: -1.62
-  scale: 0.95
-  # false = sword follows yaw only, not camera pitch up/down.
-  follow-pitch: false
-  animation:
-    enabled: true
-    idle: "idle"
-    moving: "run"
-    # Player movement distance per tick above this value switches the model to moving animation.
-    moving-velocity-threshold: 0.015
-  require-permission: false
-  permission: "tutiencore.flysword"
-  hide-while-spectator: true
+  model: kiembay
   equipped:
     enabled: true
     slot: fly_sword
     models:
       FLY_SWORD:
         THANH_PHONG_KIEM:
-          model: "kiembay"
+          model: kiembay
         DINH_BA_KIEM:
-          model: "kiembay_dinhba"
+          model: kiembay_dinhba
         HA_CAM_KIEM:
-          model: "kiembay_hacam"
+          model: kiembay_nether
+        NETHER_KIEM_2D:
+          model: kiembay_hacam
         NETHER_KIEM:
-          model: "kiembay_nether"
+          model: kiembay_hacam
+  y-offset: 0
+  mount-to-player: true
+  scale: 0.95
+  require-permission: false
+  permission: tutiencore.flysword
+  # HEAD = use player head/eye as anchor, then lower the model with y-offset.
+  # FEET = use player feet as anchor.
+  anchor: FEET
+  # HEAD + -1.62 moves the model from head down near player feet.
+  # false = sword follows yaw only, not camera pitch up/down.
+  follow-pitch: false
+  hide-while-spectator: true
+  animation:
+    enabled: true
+    idle: idle
+    moving: walk
+    # Player velocity above this value will switch the model to moving animation.
+    moving-velocity-threshold: 0.015
   # Buff TuVi theo phi kiếm đang trang bị.
   tuvi-buffs:
     enabled: true
@@ -614,7 +578,7 @@ fly-sword:
     auto-tu-luyen:
       interval-ticks: 100
       actionbar:
-        enabled: true
+        enabled: false
         format: "&8[&cU Minh Huyết Kiếm&8] &7Tự luyện: &a+{points} Tu Vi"
     swords:
       FLY_SWORD:
@@ -632,26 +596,27 @@ fly-sword:
           tuvi-bonus-percent: 150.0
           auto-tu-luyen:
             enabled: true
+        NETHER_KIEM_2D:
+          tuvi-bonus-percent: 150.0
+          auto-tu-luyen:
+            enabled: true
   # Tự bật quyền bay khi player vào world được phép, không cần gõ /fly lại.
   auto-flight:
     enabled: true
     # Để [] hoặc ["*"] nếu muốn mọi world đều tự bật bay.
     worlds:
-      - SuperiorWorld
+    - spawn
+    - Dungeon
     require-permission: false
-    permission: "tutiencore.flysword"
+    permission: tutiencore.flysword
     # Rời world không nằm trong list thì tắt allowFlight để tránh bay lạc world.
     disable-outside-world: true
-  # Khi player nhận damage sẽ bị tắt bay và khoá /fly trong một khoảng thời gian.
   combat-lock:
     enabled: true
     duration-seconds: 20
     disable-flying: true
     disable-allow-flight: true
     block-fly-command: true
-    block-toggle-flight: true
-    enforce-flight-state: true
-    toggle-message-cooldown-ticks: 20
     command-labels:
       - fly
       - essentials:fly
@@ -659,57 +624,62 @@ fly-sword:
     messages:
       damaged: "&cBạn vừa nhận sát thương, không thể bay trong &e{seconds}s&c."
       pvp-damaged: "&cBạn vừa bị &e{attacker} &ctấn công, kiếm bay bị tắt trong &e{seconds}s&c."
-      locked-command: "&cBạn đang bị khoá bay, chờ &e{seconds}s &cđể /fly lại."
+      locked-command: "&cBạn đang bị khóa bay, chờ &e{seconds}s &cđể /fly lại."
   evolution:
     enabled: true
     default-level: 1
     info:
-      - "&6Kiếm Bay &8| &fCấp: &e%level%"
-      - "&7Model hiện tại: &f%model%"
-      - "&7Model cấp sau: &e%next_model%"
-      - "&7Linh thạch cần: &e%vault_cost%"
-      - "&7Cổ thạch cần: &d%playerpoints_cost%"
-      - "&7Nguyên liệu: &f%materials%"
-      - "&e/ttc flysword evolve &7để tiến hoá."
+    - '&6Kiếm Bay &8| &fCấp: &e%level%'
+    - '&7Model hiện tại: &f%model%'
+    - '&7Model cấp sau: &e%next_model%'
+    - '&7Linh thạch cần: &e%vault_cost%'
+    - '&7Cổ thạch cần: &d%playerpoints_cost%'
+    - '&7Nguyên liệu: &f%materials%'
+    - '&e/ttc flysword evolve &7để tiến hoá.'
     format:
-      max-level: "Đã tối đa"
-      no-materials: "Không cần"
+      max-level: Đã tối đa
+      no-materials: Không cần
     messages:
-      disabled: "&cTiến hoá kiếm bay đang tắt."
-      no-permission: "&cBạn không có quyền tiến hoá kiếm bay."
-      max-level: "&cKiếm bay đã đạt cấp tối đa."
-      not-enough-header: "&cBạn chưa đủ điều kiện tiến hoá kiếm bay:"
-      not-enough-line: "&8- &7%reason%"
-      missing-money: "Thiếu %amount% Linh thạch"
-      missing-playerpoints: "Thiếu %amount% Cổ thạch"
-      missing-material: "Thiếu %amount%x %type%:%id%"
-      not-enough-money: "&cKhông thể trừ Linh thạch."
-      not-enough-playerpoints: "&cKhông thể trừ Cổ thạch."
-      material-take-failed: "&cKhông thể trừ nguyên liệu, vui lòng thử lại."
-      success: "&aKiếm bay đã tiến hoá lên cấp &e%level%&a. Model: &b%model%"
+      disabled: '&cTiến hoá kiếm bay đang tắt.'
+      no-permission: '&cBạn không có quyền tiến hoá kiếm bay.'
+      max-level: '&cKiếm bay đã đạt cấp tối đa.'
+      not-enough-header: '&cBạn chưa đủ điều kiện tiến hoá kiếm bay:'
+      not-enough-line: '&8- &7%reason%'
+      missing-money: Thiếu %amount% Linh thạch
+      missing-playerpoints: Thiếu %amount% Cổ thạch
+      missing-material: Thiếu %amount%x %type%:%id%
+      not-enough-money: '&cKhông thể trừ Linh thạch.'
+      not-enough-playerpoints: '&cKhông thể trừ Cổ thạch.'
+      material-take-failed: '&cKhông thể trừ nguyên liệu, vui lòng thử lại.'
+      success: '&aKiếm bay đã tiến hoá lên cấp &e%level%&a. Model: &b%model%'
     levels:
-      1:
-        model: "kiembay"
-      2:
-        model: "kiembay_2"
+      '1':
+        model: kiembay
+      '2':
+        model: kiembay_2
         vault-cost: 100000
         playerpoints-cost: 100
-        materials:
-          - type: MATERIAL
-            id: LINH_THACH_KIEM_BAY
-            amount: 8
-      3:
-        model: "kiembay_3"
+        materials: []
+      '3':
+        model: kiembay_3
         vault-cost: 300000
         playerpoints-cost: 300
         materials:
-          - type: MATERIAL
-            id: LINH_THACH_KIEM_BAY
-            amount: 16
-          - type: MATERIAL
-            id: TINH_HOA_KIEM_BAY
-            amount: 4
-
+        - type: MATERIAL
+          id: LINH_THACH_KIEM_BAY
+          amount: 16
+        - type: MATERIAL
+          id: TINH_HOA_KIEM_BAY
+          amount: 4
+mythicmobs-money-bonus:
+  enabled: true
+  # Ap dung cho money drop native cua MythicMobs, vi du: "- money 100-300 1".
+  # Permission dang: tutiencore.mythicmoney.bonus.<phan_tram>
+  permission-prefix: tutiencore.mythicmoney.bonus.
+  # true = cong tat ca permission bonus tien cua player.
+  # false = chi lay permission bonus cao nhat.
+  stack: true
+  debug: false
 # Model hiện lên khi đột phá thành công
 # Để trống "" nếu không có ModelEngine
 breakthrough:
@@ -717,92 +687,96 @@ breakthrough:
   enabled: true
   # PlaceholderAPI placeholder dùng làm Thực Lực khi /dotpha đại cảnh giới.
   # Để trống sẽ chặn các cảnh giới có thuc-luc-required > 0 cho tới khi cấu hình đúng.
-  thuc-luc-placeholder: ""
+  thuc-luc-placeholder: '%mmopower_power%'
+  # Đài Đột Phá: admin đứng tại vị trí muốn dùng rồi chạy /ttc setdotpha.
+  # Nếu world để trống, người chơi sẽ đột phá tại vị trí hiện tại như cũ.
+  arena:
+    lock-movement: false
+    location:
+      world: ""
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+      pitch: 0.0
   # Khi đột phá Đại Cảnh Giới, người chơi trong bán kính này cũng bị sét đánh.
   # damage-multiplier là tỉ lệ damage so với người đang đột phá.
   nearby-lightning:
     enabled: true
     radius: 20.0
     damage-multiplier: 0.25
-  # Sound config cho luồng đột phá. Đặt sound: "NONE" để tắt riêng từng sound.
-  # Hỗ trợ cả Bukkit Sound enum và custom sound từ resource pack, vd: "minecraft:entity.lightning_bolt.thunder"
-  # hoặc "yourpack:breakthrough_charge".
+  ascent:
+    enabled: false
+    blocks-per-tick: 0.055
+    max-height: 28.0
+  # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công
+  major-success-model: ascent
+  # Model hiện khi đột phá TẦNG NHỎ thành công
+  sub-success-model: ascent
+  # Thời gian hiển thị model (giây)
+  model-duration: 5
+  # Sound config cho luong dot pha. Dat sound: "NONE" de tat rieng tung sound.
   sounds:
     start-initiation:
-      sound: "BLOCK_BEACON_ACTIVATE"
+      sound: sfx.tuluyen.dotpha
       category: MASTER
-      volume: 1.5
-      pitch: 0.8
+      volume: 3
+      pitch: 1
     countdown-thunder:
-      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      sound: ENTITY_LIGHTNING_BOLT_THUNDER
       category: WEATHER
-      volume: 2.0
-      pitch: 0.5
+      volume: 0.5
+      pitch: 1
     energy-charge:
-      sound: "ENTITY_ENDER_DRAGON_FLAP"
+      sound: ENTITY_ENDER_DRAGON_FLAP
       category: MASTER
       volume: 1.5
       pitch: 0.5
     lightning-main:
-      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      sound: ENTITY_LIGHTNING_BOLT_THUNDER
       category: WEATHER
-      volume: 3.0
+      volume: 0.5
       pitch: 0.8
     lightning-impact:
-      sound: "ENTITY_LIGHTNING_BOLT_IMPACT"
+      sound: ENTITY_LIGHTNING_BOLT_IMPACT
       category: WEATHER
-      volume: 2.0
+      volume: 0.5
       pitch: 0.6
     lightning-rumble:
-      sound: "ENTITY_LIGHTNING_BOLT_THUNDER"
+      sound: ENTITY_LIGHTNING_BOLT_THUNDER
       category: WEATHER
-      volume: 4.0
+      volume: 0.5
       pitch: 0.4
     major-success-primary:
-      sound: "UI_TOAST_CHALLENGE_COMPLETE"
+      sound: UI_TOAST_CHALLENGE_COMPLETE
       category: MASTER
       volume: 3.0
       pitch: 1.0
     major-success-secondary:
-      sound: "ENTITY_ENDER_DRAGON_GROWL"
+      sound: ENTITY_ENDER_DRAGON_GROWL
       category: MASTER
       volume: 2.0
       pitch: 1.5
     major-success-explosion:
-      sound: "ENTITY_GENERIC_EXPLODE"
+      sound: ENTITY_GENERIC_EXPLODE
       category: MASTER
       volume: 1.5
       pitch: 0.5
     sub-success:
-      sound: "ENTITY_PLAYER_LEVELUP"
+      sound: ENTITY_PLAYER_LEVELUP
       category: MASTER
       volume: 2.0
       pitch: 1.5
     model-return:
-      sound: "ENTITY_PLAYER_LEVELUP"
+      sound: ENTITY_PLAYER_LEVELUP
       category: MASTER
       volume: 2.0
       pitch: 1.2
     success-shockwave:
-      sound: "ENTITY_FIREWORK_ROCKET_BLAST"
+      sound: ENTITY_FIREWORK_ROCKET_BLAST
       category: MASTER
       volume: 1.5
       pitch: 0.5
-  # MythicMobs mob chạy từ lúc bắt đầu và trong suốt quá trình đột phá.
-  # Mob tự gắn ModelEngine model và chạy state "spawn", không dùng idle.
-  active-animation: "spawn"
-  active-mobs:
-    - "TuTienCore_Dien1_Spawn"
-    - "TuTienCore_Rong2_Spawn"
-  # Model hiện khi đột phá ĐẠI CẢNH GIỚI thành công.
-  # Để [] nếu chỉ muốn dùng active-mobs trong suốt quá trình đột phá.
-  major-success-models: []
-  # Model hiện khi đột phá TẦNG NHỎ thành công.
-  # Để [] nếu chỉ muốn dùng active-mobs trong suốt quá trình đột phá.
-  sub-success-models: []
-  # Thời gian hiển thị model (giây) 
-  model-duration: 5
-
 # ==========================================
 # HIỆU ỨNG TIA SÉT ĐỘT PHÁ (Lightning Storm)
 # ==========================================
@@ -822,11 +796,3 @@ lightning-storm:
   # Sét gần player (visual only, tạo cảm giác nguy hiểm)
   close-bolts-min: 1
   close-bolts-max: 2
-
-  # ── SÉT SAU THÀNH CÔNG ──
-  # Sét tiếp tục đánh trong lúc animation "actived" chạy
-  success-storm-continue: true
-  # Mỗi bao nhiêu tick đánh 1 lần (5 tick = 0.25 giây)
-  success-storm-interval: 8
-  # Số tia sét visual mỗi lần trong lúc success animation
-  success-storm-bolts: 4

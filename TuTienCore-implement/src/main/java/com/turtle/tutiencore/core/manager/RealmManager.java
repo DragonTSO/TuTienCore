@@ -167,6 +167,26 @@ public class RealmManager implements Listener {
         this.databaseSync = databaseSync;
     }
 
+    /**
+     * Directly sets a player's realm object from a database-loaded snapshot.
+     * Called from the DB load callback on the main thread.
+     */
+    public void setPlayerRealmObject(UUID uuid, PlayerRealm realm) {
+        if (realm == null) return;
+        // Reconcile breakthrough count
+        int derived = deriveBreakthroughCount(realm.getRealmId(), realm.getSubRealm());
+        if (realm.getBreakthroughCount() < derived) {
+            realm.setBreakthroughCount(derived);
+        }
+        playerRealms.put(uuid, realm);
+        // Update aggregate config for leaderboard reads
+        String path = uuid.toString();
+        playerDataConfig.set(path + ".realm-id", realm.getRealmId());
+        playerDataConfig.set(path + ".sub-realm", realm.getSubRealm().name());
+        playerDataConfig.set(path + ".breakthrough-cooldown", realm.getBreakthroughCooldown());
+        playerDataConfig.set(path + ".breakthrough-count", realm.getBreakthroughCount());
+    }
+
     // ==========================================
     // CONFIG LOADING
     // ==========================================
@@ -490,6 +510,7 @@ public class RealmManager implements Listener {
     }
 
     public void loadPlayerRealm(UUID uuid) {
+        // Seed from in-memory aggregate (YAML-migrated data or prior login) as fallback defaults
         String path = uuid.toString();
         int realmId = playerDataConfig.getInt(path + ".realm-id", 1);
         String subRealmStr = playerDataConfig.getString(path + ".sub-realm", "SO_KY");
@@ -505,20 +526,12 @@ public class RealmManager implements Listener {
         PlayerRealm pr = new PlayerRealm(realmId, subRealm);
         pr.setBreakthroughCooldown(cooldown);
 
-        // Backfill / reconcile the breakthrough counter against the player's current progression.
-        // The current realm + sub-realm implies a minimum number of breakthroughs, so we take the
-        // higher of the stored value and the derived value. This both seeds players that progressed
-        // before this feature existed (missing key) and repairs players whose stored count is out of
-        // sync with their realm (e.g. realm was set directly before the sync fix existed). The count
-        // only ever moves up, never down, so naturally-earned breakthroughs are preserved.
         int storedCount = playerDataConfig.getInt(path + ".breakthrough-count", 0);
         int derivedCount = deriveBreakthroughCount(realmId, subRealm);
-        int breakthroughCount = Math.max(storedCount, derivedCount);
-        pr.setBreakthroughCount(breakthroughCount);
+        pr.setBreakthroughCount(Math.max(storedCount, derivedCount));
         playerRealms.put(uuid, pr);
-        if (breakthroughCount != storedCount) {
-            savePlayerRealm(uuid);
-        }
+        // DB load will overwrite via setPlayerRealmObject() once it returns (called from
+        // PlayerProgressDatabaseSync.loadFromDatabase which is triggered by PlayerDataManager.loadPlayer)
     }
 
     /**
@@ -570,15 +583,12 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-        writeRealmFile(uuid, false);
+        // YAML write removed — DB is primary
         syncDatabase(uuid);
     }
 
     /**
-     * Like {@link #savePlayerRealm(UUID)} but pushes the disk write off the main thread. The config
-     * values are written synchronously on the calling (main) thread for a consistent snapshot; only
-     * the file write runs async. Use this on player quit. Do NOT use on shutdown, since the scheduler
-     * is torn down before the async task can run.
+     * Like {@link #savePlayerRealm(UUID)} — async DB save, same behavior on quit.
      */
     public void savePlayerRealmAsync(UUID uuid) {
         PlayerRealm pr = playerRealms.get(uuid);
@@ -589,7 +599,6 @@ public class RealmManager implements Listener {
         playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
         playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
         playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-        writeRealmFile(uuid, true);
         syncDatabase(uuid);
     }
 
@@ -600,8 +609,7 @@ public class RealmManager implements Listener {
     }
 
     public void saveAllPlayerRealms() {
-        // Synchronous per-player writes (used on shutdown). Each is a small single-player
-        // serialization rather than one monolithic full-file write.
+        // Blocking saves on shutdown — sync directly to DB for each loaded player
         for (UUID uuid : playerRealms.keySet()) {
             PlayerRealm pr = playerRealms.get(uuid);
             if (pr == null) continue;
@@ -610,25 +618,18 @@ public class RealmManager implements Listener {
             playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
             playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
             playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-            writeRealmFile(uuid, false);
+            if (databaseSync != null) {
+                databaseSync.syncBlocking(uuid);
+            }
         }
     }
 
     /**
-     * Auto-save for online players only, called periodically to prevent data loss on crash.
-     * Writes each online player's realm file to disk synchronously.
+     * Auto-save for online players only, called periodically.
      */
     private void saveOnlinePlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID uuid = player.getUniqueId();
-            PlayerRealm pr = playerRealms.get(uuid);
-            if (pr == null) continue;
-            String path = uuid.toString();
-            playerDataConfig.set(path + ".realm-id", pr.getRealmId());
-            playerDataConfig.set(path + ".sub-realm", pr.getSubRealm().name());
-            playerDataConfig.set(path + ".breakthrough-cooldown", pr.getBreakthroughCooldown());
-            playerDataConfig.set(path + ".breakthrough-count", pr.getBreakthroughCount());
-            writeRealmFile(uuid, false);
+            savePlayerRealmAsync(player.getUniqueId());
         }
     }
 

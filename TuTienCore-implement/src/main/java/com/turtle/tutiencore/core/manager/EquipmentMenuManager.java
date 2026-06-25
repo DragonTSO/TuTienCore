@@ -5,6 +5,7 @@ import com.turtle.tutiencore.api.realm.PlayerRealm;
 import com.turtle.tutiencore.api.realm.Realm;
 import com.turtle.tutiencore.api.realm.SubRealm;
 import com.turtle.tutiencore.core.hook.MMOItemsRealmRequirementHook;
+import com.turtle.tutiencore.core.storage.EquipmentDatabase;
 import com.turtle.tutiencore.core.storage.PerPlayerYamlStore;
 import io.lumine.mythic.lib.api.item.NBTItem;
 import io.lumine.mythic.lib.api.player.MMOPlayerData;
@@ -118,6 +119,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     private final Set<UUID> pendingSlotRegen = new HashSet<>();
     private int durationSaveCounter;
     private long consumableCounter;
+    private EquipmentDatabase equipmentDatabase;
 
     public EquipmentMenuManager(JavaPlugin plugin, RealmManager realmManager) {
         this.plugin = plugin;
@@ -133,6 +135,14 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickTimedEquipment, 20L, 20L);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::ensureOnlineBoundOffhands, 40L, 40L);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::flushDirtyData, 20L, 20L);
+    }
+
+    public void setEquipmentDatabase(EquipmentDatabase equipmentDatabase) {
+        this.equipmentDatabase = equipmentDatabase;
+        // Load any online players (reload scenario) from DB now that we have it
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            loadPlayerFromDatabase(player.getUniqueId());
+        }
     }
 
     public void reload() {
@@ -193,16 +203,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Retained for call-site compatibility. Players to persist are now tracked per-UUID by
-     * {@link #savePlayer(UUID)} and {@link #saveBoundOffhandState(UUID, String, String)} (which know
-     * the UUID), so this no longer needs a global dirty flag. {@link #flushDirtyData()} drains the
-     * dirty set once per second.
+     * Retained for call-site compatibility.
      */
     private void saveDataFile() {
         // no-op: dirty tracking moved into the per-UUID save methods.
     }
 
-    /** Marks a player's data as needing a disk flush. */
+    /** Marks a player's data as needing a flush. */
     private void markDirty(UUID uuid) {
         if (uuid != null) {
             dirtyPlayers.add(uuid);
@@ -210,12 +217,9 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Debounced flusher (runs once per second): writes one small {@code data/equipment/<uuid>.yml}
-     * file per dirty player, instead of re-serializing every player into a single monolithic YAML.
-     * <p>
-     * The snapshot of each player's section is taken on the main thread (cloning ItemStacks so the
-     * async serializer never touches live items that {@link #tickTimedEquipment} mutates each second);
-     * the heavy {@code saveToString} + disk write happen off-thread inside the store.
+     * Debounced flusher (runs once per second).
+     * With database primary: flushes mmo-meta changes to DB for dirty players.
+     * Also writes YAML as backup.
      */
     private void flushDirtyData() {
         if (dirtyPlayers.isEmpty()) {
@@ -223,14 +227,114 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         for (UUID uuid : new ArrayList<>(dirtyPlayers)) {
             dirtyPlayers.remove(uuid);
+            // DB save (async, captures snapshot on main thread here)
+            saveEquipmentToDatabase(uuid, true);
+            // YAML backup (async)
             writePlayerData(uuid, true);
         }
     }
 
     /**
-     * Snapshots ONE player's {@code <uuid>.*} subtree from the aggregate {@link #data} (cloning
-     * ItemStacks) and writes it to {@code data/equipment/<uuid>.yml}. {@code async} chooses off-thread
-     * (1s flusher) vs inline (quit / shutdown / reload).
+     * Saves all equipment slots for a player to the database.
+     * @param async if true pushes the DB write off the main thread
+     */
+    private void saveEquipmentToDatabase(UUID uuid, boolean async) {
+        if (equipmentDatabase == null) return;
+
+        // Capture slot snapshots on the calling (main) thread
+        final Map<String, EquipmentDatabase.EquipmentSlotData> slotSnapshots = new HashMap<>();
+        for (String slotId : slots.keySet()) {
+            String path = uuid + ".mmo-meta." + slotId;
+            String type = data.getString(path + ".type");
+            String id = data.getString(path + ".id");
+            if (type == null || id == null || type.isBlank() || id.isBlank()) continue;
+            ItemStack item = equipped.containsKey(uuid) ? equipped.get(uuid).get(slotId) : null;
+            long remaining = data.contains(path + ".remaining-seconds")
+                    ? data.getLong(path + ".remaining-seconds", -1L) : -1L;
+            long total = data.getLong(path + ".total-seconds", 0L);
+            slotSnapshots.put(slotId, new EquipmentDatabase.EquipmentSlotData(item, type, id, remaining, total));
+        }
+
+        // Capture bound offhand snapshot
+        final String boPath = uuid + "." + BOUND_OFFHAND_DATA_PATH;
+        final String boType = data.getString(boPath + ".type");
+        final String boId = data.getString(boPath + ".id");
+
+        Runnable dbWrite = () -> {
+            try {
+                for (Map.Entry<String, EquipmentDatabase.EquipmentSlotData> entry : slotSnapshots.entrySet()) {
+                    EquipmentDatabase.EquipmentSlotData d = entry.getValue();
+                    equipmentDatabase.saveEquipmentSlot(uuid, entry.getKey(), d.item(), d.mmoType(), d.mmoId(),
+                            d.remainingSeconds(), d.totalSeconds());
+                }
+                if (boType != null && !boType.isBlank() && boId != null && !boId.isBlank()) {
+                    equipmentDatabase.saveBoundOffhand(uuid, 0, null, boType, boId);
+                }
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().warning("Could not save equipment to DB for " + uuid + ": " + e.getMessage());
+            }
+        };
+
+        if (async) {
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, dbWrite);
+        } else {
+            dbWrite.run();
+        }
+    }
+
+    /**
+     * Loads a player's equipment from the database and merges into the in-memory data config.
+     * Call async then schedule main-thread callback.
+     */
+    private void loadPlayerFromDatabase(UUID uuid) {
+        if (equipmentDatabase == null) return;
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                Map<String, EquipmentDatabase.EquipmentSlotData> dbSlots = equipmentDatabase.loadEquipment(uuid);
+                EquipmentDatabase.BoundOffhandData dbOffhand = equipmentDatabase.loadBoundOffhand(uuid);
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    // Merge DB values into the in-memory data config so existing path-based code works
+                    for (Map.Entry<String, EquipmentDatabase.EquipmentSlotData> entry : dbSlots.entrySet()) {
+                        String slotId = entry.getKey();
+                        EquipmentDatabase.EquipmentSlotData d = entry.getValue();
+                        String path = uuid + ".mmo-meta." + slotId;
+                        data.set(path + ".type", d.mmoType());
+                        data.set(path + ".id", d.mmoId());
+                        if (d.remainingSeconds() >= 0) {
+                            data.set(path + ".remaining-seconds", d.remainingSeconds());
+                        }
+                        if (d.totalSeconds() > 0) {
+                            data.set(path + ".total-seconds", d.totalSeconds());
+                        }
+                        // Update identity cache
+                        slotIdentityCache.computeIfAbsent(uuid, k -> new HashMap<>())
+                                .put(slotId, new SlotIdentity(d.mmoType(), d.mmoId(),
+                                        d.remainingSeconds(), d.totalSeconds()));
+                    }
+                    if (dbOffhand != null && dbOffhand.mmoType() != null && dbOffhand.mmoId() != null) {
+                        String path = uuid + "." + BOUND_OFFHAND_DATA_PATH;
+                        data.set(path + ".type", dbOffhand.mmoType());
+                        data.set(path + ".id", dbOffhand.mmoId());
+                    }
+                    // Trigger equipment load now that data is populated
+                    pendingSlotRegen.remove(uuid);
+                    equipped.remove(uuid);
+                    loadPlayer(uuid);
+                    Player online = Bukkit.getPlayer(uuid);
+                    if (online != null) {
+                        applyStats(online);
+                        ensureBoundOffhand(online);
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().warning("Could not load equipment from DB for " + uuid + ": " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Snapshots ONE player's {@code <uuid>.*} subtree and writes it to
+     * {@code data/equipment/<uuid>.yml} (YAML backup). {@code async} chooses off-thread vs inline.
      */
     private void writePlayerData(UUID uuid, boolean async) {
         final YamlConfiguration out = new YamlConfiguration();
@@ -268,8 +372,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
     }
 
     /**
-     * Synchronous flush of every dirty player. Used on shutdown / reload / quit where the write must
-     * complete before returning (the scheduler may be gone). Each player is a small single-file write.
+     * Synchronous flush of every dirty player. Used on shutdown / reload / quit.
      */
     private void saveDataFileNow() {
         if (dirtyPlayers.isEmpty()) {
@@ -277,6 +380,7 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         }
         for (UUID uuid : new ArrayList<>(dirtyPlayers)) {
             dirtyPlayers.remove(uuid);
+            saveEquipmentToDatabase(uuid, false);
             writePlayerData(uuid, false);
         }
     }
@@ -387,21 +491,24 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onJoin(PlayerJoinEvent event) {
-        loadPlayer(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        // Load from database first (async), then fall through to YAML-seeded loadPlayer
+        if (equipmentDatabase != null) {
+            loadPlayerFromDatabase(uuid);
+        } else {
+            loadPlayer(uuid);
+        }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Player player = event.getPlayer();
             if (player == null || !player.isOnline()) return;
             applyStats(player);
             ensureBoundOffhand(player);
-            // If any slot is still pending regeneration (MMOItems PlayerData not ready at join time),
-            // force a retry now that the player has been online for a full second. This covers cases
-            // where tickTimedEquipment hasn't fired yet or MMOItems takes longer than usual to load.
             if (pendingSlotRegen.contains(player.getUniqueId())) {
                 loadPlayer(player.getUniqueId());
                 applyStats(player);
             }
         }, 20L);
-        // Second retry at 3 seconds — belt-and-suspenders for slow MMOItems PlayerData loads.
+        // Second retry at 3 seconds
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Player player = event.getPlayer();
             if (player == null || !player.isOnline()) return;
@@ -421,23 +528,13 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
         UUID uuid = event.getPlayer().getUniqueId();
         saveCurrentBoundOffhandState(event.getPlayer());
         savePlayer(uuid);
-        // Remove from the cache immediately after saving so that any InventoryCloseEvent that
-        // Paper fires after PlayerQuitEvent (for players who disconnect with a GUI open) finds no
-        // entry in `equipped` and skips its own savePlayer call. Without this ordering,
-        // onInventoryClose would write an empty map and mark the data dirty, causing flushDirtyData
-        // to later overwrite the correct on-disk state with nulls.
         equipped.remove(uuid);
         pendingSlotRegen.remove(uuid);
-        // Clear slot identity cache to prevent stale data from being restored on fast rejoin before
-        // the disk write completes. Without this, a player who quits and immediately rejoins could
-        // load from the in-memory cache while the YAML still holds the old snapshot, causing
-        // duplicate items to appear in their inventory.
         slotIdentityCache.remove(uuid);
         removeStats(event.getPlayer());
         removeConsumableStats(event.getPlayer());
-        // Write this player's file synchronously after removing from cache so the correct data is on
-        // disk before they can rejoin. The per-file seq guard ensures a slow queued async write of an
-        // older snapshot will not clobber this save.
+        // Save to DB synchronously, then YAML backup
+        saveEquipmentToDatabase(uuid, false);
         writePlayerData(uuid, false);
         dirtyPlayers.remove(uuid);
     }
@@ -1138,6 +1235,27 @@ public class EquipmentMenuManager implements Listener, CommandExecutor {
 
     private boolean isManagedOffhandItem(ItemStack item) {
         return isBoundOffhandItem(item) || isInfoOffhandItem(item);
+    }
+
+    /**
+     * Admin command: removes all duplicate bound offhand items from player inventory.
+     * Returns the number of items removed.
+     */
+    public int cleanDuplicateBoundOffhands(Player player) {
+        if (player == null) return 0;
+        int removed = 0;
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item != null && isBoundOffhandItem(item)) {
+                player.getInventory().setItem(i, null);
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            player.sendMessage(message("cleanoffhand-success", "&aĐã xóa &e%count% &abound offhand bị duplicate khỏi inventory.")
+                    .replace("%count%", String.valueOf(removed)));
+        }
+        return removed;
     }
 
     private void applyStats(Player player) {

@@ -71,6 +71,9 @@ public class PlayerHologramManager implements Listener {
     private final Map<UUID, Map<String, TeamState>> viewerTeams = new ConcurrentHashMap<>();
     private final Map<UUID, Set<String>> fallbackHiddenNames = new ConcurrentHashMap<>();
     private final Set<UUID> fallbackTeamCreated = ConcurrentHashMap.newKeySet();
+    // Cached set of online player names — updated on join/quit instead of rebuilt every tick.
+    // Trades a tiny bit of accuracy (stale for <1 tick during join/quit) for zero allocation overhead.
+    private final Set<String> cachedOnlinePlayerNames = ConcurrentHashMap.newKeySet();
     private final PacketListenerAbstract packetListener;
 
     private BukkitTask task;
@@ -78,6 +81,20 @@ public class PlayerHologramManager implements Listener {
     private boolean loggedNexoNameTeamCompatibility;
     private TuLuyenManager tuLuyenManager;
     private String cachedTextTemplate = "";
+
+    // Config values cached on reload() — avoids plugin.getConfig().get*() calls on every tick/packet.
+    private int cfgTeleportDuration;
+    private int cfgLineWidth;
+    private float cfgViewRange;
+    private float cfgScale;
+    private byte cfgStyleFlags;
+    private int cfgBackgroundColor;
+    private boolean cfgOpenAnimationEnabled;
+    private float cfgOpenAnimationStartScale;
+    private byte cfgOpenAnimationStartOpacity;
+    private int cfgOpenAnimationDuration;
+    private long cfgOpenAnimationDelay;
+    private float cfgPassengerTranslationY;
 
     public PlayerHologramManager(JavaPlugin plugin, ConfigManager configManager, RealmManager realmManager) {
         this.plugin = plugin;
@@ -99,6 +116,31 @@ public class PlayerHologramManager implements Listener {
         removeAllHolograms();
         clearFallbackNameTeams();
         viewerTeams.clear();
+
+        // Rebuild the online-player-name cache on reload (covers /reload and plugin restarts
+        // while players are already online).
+        cachedOnlinePlayerNames.clear();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            cachedOnlinePlayerNames.add(p.getName());
+        }
+
+        // Cache all config values so createMetadata() / shouldSee() / etc. never call
+        // plugin.getConfig().get*() on the hot tick path.
+        cfgTeleportDuration   = Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.teleport-duration", 2)));
+        cfgLineWidth           = Math.max(1, plugin.getConfig().getInt("player-hologram.line-width", 200));
+        cfgViewRange           = (float) Math.max(1.0, plugin.getConfig().getDouble("player-hologram.view-range", 32.0));
+        cfgScale               = (float) Math.max(0.01, plugin.getConfig().getDouble("player-hologram.scale", 1.0));
+        cfgStyleFlags          = computeStyleFlags();
+        cfgBackgroundColor     = computeBackgroundColor();
+        cfgOpenAnimationEnabled      = plugin.getConfig().getBoolean("player-hologram.spawn-animation.enabled", true);
+        double startScale            = plugin.getConfig().getDouble("player-hologram.spawn-animation.start-scale", 0.82);
+        cfgOpenAnimationStartScale   = (float) Math.max(0.01, Math.min(2.0, startScale));
+        cfgOpenAnimationStartOpacity = (byte) clampColor(plugin.getConfig().getInt("player-hologram.spawn-animation.start-opacity", 40));
+        cfgOpenAnimationDuration     = Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.spawn-animation.interpolation-duration", 1)));
+        cfgOpenAnimationDelay        = Math.max(1L, plugin.getConfig().getLong("player-hologram.spawn-animation.start-delay-ticks", 1L));
+        double yOffset               = plugin.getConfig().getDouble("player-hologram.y-offset", 2.55);
+        double passengerBaseOffset   = plugin.getConfig().getDouble("player-hologram.passenger-base-offset", 1.35);
+        cfgPassengerTranslationY     = (float) Math.max(-5.0, Math.min(5.0, yOffset - passengerBaseOffset));
 
         if (!isEnabled() || !isPacketEventsReady()) {
             return;
@@ -274,96 +316,73 @@ public class PlayerHologramManager implements Listener {
     }
 
     private List<EntityData<?>> createMetadata(String text) {
-        return createMetadata(text, getConfiguredScale(), (byte) -1, 0);
+        return createMetadata(text, cfgScale, (byte) -1, 0);
     }
 
     private List<EntityData<?>> createMetadata(String text, float scale, byte textOpacity, int interpolationDuration) {
         List<EntityData<?>> metadata = new ArrayList<>();
-        int teleportDuration = Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.teleport-duration", 2)));
-        int lineWidth = Math.max(1, plugin.getConfig().getInt("player-hologram.line-width", 200));
-        float viewRange = (float) Math.max(1.0, plugin.getConfig().getDouble("player-hologram.view-range", 32.0));
-        float yTranslation = getPassengerTranslationYOffset();
-
         metadata.add(new EntityData<>(5, EntityDataTypes.BOOLEAN, true));
         metadata.add(new EntityData<>(8, EntityDataTypes.INT, 0));
         metadata.add(new EntityData<>(9, EntityDataTypes.INT, Math.max(0, Math.min(59, interpolationDuration))));
-        metadata.add(new EntityData<>(10, EntityDataTypes.INT, teleportDuration));
-        metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, new Vector3f(0.0f, yTranslation, 0.0f)));
+        metadata.add(new EntityData<>(10, EntityDataTypes.INT, cfgTeleportDuration));
+        metadata.add(new EntityData<>(11, EntityDataTypes.VECTOR3F, new Vector3f(0.0f, cfgPassengerTranslationY, 0.0f)));
         metadata.add(new EntityData<>(12, EntityDataTypes.VECTOR3F, new Vector3f(scale, scale, scale)));
         metadata.add(new EntityData<>(13, EntityDataTypes.QUATERNION, IDENTITY_ROTATION));
         metadata.add(new EntityData<>(14, EntityDataTypes.QUATERNION, IDENTITY_ROTATION));
         metadata.add(new EntityData<>(15, EntityDataTypes.BYTE, (byte) 3));
-        metadata.add(new EntityData<>(17, EntityDataTypes.FLOAT, viewRange));
+        metadata.add(new EntityData<>(17, EntityDataTypes.FLOAT, cfgViewRange));
         metadata.add(new EntityData<>(20, EntityDataTypes.FLOAT, 1.0f));
         metadata.add(new EntityData<>(21, EntityDataTypes.FLOAT, 0.5f));
         metadata.add(new EntityData<>(23, EntityDataTypes.ADV_COMPONENT, LegacyComponentSerializer.legacySection().deserialize(text)));
-        metadata.add(new EntityData<>(24, EntityDataTypes.INT, lineWidth));
-        metadata.add(new EntityData<>(25, EntityDataTypes.INT, getBackgroundColor()));
+        metadata.add(new EntityData<>(24, EntityDataTypes.INT, cfgLineWidth));
+        metadata.add(new EntityData<>(25, EntityDataTypes.INT, cfgBackgroundColor));
         metadata.add(new EntityData<>(26, EntityDataTypes.BYTE, textOpacity));
-        metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, getStyleFlags()));
+        metadata.add(new EntityData<>(27, EntityDataTypes.BYTE, cfgStyleFlags));
         return metadata;
     }
 
     private List<EntityData<?>> createOpenAnimationStartMetadata(String text) {
-        float scale = getConfiguredScale() * getOpenAnimationStartScale();
-        return createMetadata(text, scale, getOpenAnimationStartOpacity(), 0);
+        return createMetadata(text, cfgScale * cfgOpenAnimationStartScale, cfgOpenAnimationStartOpacity, 0);
     }
 
     private List<EntityData<?>> createOpenAnimationTargetMetadata(String text) {
-        return createMetadata(text, getConfiguredScale(), (byte) -1, getOpenAnimationDuration());
+        return createMetadata(text, cfgScale, (byte) -1, cfgOpenAnimationDuration);
     }
 
-    private float getConfiguredScale() {
-        return (float) Math.max(0.01, plugin.getConfig().getDouble("player-hologram.scale", 1.0));
-    }
+    private float getConfiguredScale() { return cfgScale; }
 
-    private boolean isOpenAnimationEnabled() {
-        return plugin.getConfig().getBoolean("player-hologram.spawn-animation.enabled", true);
-    }
+    private boolean isOpenAnimationEnabled() { return cfgOpenAnimationEnabled; }
 
-    private float getOpenAnimationStartScale() {
-        double scale = plugin.getConfig().getDouble("player-hologram.spawn-animation.start-scale", 0.82);
-        return (float) Math.max(0.01, Math.min(2.0, scale));
-    }
+    private float getOpenAnimationStartScale() { return cfgOpenAnimationStartScale; }
 
-    private byte getOpenAnimationStartOpacity() {
-        return (byte) clampColor(plugin.getConfig().getInt("player-hologram.spawn-animation.start-opacity", 40));
-    }
+    private byte getOpenAnimationStartOpacity() { return cfgOpenAnimationStartOpacity; }
 
-    private int getOpenAnimationDuration() {
-        return Math.max(0, Math.min(59, plugin.getConfig().getInt("player-hologram.spawn-animation.interpolation-duration", 1)));
-    }
+    private int getOpenAnimationDuration() { return cfgOpenAnimationDuration; }
 
-    private long getOpenAnimationDelay() {
-        return Math.max(1L, plugin.getConfig().getLong("player-hologram.spawn-animation.start-delay-ticks", 1L));
-    }
+    private long getOpenAnimationDelay() { return cfgOpenAnimationDelay; }
 
-    private float getPassengerTranslationYOffset() {
-        double yOffset = plugin.getConfig().getDouble("player-hologram.y-offset", 2.55);
-        double passengerBaseOffset = plugin.getConfig().getDouble("player-hologram.passenger-base-offset", 1.35);
-        return (float) Math.max(-5.0, Math.min(5.0, yOffset - passengerBaseOffset));
-    }
+    private float getPassengerTranslationYOffset() { return cfgPassengerTranslationY; }
 
-    private byte getStyleFlags() {
+    private byte getStyleFlags() { return cfgStyleFlags; }
+
+    private int getBackgroundColor() { return cfgBackgroundColor; }
+
+    /** Called once from reload() — computes style flags from config. */
+    private byte computeStyleFlags() {
         byte flags = 0;
-        if (plugin.getConfig().getBoolean("player-hologram.text-shadow", true)) {
-            flags |= 0x01;
-        }
-        if (plugin.getConfig().getBoolean("player-hologram.see-through", false)) {
-            flags |= 0x02;
-        }
-        if (plugin.getConfig().getBoolean("player-hologram.default-background", false)) {
-            flags |= 0x04;
-        }
+        if (plugin.getConfig().getBoolean("player-hologram.text-shadow", true)) flags |= 0x01;
+        if (plugin.getConfig().getBoolean("player-hologram.see-through", false))  flags |= 0x02;
+        if (plugin.getConfig().getBoolean("player-hologram.default-background", false)) flags |= 0x04;
         return flags;
     }
 
-    private int getBackgroundColor() {
-        int alpha = clampColor(plugin.getConfig().getInt("player-hologram.background-color.a", 0));
-        int red = clampColor(plugin.getConfig().getInt("player-hologram.background-color.r", 0));
-        int green = clampColor(plugin.getConfig().getInt("player-hologram.background-color.g", 0));
-        int blue = clampColor(plugin.getConfig().getInt("player-hologram.background-color.b", 0));
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
+    /** Called once from reload() — computes packed background colour from config. */
+    private int computeBackgroundColor() {
+        int a = clampColor(plugin.getConfig().getInt("player-hologram.background-color.a", 0));
+        int r = clampColor(plugin.getConfig().getInt("player-hologram.background-color.r", 0));
+        int g = clampColor(plugin.getConfig().getInt("player-hologram.background-color.g", 0));
+        int b = clampColor(plugin.getConfig().getInt("player-hologram.background-color.b", 0));
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     private int clampColor(int value) {
@@ -450,7 +469,8 @@ public class PlayerHologramManager implements Listener {
             return;
         }
 
-        Set<String> onlineNames = getOnlinePlayerNames();
+        // cachedOnlinePlayerNames is maintained by onJoin/onQuit — no allocation here.
+        Set<String> onlineNames = cachedOnlinePlayerNames;
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             User user = getUser(viewer);
             if (user == null || user.getChannel() == null) {
@@ -458,8 +478,14 @@ public class PlayerHologramManager implements Listener {
             }
 
             Set<String> covered = getNamesCoveredByRealTeams(viewer.getUniqueId());
-            Set<String> needed = new HashSet<>(onlineNames);
-            needed.removeAll(covered);
+            // Build needed as (online - covered); only allocate if there's actually something uncovered.
+            Set<String> needed;
+            if (covered.isEmpty()) {
+                needed = onlineNames.isEmpty() ? Collections.emptySet() : new HashSet<>(onlineNames);
+            } else {
+                needed = new HashSet<>(onlineNames);
+                needed.removeAll(covered);
+            }
             syncFallbackNameTeam(user, viewer.getUniqueId(), needed);
         }
     }
@@ -523,11 +549,11 @@ public class PlayerHologramManager implements Listener {
             return Collections.emptySet();
         }
 
+        // cachedOnlinePlayerNames is maintained by onJoin/onQuit — no allocation needed here.
         Set<String> covered = new HashSet<>();
-        Set<String> onlineNames = getOnlinePlayerNames();
         for (TeamState state : teams.values()) {
             for (String member : state.members) {
-                if (onlineNames.contains(member)) {
+                if (cachedOnlinePlayerNames.contains(member)) {
                     covered.add(member);
                 }
             }
@@ -536,11 +562,7 @@ public class PlayerHologramManager implements Listener {
     }
 
     private Set<String> getOnlinePlayerNames() {
-        Set<String> names = new HashSet<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            names.add(player.getName());
-        }
-        return names;
+        return cachedOnlinePlayerNames;
     }
 
     private WrapperPlayServerTeams.ScoreBoardTeamInfo createHiddenTeamInfo() {
@@ -557,7 +579,7 @@ public class PlayerHologramManager implements Listener {
 
     private boolean containsOnlinePlayer(Collection<String> names) {
         for (String name : names) {
-            if (Bukkit.getPlayerExact(name) != null) {
+            if (cachedOnlinePlayerNames.contains(name)) {
                 return true;
             }
         }
@@ -646,6 +668,7 @@ public class PlayerHologramManager implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        cachedOnlinePlayerNames.add(event.getPlayer().getName());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (isEnabled()) {
                 tick();
@@ -655,6 +678,7 @@ public class PlayerHologramManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        cachedOnlinePlayerNames.remove(event.getPlayer().getName());
         UUID playerId = event.getPlayer().getUniqueId();
         removeHologram(playerId);
         removeViewer(playerId);

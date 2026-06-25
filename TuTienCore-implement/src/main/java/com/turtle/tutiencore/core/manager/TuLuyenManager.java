@@ -89,6 +89,10 @@ public class TuLuyenManager implements Listener {
     // (permission scan, WorldGuard/TurtleIsland/weather reflection) only runs on a throttle.
     private final Map<UUID, TuLuyenReward> previewRewardCache = new HashMap<>();
     private final Map<UUID, Integer> effectiveIntervalCache = new HashMap<>();
+    // Cached rankup.yml — reloaded only when the file's lastModified timestamp changes.
+    // Eliminates the disk read that was happening on every calculateReward() call.
+    private FileConfiguration cachedRankupConfig = null;
+    private long rankupConfigLastModified = -1L;
     private BukkitRunnable task;
 
     public TuLuyenManager(JavaPlugin plugin, ConfigManager config, ZoneManager zoneManager, TuLuyenParticleTask lineTask,
@@ -519,9 +523,16 @@ public class TuLuyenManager implements Listener {
     private FileConfiguration loadRankupConfig() {
         File file = new File(plugin.getDataFolder(), "rankup.yml");
         if (!file.exists()) {
+            cachedRankupConfig = null;
+            rankupConfigLastModified = -1L;
             return null;
         }
-        return YamlConfiguration.loadConfiguration(file);
+        long lastModified = file.lastModified();
+        if (cachedRankupConfig == null || lastModified != rankupConfigLastModified) {
+            cachedRankupConfig = YamlConfiguration.loadConfiguration(file);
+            rankupConfigLastModified = lastModified;
+        }
+        return cachedRankupConfig;
     }
 
     record RankupBonusResult(double bonus, Set<String> bonusPermissions) {}
